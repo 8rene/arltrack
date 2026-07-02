@@ -1261,6 +1261,32 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     ))}
                   </div>
 
+                  {/* PayMongo — online checkout (no ref/screenshot needed) */}
+                  {paymentMethod === 'paymongo' && (
+                    <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">📱</span>
+                        <div>
+                          <p className="font-bold text-indigo-800 text-sm">Pay via QRPH</p>
+                          <p className="text-xs text-indigo-600">Scan QR using GCash, Maya, BPI, UnionBank, at iba pa</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-indigo-700">
+                        Ire-redirect ka sa secure na PayMongo page na may QR code. I-scan lang gamit ang iyong banking app para makumpleto ang payment na{' '}
+                        <strong>₱{getPayNow().toLocaleString()}</strong>.
+                      </p>
+                      <p className="text-xs text-indigo-500">
+                        ✅ Hindi na kailangan mag-upload ng screenshot — awtomatiko itong kino-confirm.
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-indigo-400">
+                        <span className="bg-white border border-indigo-200 px-2 py-0.5 rounded-full">GCash</span>
+                        <span className="bg-white border border-indigo-200 px-2 py-0.5 rounded-full">Maya</span>
+                        <span className="bg-white border border-indigo-200 px-2 py-0.5 rounded-full">BPI</span>
+                        <span className="bg-white border border-indigo-200 px-2 py-0.5 rounded-full">UnionBank</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* GCash / Maya — manual ref + screenshot */}
                   {paymentMethod !== 'paymongo' && (
                   <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 space-y-4">
@@ -1384,7 +1410,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Gateway Fee',   `₱${gatewayFee.toLocaleString()}`],
                       ['Total Fee',     `₱${grandTotal.toLocaleString()}`],
                       ['Payment Type',  getMethodOfPayment()],
-                      ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'paymongo' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
+                      ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod})`],
                       ['Ref. Number',   gcashReference || '-'],
                       ['Screenshot',    paymentScreenshot?.name || '-'],
                       ['Balance',       `₱${getBalance().toLocaleString()} on pickup`],
@@ -1439,7 +1465,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   ['Hire',       driveType === 'self-drive' ? 'Self-Drive' : 'With Chauffeur'],
                   ['Destination', destination || '-'],
                   ['Passenger',  firstName && lastName ? `${firstName} ${lastName}` : '-'],
-                  ['Payment',    `${paymentAmount} — ${paymentMethod === 'paymongo' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
+                  ['Payment',    `${paymentAmount} — ${paymentMethod}`],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between">
                     <span className="font-medium text-arl-dark">{label}</span>
