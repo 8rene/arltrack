@@ -66,7 +66,12 @@ const EditableField = ({ label, value, onSave, type = "text", placeholder = "", 
             type={type}
             value={draft}
             placeholder={placeholder || label}
-            onChange={e => setDraft(e.target.value)}
+            onChange={e => {
+              const val = maxLength
+                ? e.target.value.replace(/[^\w.]/g, '').slice(0, maxLength)
+                : e.target.value;
+              setDraft(val);
+            }}
             maxLength={maxLength}
             className="w-full px-4 py-3 rounded-xl border-2 border-arl-secondary text-sm focus:outline-none focus:ring-2 focus:ring-arl-secondary/30 bg-white"
           />

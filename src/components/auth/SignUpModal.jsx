@@ -755,7 +755,12 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     placeholder="Choose a unique username"
                     value={s0.username}
                     maxLength={12}
-                    onChange={(e) => { setS0((p) => ({ ...p, username: e.target.value })); setFieldErrors((p) => ({ ...p, username: "" })); }}
+                    onChange={(e) => {
+                        // Allow letters, numbers, underscores, dots only — strip everything else (incl. emojis)
+                        const clean = e.target.value.replace(/[^\w.]/g, '').slice(0, 12);
+                        setS0((p) => ({ ...p, username: clean }));
+                        setFieldErrors((p) => ({ ...p, username: "" }));
+                      }}
                     required autoComplete="username"
                   />
                   {fieldErrors.username && (
