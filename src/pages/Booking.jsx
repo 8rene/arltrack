@@ -1255,7 +1255,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             ? 'border-arl-secondary bg-blue-50 text-arl-primary shadow-md'
                             : 'border-gray-200 text-gray-600 hover:border-arl-primary'
                         }`}>
-                        <img src={item.img} alt={item.label} className={`w-12 h-10 object-contain rounded-xl ${item.key === 'paymongo' ? 'bg-white border border-gray-200 p-1' : ''}`} />
+                        <img src={item.img} alt={item.label} className="w-12 h-10 object-contain rounded-md" />
                         <span className="text-sm font-bold">{item.label}</span>
                       </button>
                     ))}
