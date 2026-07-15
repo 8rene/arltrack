@@ -251,7 +251,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 !!(userDetails?.firstName || userDetails?.lastName)
   );
   const [specialNotes,      setSpecialNotes]       = useState('');
-  const [paymentAmount,     setPaymentAmount]      = useState('deposit');
+  const [paymentAmount,     setPaymentAmount]      = useState('partial');
   const [paymentMethod,     setPaymentMethod]      = useState('gcash');
   const [gcashReference,    setGcashReference]     = useState('');
   const [paymentScreenshot, setPaymentScreenshot]  = useState(null);
@@ -391,7 +391,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const grandTotal = total + extraFee + driversFee + serviceFee + gatewayFee;
 
   const getPayNow = () => {
-    if (paymentAmount === 'deposit') return 1000;
     if (paymentAmount === 'partial') return Math.floor(grandTotal * 0.5);
     return grandTotal; // full
   };
@@ -404,7 +403,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   // methodOfPayment label stored in DB
   const getMethodOfPayment = () => {
-    if (paymentAmount === 'deposit') return 'Deposit';
     if (paymentAmount === 'partial') return 'Partial';
     return 'Full';
   };
@@ -768,7 +766,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setEndDate(''); setEndTime(''); setPickupLocation(DEFAULT_LOCATION);
     setDropoffLocation(DEFAULT_LOCATION); setDestination(''); setDriveType('chauffeur');
     setFirstName(''); setLastName(''); setContact(''); setEmail('');
-    setSpecialNotes(''); setRememberName(false); setPaymentAmount('deposit'); setPaymentMethod('gcash');
+    setSpecialNotes(''); setRememberName(false); setPaymentAmount('partial'); setPaymentMethod('gcash');
     setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); setErrors({});
   };
 
@@ -1226,9 +1224,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <p className="text-gray-600 mb-6">Choose how much to pay now.</p>
 
                   {/* Amount options */}
-                  <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
                     {[
-                      { key:'deposit', label:'Deposit Only',  amount: 1000,                     note: `Balance ₱${(grandTotal-1000).toLocaleString()} on pickup.` },
                       { key:'partial', label:'Partial (50%)', amount: Math.floor(grandTotal*0.5), note: `Balance ₱${Math.ceil(grandTotal*0.5).toLocaleString()} on pickup.` },
                       { key:'full',    label:'Full Payment',  amount: grandTotal,                 note: 'No balance on pickup.' },
                     ].map(({ key, label, amount, note }) => (
