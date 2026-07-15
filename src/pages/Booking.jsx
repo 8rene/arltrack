@@ -397,6 +397,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   };
   const getBalance = () => grandTotal - getPayNow();
 
+  // GCash, Maya, and QRPH now all go through PayMongo's hosted checkout
+  // (redirect flow, like the "GCash Test Payment Page" in test mode)
+  // instead of the manual send-money-then-upload-screenshot flow.
+  const isPaymongoMethod = (m) => ['gcash', 'maya', 'paymongo'].includes(m);
+
   // methodOfPayment label stored in DB
   const getMethodOfPayment = () => {
     if (paymentAmount === 'deposit') return 'Deposit';
@@ -544,7 +549,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (currentStep === 2) return !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && dropoffLocation && destination && !codingError);
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
     if (currentStep === 4) {
-      if (paymentMethod === 'paymongo') return true;
+      if (isPaymongoMethod(paymentMethod)) return true;
       return !!(gcashReference && paymentScreenshot);
     }
     return true;
@@ -574,7 +579,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       else if (!/\S+@\S+\.\S+/.test(email)) e.email = 'Invalid email.';
     }
     if (currentStep === 4) {
-      if (paymentMethod !== 'paymongo') {
+      if (!isPaymongoMethod(paymentMethod)) {
         if (!gcashReference)    e.gcashReference    = 'Reference number required.';
         if (!paymentScreenshot) e.paymentScreenshot = 'Please upload your payment screenshot.';
       }
@@ -634,6 +639,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           paymentID,
           amount: getPayNow(),
           description: `ARL Track Booking #${bookingID}`,
+          paymentMethod,
         }),
       });
       const data = await res.json();
@@ -737,8 +743,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
       setBookingReference(data.bookingID);
 
-      // If PayMongo, redirect to checkout instead of showing confirmation modal
-      if (paymentMethod === 'paymongo') {
+      // If GCash / Maya / QRPH, redirect to PayMongo checkout instead of showing confirmation modal
+      if (isPaymongoMethod(paymentMethod)) {
         await handlePaymongoCheckout(data.bookingID, data.paymentID);
         setLoading(false);
         return;
@@ -1261,8 +1267,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     ))}
                   </div>
 
-                  {/* GCash / Maya — manual ref + screenshot */}
-                  {paymentMethod !== 'paymongo' && (
+                  {/* GCash / Maya / QRPH — all handled by PayMongo's hosted checkout now */}
+                  {isPaymongoMethod(paymentMethod) && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex items-start gap-3">
+                      <span className="text-2xl">🔒</span>
+                      <p className="text-sm text-arl-primary">
+                        You'll be redirected to PayMongo to securely pay <strong>₱{getPayNow().toLocaleString()}</strong> via {paymentMethod === 'gcash' ? 'GCash' : paymentMethod === 'maya' ? 'Maya' : 'QR Ph'}.
+                        Click <strong>Next</strong> to continue.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Manual ref + screenshot — only shown for non-PayMongo methods */}
+                  {!isPaymongoMethod(paymentMethod) && (
                   <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 space-y-4">
                     <p className="text-sm text-gray-600">
                       Send <strong>₱{getPayNow().toLocaleString()}</strong> to our {paymentMethod === 'gcash' ? 'GCash' : 'Maya'} number first, then fill in the details below.
