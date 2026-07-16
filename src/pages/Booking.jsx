@@ -1264,17 +1264,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     ))}
                   </div>
 
-                  {/* GCash / Maya / QRPH — all handled by PayMongo's hosted checkout now */}
-                  {isPaymongoMethod(paymentMethod) && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex items-start gap-3">
-                      <span className="text-2xl">🔒</span>
-                      <p className="text-sm text-arl-primary">
-                        You'll be redirected to PayMongo to securely pay <strong>₱{getPayNow().toLocaleString()}</strong> via {paymentMethod === 'gcash' ? 'GCash' : paymentMethod === 'maya' ? 'Maya' : 'QR Ph'}.
-                        Click <strong>Next</strong> to continue.
-                      </p>
-                    </div>
-                  )}
-
                   {/* Manual ref + screenshot — only shown for non-PayMongo methods */}
                   {!isPaymongoMethod(paymentMethod) && (
                   <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 space-y-4">
@@ -1538,5 +1527,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     </div>
   );
 };
+
 
 export default BookingPage;
