@@ -503,7 +503,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             let cls = `text-center text-sm py-2 rounded-xl transition-all font-medium relative `;
             if (isPast)                    cls += 'text-gray-300 cursor-not-allowed ';
             else if (isBlocked && !isPast) cls += `${style.bg} ${style.text} cursor-not-allowed text-xs `;
-            else if (isStart || isEnd)     cls += 'bg-arl-primary text-white cursor-pointer font-black shadow-md scale-105 ';
+            else if (isStart)              cls += 'bg-green-600 text-white cursor-pointer font-black shadow-md scale-105 ';
+            else if (isEnd)                cls += 'bg-red-600 text-white cursor-pointer font-black shadow-md scale-105 ';
             else if (inRange)              cls += 'bg-arl-secondary/20 text-arl-primary cursor-pointer ';
             else if (isHover)              cls += 'bg-arl-secondary/10 text-arl-primary cursor-pointer ';
             else                           cls += 'text-gray-700 hover:bg-arl-primary/10 hover:text-arl-primary cursor-pointer ';
@@ -525,6 +526,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         </div>
         {/* Legend */}
         <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-md bg-green-600" />
+            <span className="text-xs text-gray-500">Start</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-md bg-red-600" />
+            <span className="text-xs text-gray-500">End</span>
+          </div>
           {Object.entries(DATE_STYLES).map(([k, v]) => (
             <div key={k} className="flex items-center gap-1.5">
               <div className={`w-3 h-3 rounded-md ${v.bg || 'bg-gray-200 border border-gray-300'}`} />
@@ -1527,6 +1536,5 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     </div>
   );
 };
-
 
 export default BookingPage;
