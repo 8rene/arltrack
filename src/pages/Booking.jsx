@@ -416,7 +416,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     });
   };
 
-  const handleDayClick = (date) => {
+  const handleDayClick = (date, idx) => {
     const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     const status = dateStatuses[key] || 'available';
     if (BLOCKED_STATUSES.has(status) || date < today) return;
@@ -431,35 +431,38 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         setEndDate(ed); setEndTime(et);
       }
     } else if (duration === '22 Hours') {
-      // 22 hours: first click = start date, second click = end date
-      if (!startDate || (startDate && endDate)) {
-        // Either no start yet, or both already set → reset and pick start
+      // 22 hours: calendar 0 (left) is Start-only, calendar 1 (right) is End-only.
+      if (idx === 0) {
+        // Left calendar: always sets the start date.
         setStartDate(key);
-        setEndDate('');
-        setEndTime('');
         setStartTime('');
-
-      } else {
-        // Start is set, no end yet → this click is the end date
-        const clickedDate = new Date(key);
-        const startDateObj = new Date(startDate);
-        if (clickedDate < startDateObj) {
-          // Clicked before start → make it new start
-          setStartDate(key);
+        // If the current end date is no longer after the new start, clear it.
+        if (endDate && new Date(endDate) <= new Date(key)) {
           setEndDate('');
           setEndTime('');
-          setStartTime('');
-        } else {
-          setEndDate(key);
-          // Auto-calc end time: start time - 2 hours (22hrs = next day same time minus 2hrs)
-          if (startTime) {
-            const [sh, sm] = startTime.split(':').map(Number);
-            const endTotalMins = (sh * 60 + sm) - 120; // minus 2 hours
-            const adjMins = ((endTotalMins % 1440) + 1440) % 1440;
-            const eh = Math.floor(adjMins / 60);
-            const em = adjMins % 60;
-            setEndTime(`${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`);
-          }
+        }
+      } else {
+        // Right calendar: always sets the end date — but a start must exist
+        // first, and the end must fall after the start.
+        if (!startDate) {
+          setCodingError("Please pick a Start date first (left calendar).");
+          return;
+        }
+        const clickedDate  = new Date(key);
+        const startDateObj = new Date(startDate);
+        if (clickedDate <= startDateObj) {
+          setCodingError("End date must be after the Start date.");
+          return;
+        }
+        setEndDate(key);
+        // Auto-calc end time: start time - 2 hours (22hrs = next day same time minus 2hrs)
+        if (startTime) {
+          const [sh, sm] = startTime.split(':').map(Number);
+          const endTotalMins = (sh * 60 + sm) - 120; // minus 2 hours
+          const adjMins = ((endTotalMins % 1440) + 1440) % 1440;
+          const eh = Math.floor(adjMins / 60);
+          const em = adjMins % 60;
+          setEndTime(`${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`);
         }
       }
     }
@@ -521,7 +524,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 type="button"
                 className={cls}
                 title={!isPast && ds !== 'available' ? style.label : undefined}
-                onClick={() => !isBlocked && handleDayClick(date)}
+                onClick={() => !isBlocked && handleDayClick(date, idx)}
                 onMouseEnter={() => { if (startDO && !endDO && !isBlocked) setHoverDate(date); }}
                 onMouseLeave={() => setHoverDate(null)}
                 disabled={isBlocked}>
