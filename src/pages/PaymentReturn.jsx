@@ -40,8 +40,8 @@ export default function PaymentReturn() {
 
         if (data.status === "paid") {
           setStatus("paid");
-          setMessage("Payment confirmed! Redirecting you to Home…");
-          setTimeout(() => navigate("/"), 3000);
+          setMessage("Payment confirmed! Redirecting to your bookings…");
+          setTimeout(() => navigate("/my-bookings"), 2500);
           return;
         }
 
@@ -87,8 +87,8 @@ export default function PaymentReturn() {
       </div>
     ),
     paid: (
-      <div className="w-24 h-24 rounded-full bg-green-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-200">
-        <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+      <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mx-auto mb-4">
+        <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
@@ -114,7 +114,7 @@ export default function PaymentReturn() {
 
   const titles = {
     checking: "Verifying Payment",
-    paid:     "Booking Successful!",
+    paid:     "Payment Confirmed!",
     failed:   "Payment Failed",
     pending:  "Payment Pending",
     notfound: "Not Found",
@@ -160,13 +160,7 @@ export default function PaymentReturn() {
         )}
 
         {status === "paid" && (
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => navigate("/")}
-              className="w-full bg-arl-primary text-white py-3 rounded-full font-semibold hover:bg-opacity-90 transition">
-              Go to Home
-            </button>
-          </div>
+          <p className="text-xs text-gray-400">Redirecting automatically…</p>
         )}
       </div>
     </div>
