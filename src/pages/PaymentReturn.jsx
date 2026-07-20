@@ -26,8 +26,8 @@ export default function PaymentReturn() {
     }
 
     let attempts = 0;
-    const MAX    = 10;
-    const DELAY  = 3000; // 3 seconds between polls
+    const MAX    = 20;
+    const DELAY  = 3000; // 3 seconds between polls (20 * 3s = 60s, plus the initial 3s delay below)
 
     const poll = async () => {
       try {

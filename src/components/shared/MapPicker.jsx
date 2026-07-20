@@ -11,9 +11,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Default: Villa Roma 5, Lias, Marilao, Bulacan
+// Just where the map visually centers on open — never a submitted value.
 const DEFAULT_COORDS = [14.7619, 120.9603];
-const DEFAULT_LABEL  = 'Villa Roma 5, Marilao, Bulacan';
+
+// Rough bounding box around the Philippine archipelago — stops the map from
+// being panned/zoomed out to other countries. Doesn't by itself exclude open
+// water between islands (still inside this box) — that's handled separately
+// below via the reverse-geocode country check.
+const PH_BOUNDS = L.latLngBounds([4.5, 116.0], [21.5, 127.0]);
 
 // Inner component: handles map click + drag
 const MapClickHandler = ({ onLocationChange }) => {
@@ -49,7 +54,11 @@ const DraggableMarker = ({ position, onDrag }) => {
   return <Marker draggable position={position} ref={markerRef} eventHandlers={eventHandlers} />;
 };
 
-// Reverse geocode using Nominatim (free, no API key)
+// Reverse geocode using Nominatim (free, no API key).
+// Returns both the display label and the raw address block, since the caller
+// needs address.country_code to reject picks outside the Philippines
+// (this also catches most open-water picks, since Nominatim generally can't
+// resolve an address for open sea).
 const reverseGeocode = async (lat, lng) => {
   try {
     const res = await fetch(
@@ -57,9 +66,12 @@ const reverseGeocode = async (lat, lng) => {
       { headers: { 'Accept-Language': 'en' } }
     );
     const data = await res.json();
-    return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return {
+      label:   data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      address: data.address || null,
+    };
   } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return { label: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, address: null };
   }
 };
 
@@ -79,29 +91,67 @@ const searchAddress = async (query) => {
 // ── MapPicker modal ──────────────────────────────────────────────
 const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
   const [markerPos,    setMarkerPos]    = useState(DEFAULT_COORDS);
-  const [address,      setAddress]      = useState(initialLabel || DEFAULT_LABEL);
+  const [address,      setAddress]      = useState(initialLabel);
+  const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
   const [searchQuery,  setSearchQuery]  = useState('');
   const [searchResults,setSearchResults]= useState([]);
   const [searching,    setSearching]    = useState(false);
   const [flyTarget,    setFlyTarget]    = useState(null);
   const [loading,      setLoading]      = useState(false);
+  const [pickError,    setPickError]    = useState('');
+  // True once the user has actually chosen a location this session — either
+  // by reopening on a field that already had a real value, or by clicking/
+  // dragging the pin or picking a search result. DEFAULT_COORDS/DEFAULT_LABEL
+  // are just where the map centers visually; they must never be treated as
+  // a real pick, or Confirm can submit a location nobody chose.
+  const [hasSelected,  setHasSelected]  = useState(!!initialLabel);
+
+  // Pick the best available locality field from Nominatim's structured
+  // address block — this is what should be matched against a coding rule's
+  // city, not a fuzzy substring search across the whole display address.
+  const pickCity = (addr) => addr?.city || addr?.town || addr?.municipality || addr?.village || '';
 
   // When modal opens, reset to initial or default
   useEffect(() => {
     if (isOpen) {
       setMarkerPos(DEFAULT_COORDS);
-      setAddress(initialLabel || DEFAULT_LABEL);
+      setAddress(initialLabel);
+      setHasSelected(!!initialLabel);
+      setResolvedCity('');
       setSearchQuery('');
       setSearchResults([]);
       setFlyTarget(null);
+      setPickError('');
     }
   }, [isOpen, initialLabel]);
 
   const handleLocationChange = useCallback(async (lat, lng) => {
-    setMarkerPos([lat, lng]);
     setLoading(true);
-    const label = await reverseGeocode(lat, lng);
+    const { label, address } = await reverseGeocode(lat, lng);
+
+    // A country match alone isn't enough — Nominatim happily returns
+    // country_code "ph" for open water anywhere inside Philippine
+    // territorial waters (a bay, the open sea between islands), with
+    // nothing more specific because there's nothing there to name. That's
+    // exactly what a bare "Philippines"-only result means: no real place.
+    // Require at least one actual locality field before accepting the pick.
+    const hasLocality = !!(
+      address?.city || address?.town || address?.village ||
+      address?.municipality || address?.suburb || address?.county ||
+      address?.hamlet || address?.neighbourhood
+    );
+
+    if (!address || address.country_code !== 'ph' || !hasLocality) {
+      setPickError('Please pick a location within the Philippines (on land).');
+      setLoading(false);
+      return; // marker/address left unchanged — previous valid pick stays
+    }
+
+    setPickError('');
+    setMarkerPos([lat, lng]);
     setAddress(label);
+    setResolvedCity(pickCity(address));
+    setHasSelected(true);
     setLoading(false);
   }, []);
 
@@ -119,12 +169,18 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
     setMarkerPos([lat, lng]);
     setFlyTarget([lat, lng]);
     setAddress(result.display_name);
+    setResolvedCity(pickCity(result.address));
+    setHasSelected(true);
     setSearchResults([]);
     setSearchQuery('');
   };
 
   const handleConfirm = () => {
-    onConfirm(address);
+    // Belt-and-suspenders: the button is already disabled without a real
+    // pick, but never let a confirm through without one regardless of how
+    // it was triggered.
+    if (!hasSelected) return;
+    onConfirm({ address, lat: markerPos[0], lng: markerPos[1], city: resolvedCity });
   };
 
   if (!isOpen) return null;
@@ -196,6 +252,9 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
           <MapContainer
             center={DEFAULT_COORDS}
             zoom={15}
+            minZoom={5}
+            maxBounds={PH_BOUNDS}
+            maxBoundsViscosity={1.0}
             style={{ height: '100%', width: '100%', minHeight: '350px' }}
             scrollWheelZoom
           >
@@ -218,13 +277,18 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
         {/* Selected address + confirm */}
         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
           <p className="text-xs text-gray-400 mb-1">Selected location:</p>
-          <p className="text-sm font-semibold text-arl-dark mb-3 line-clamp-2">{loading ? 'Getting address…' : address}</p>
+          <p className={`text-sm font-semibold mb-3 line-clamp-2 ${hasSelected ? 'text-arl-dark' : 'text-gray-400 italic'}`}>
+            {loading ? 'Getting address…' : (hasSelected ? address : 'Tap the map, drag the pin, or search to choose a location')}
+          </p>
+          {pickError && (
+            <p className="text-xs text-red-500 mb-3">⚠ {pickError}</p>
+          )}
           <div className="flex gap-3">
             <button onClick={onClose}
               className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-500 text-sm font-semibold hover:border-gray-300 transition">
               Cancel
             </button>
-            <button onClick={handleConfirm} disabled={loading}
+            <button onClick={handleConfirm} disabled={loading || !hasSelected}
               className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-semibold hover:bg-arl-secondary transition disabled:opacity-50">
               ✓ Use this location
             </button>

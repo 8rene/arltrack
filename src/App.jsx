@@ -4,6 +4,7 @@ import Navbar from "./components/NavBar";
 import Booking from "./pages/Booking";
 import ProfilePage from "./pages/ProfilePage";
 import MyBookings from "./pages/MyBookings";
+import BookingDetailsPage from "./pages/BookingDetails";
 import MyReviews  from "./pages/MyReviews";
 import TermsPage  from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
@@ -128,6 +129,7 @@ function App() {
         <Route path="/vehicles"    element={<VehicleShowroom />} />
         <Route path="/profile"     element={<ProfilePage user={user} />} />
         <Route path="/my-bookings" element={<MyBookings  user={user} />} />
+        <Route path="/booking/:bookingID/details" element={<BookingDetailsPage />} />
         <Route path="/my-reviews"  element={<MyReviews   user={user} />} />
         <Route path="/terms"        element={<TermsPage />} />
         <Route path="/privacy"      element={<PrivacyPage />} />

@@ -3,11 +3,6 @@ import { useNavigate } from "react-router-dom";
 import heroBg from "../../assets/images/web-hero-img.jpg";
 import MapPicker from "./MapPicker";
 
-const LOCATION_OPTIONS = [
-  "Villa Roma 5, Marilao, Bulacan",
-  "Manila",
-];
-
 const DURATION_OPTIONS = [
   { label: "12 Hours", hours: 12 },
   { label: "22 Hours", hours: 22 },
@@ -51,31 +46,32 @@ export default function Hero() {
   const todayStr = new Date().toISOString().split("T")[0];
   const draftStartDateIsPast = !!draft.startDate && draft.startDate < todayStr;
 
-  const [pickupLocation,   setPickupLocation]   = useState(draft.pickupLocation  || LOCATION_OPTIONS[0]);
-  const [dropoffLocation,  setDropoffLocation]  = useState(draft.dropoffLocation || LOCATION_OPTIONS[0]);
+  // Pickup/dropoff/destination intentionally never recall a past draft value —
+  // a fresh visit always starts blank, even if a location was typed before.
+  const [pickupLocation,   setPickupLocation]   = useState("");
+  const [dropoffLocation,  setDropoffLocation]  = useState("");
   const [sameAsPickup,     setSameAsPickup]     = useState(draft.sameAsPickup    || false);
   const [selectedDuration, setSelectedDuration] = useState(draft.duration        || "");
   const [startDate,        setStartDate]        = useState(draftStartDateIsPast ? "" : (draft.startDate || ""));
   const [startTime,        setStartTime]        = useState(draft.startTime       || "");
   const [endDate,          setEndDate]          = useState(draftStartDateIsPast ? "" : (draft.endDate   || ""));
   const [endTime,          setEndTime]          = useState(draft.endTime         || "");
-  const [destination,      setDestination]      = useState(draft.destination     || "");
+  const [destination,      setDestination]      = useState("");
   const [mapOpen,          setMapOpen]          = useState(false);
 
-  // Persist to localStorage whenever any booking field changes
+  // Persist to localStorage whenever any booking field changes.
+  // pickupLocation/dropoffLocation/destination are deliberately excluded —
+  // those should never be recalled on a fresh visit.
   useEffect(() => {
     saveDraft({
-      pickupLocation,
-      dropoffLocation,
       sameAsPickup,
       duration: selectedDuration,
       startDate,
       startTime,
       endDate,
       endTime,
-      destination,
     });
-  }, [pickupLocation, dropoffLocation, sameAsPickup, selectedDuration, startDate, startTime, endDate, endTime, destination]);
+  }, [sameAsPickup, selectedDuration, startDate, startTime, endDate, endTime]);
 
   // Auto-calculate endDate & endTime whenever startDate, startTime, or duration changes
   useEffect(() => {
@@ -104,15 +100,12 @@ export default function Hero() {
 
   const handleViewVehicles = () => {
     saveDraft({
-      pickupLocation,
-      dropoffLocation,
       sameAsPickup,
       duration: selectedDuration,
       startDate,
       startTime,
       endDate,
       endTime,
-      destination,
     });
     navigate("/booking", {
       state: {
@@ -328,7 +321,7 @@ export default function Hero() {
       <MapPicker
         isOpen={mapOpen}
         onClose={() => setMapOpen(false)}
-        onConfirm={(address) => {
+        onConfirm={({ address }) => {
           setDestination(address);
           setMapOpen(false);
         }}

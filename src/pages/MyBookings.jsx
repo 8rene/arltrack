@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 const STATUS_CONFIG = {
   pending:   { label: "Pending",   bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
   approved:  { label: "Approved",  bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
+  ongoing:   { label: "Ongoing",   bg: "bg-purple-100", text: "text-purple-700", border: "border-purple-300", icon: "🚗" },
   cancelled: { label: "Cancelled", bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
   completed: { label: "Completed", bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300",   icon: "🏁" },
 };
@@ -151,7 +152,7 @@ const BookingCard = ({ booking, user, onCancelled }) => {
       )}
 
       <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 ${
-        status === "cancelled" ? "border-red-100" : status === "completed" ? "border-blue-100" : "border-gray-100"
+        status === "cancelled" ? "border-red-100" : status === "completed" ? "border-blue-100" : status === "ongoing" ? "border-purple-100" : "border-gray-100"
       }`}>
 
         {/* ── Main row ── */}
@@ -215,6 +216,13 @@ const BookingCard = ({ booking, user, onCancelled }) => {
                     ✕ Cancel
                   </button>
                 )}
+
+                {/* Booking Details — pins + trip info for every booking */}
+                <button
+                  onClick={() => navigate(`/booking/${bookingID}/details`)}
+                  className="text-xs font-bold text-purple-600 border border-purple-200 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition">
+                  📋 Details
+                </button>
 
                 {/* Rebook — for cancelled and completed */}
                 {(status === "cancelled" || status === "completed") && (
@@ -293,19 +301,22 @@ const BookingCard = ({ booking, user, onCancelled }) => {
 };
 
 // ── Empty state ───────────────────────────────────────────────
-const EmptyState = ({ tab }) => (
-  <div className="text-center py-20">
-    <p className="text-5xl mb-4">{tab === "upcoming" ? "📅" : "📦"}</p>
-    <p className="text-gray-500 font-bold text-lg">
-      {tab === "upcoming" ? "No upcoming bookings" : "No booking history yet"}
-    </p>
-    <p className="text-gray-400 text-sm mt-1">
-      {tab === "upcoming"
-        ? "Book a ride to see it here."
-        : "Your completed and cancelled bookings will appear here."}
-    </p>
-  </div>
-);
+const EMPTY_STATE_COPY = {
+  upcoming: { icon: "📅", title: "No upcoming bookings",  body: "Book a ride to see it here." },
+  ongoing:  { icon: "🚗", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
+  history:  { icon: "📦", title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
+};
+
+const EmptyState = ({ tab }) => {
+  const { icon, title, body } = EMPTY_STATE_COPY[tab] || EMPTY_STATE_COPY.upcoming;
+  return (
+    <div className="text-center py-20">
+      <p className="text-5xl mb-4">{icon}</p>
+      <p className="text-gray-500 font-bold text-lg">{title}</p>
+      <p className="text-gray-400 text-sm mt-1">{body}</p>
+    </div>
+  );
+};
 
 // ══════════════════════════════════════════════════════════════
 const MyBookings = ({ user }) => {
@@ -349,9 +360,10 @@ const MyBookings = ({ user }) => {
     );
   };
 
-  const upcoming  = bookings.filter(b => ["pending", "approved"].includes(b.status));
+  const upcoming  = bookings.filter(b => ["pending", "approved", "confirmed"].includes(b.status));
+  const ongoing   = bookings.filter(b => b.status === "ongoing");
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
-  const displayed = activeTab === "upcoming" ? upcoming : history;
+  const displayed = activeTab === "upcoming" ? upcoming : activeTab === "ongoing" ? ongoing : history;
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-16">
@@ -365,6 +377,7 @@ const MyBookings = ({ user }) => {
         <div className="flex bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1">
           {[
             { key: "upcoming", label: "Upcoming", count: upcoming.length, icon: "📅" },
+            { key: "ongoing",  label: "Ongoing",  count: ongoing.length,  icon: "🚗" },
             { key: "history",  label: "History",  count: history.length,  icon: "📦" },
           ].map(({ key, label, count, icon }) => (
             <button key={key} onClick={() => setActiveTab(key)}
@@ -384,7 +397,9 @@ const MyBookings = ({ user }) => {
 
         <p className="text-xs text-gray-400 mb-4 px-1">
           {activeTab === "upcoming"
-            ? "Pending & Approved — You can cancel bookings before they start."
+            ? "Pending, Approved & Confirmed — You can cancel bookings before they start."
+            : activeTab === "ongoing"
+            ? "Your trip is currently active."
             : "Cancelled & Completed — Use Rebook to book the same car again."}
         </p>
 
