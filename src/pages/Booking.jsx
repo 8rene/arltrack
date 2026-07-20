@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
@@ -6,14 +6,40 @@ import gcashLogo  from '../assets/images/GCash_Logo.png';
 import mayaLogo   from '../assets/images/PayMayaLogo.jpg';
 import qrphLogo   from '../assets/images/qr-ph-logo-6f76723590.webp';
 
-const DEFAULT_LOCATION = 'Saog, Marilao, Bulacan';
 const LS_KEY = 'arl_booking_draft';
-const loadDraft = () => { try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : {}; } catch { return {}; } };
-const saveDraft = (data) => { try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch {} };
+// Bump this whenever a field's meaning/default changes (like removing
+// DEFAULT_LOCATION) so an old draft sitting in someone's browser gets
+// discarded instead of silently resurfacing stale values forever — this
+// exact class of bug (stale endDate, stale pickupLocation) has bitten
+// multiple fixes in this file already.
+const DRAFT_VERSION = 2;
+const loadDraft = () => {
+  try {
+    const r = localStorage.getItem(LS_KEY);
+    if (!r) return {};
+    const parsed = JSON.parse(r);
+    if (parsed.__v !== DRAFT_VERSION) return {}; // stale shape — discard, don't trust it
+    return parsed;
+  } catch { return {}; }
+};
+const saveDraft = (data) => { try { localStorage.setItem(LS_KEY, JSON.stringify({ ...data, __v: DRAFT_VERSION })); } catch {} };
 const clearDraft = () => { try { localStorage.removeItem(LS_KEY); } catch {} };
 
 // ── Date helpers ───────────────────────────────────────────────
 const toMidnight  = (d) => { const c = new Date(d); c.setHours(0,0,0,0); return c; };
+// ── Local calendar-date string, e.g. "2026-08-13" ──────────────
+// NEVER use `.toISOString().split('T')[0]` for this. toISOString()
+// always converts to UTC first, so for any user in a timezone ahead
+// of UTC (e.g. Asia/Manila, UTC+8), a local midnight rolls back to
+// the previous day once converted — silently shifting every date by
+// one day. This was the root cause of the "22-hour end date shows
+// the same day as start" bug and several other date-key mismatches
+// in this file. Always build the string from local getFullYear /
+// getMonth / getDate instead.
+const toLocalDateStr = (d) => {
+  const c = new Date(d);
+  return `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, '0')}-${String(c.getDate()).padStart(2, '0')}`;
+};
 const sameDay     = (a, b) => a && b && toMidnight(a).getTime() === toMidnight(b).getTime();
 const addDays     = (d, n) => { const c = new Date(d); c.setDate(c.getDate() + n); return c; };
 const addHours    = (d, h) => new Date(new Date(d).getTime() + h * 3600000);
@@ -35,7 +61,7 @@ const getDateStatuses = (carBookings) => {
 
     let cur = new Date(start);
     while (cur <= end) {
-      const key = cur.toISOString().split('T')[0];
+      const key = toLocalDateStr(cur);
       // Priority: booked > preparation > pending > maintenance
       if (!map[key] || s === 'approved') map[key] = s === 'approved' ? 'booked' : s;
       cur = addDays(cur, 1);
@@ -43,8 +69,8 @@ const getDateStatuses = (carBookings) => {
 
     // Preparation: 1 day before and after approved bookings
     if (s === 'approved') {
-      const before = addDays(start, -1).toISOString().split('T')[0];
-      const after  = addDays(end,    1).toISOString().split('T')[0];
+      const before = toLocalDateStr(addDays(start, -1));
+      const after  = toLocalDateStr(addDays(end,    1));
       if (!map[before] || map[before] === 'available') map[before] = 'preparation';
       if (!map[after]  || map[after]  === 'available') map[after]  = 'preparation';
     }
@@ -69,10 +95,28 @@ const calcEnd = (startDate, startTime, hours) => {
   startDT.setHours(h, m, 0, 0);
   const endDT    = addHours(startDT, hours);
   return {
-    endDate: endDT.toISOString().split('T')[0],
+    endDate: toLocalDateStr(endDT),
     endTime: `${String(endDT.getHours()).padStart(2,'0')}:${String(endDT.getMinutes()).padStart(2,'0')}`,
   };
 };
+
+// ── 22-Hour end time: start time minus 2 hours, wrapping across midnight ──
+const calc22EndTime = (startTimeStr) => {
+  const [sh, sm] = startTimeStr.split(':').map(Number);
+  const endTotalMins = (sh * 60 + sm) - 120; // minus 2 hours
+  const adjMins = ((endTotalMins % 1440) + 1440) % 1440;
+  const eh = Math.floor(adjMins / 60);
+  const em = adjMins % 60;
+  return `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
+};
+
+// The default End date for a 22-Hour booking is always the day after Start
+// — a 22-hour block, displayed with the -2h buffer time above, never fits
+// inside the same calendar day for any realistic pickup time. Used to
+// auto-fill End instead of leaving the right calendar blank for the
+// customer to click themselves (which is where the "0 days billed" bug
+// came from — clicking the same day as Start looked valid but wasn't).
+const defaultNextDay = (dateStr) => toLocalDateStr(addDays(new Date(dateStr + 'T00:00:00'), 1));
 
 // ── Day count with 25h rule ────────────────────────────────────
 const calcDays = (startDate, startTime, endDate, endTime, pricePerDay, durationType) => {
@@ -147,7 +191,7 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
 };
 
 // ── Location input with map button ────────────────────────────
-const LocationInput = ({ label, value, onValueChange, placeholder }) => {
+const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   return (
@@ -173,8 +217,9 @@ const LocationInput = ({ label, value, onValueChange, placeholder }) => {
         <MapPicker
           isOpen={mapOpen}
           onClose={() => setMapOpen(false)}
-          onConfirm={(addr) => {
+          onConfirm={({ address: addr, lat, lng, city }) => {
             onValueChange(addr);
+            onCoordsChange?.({ lat, lng, city });
             setMapOpen(false);
           }}
           initialLabel={value}
@@ -188,6 +233,11 @@ const LocationInput = ({ label, value, onValueChange, placeholder }) => {
 // MAIN BOOKING PAGE
 // ══════════════════════════════════════════════════════════════
 const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) => {
+  // Scroll target for the top of each step's content — used to bring a
+  // validation error into view when it clicking Next fails, since on Step 1
+  // the error banner sits above a tall scrollable car grid and can end up
+  // off-screen from the Next button otherwise.
+  const stepTopRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -220,10 +270,18 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         ? draft[draftKey]
         : fallback;
 
+  // pickupLocation/dropoffLocation/destination should never be recalled from
+  // a past draft — only an explicit, same-visit hand-off from the Hero form
+  // (heroState) counts. A fresh /booking visit always starts blank.
+  const initValNoDraft = (heroKey, fallback = '') =>
+    (heroState[heroKey] !== undefined && heroState[heroKey] !== '')
+      ? heroState[heroKey]
+      : fallback;
+
   // Guard against a stale/past date inherited from Hero navigation state or
   // a leftover localStorage draft (e.g. from an earlier session) — never
   // trust an inbound startDate/endDate that's already in the past.
-  const todayStrInit = new Date().toISOString().split('T')[0];
+  const todayStrInit = toLocalDateStr(new Date());
   const inboundStartDate = initVal('startDate', 'startDate');
   const inboundStartDateIsPast = !!inboundStartDate && inboundStartDate < todayStrInit;
 
@@ -235,9 +293,41 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [startTime,         setStartTime]          = useState(inboundStartDateIsPast ? '' : initVal('startTime', 'startTime'));
   const [endDate,           setEndDate]            = useState(inboundStartDateIsPast ? '' : initVal('endDate',   'endDate'));
   const [endTime,           setEndTime]            = useState(inboundStartDateIsPast ? '' : initVal('endTime',   'endTime'));
-  const [pickupLocation,    setPickupLocation]     = useState(initVal('pickupLocation',  'pickupLocation',  DEFAULT_LOCATION));
-  const [dropoffLocation,   setDropoffLocation]    = useState(initVal('dropoffLocation', 'dropoffLocation', DEFAULT_LOCATION));
-  const [destination,       setDestination]        = useState(initVal('destination',     'destination'));
+  const [pickupLocation,    setPickupLocation]     = useState(initValNoDraft('pickupLocation'));
+  const [dropoffLocation,   setDropoffLocation]    = useState(initValNoDraft('dropoffLocation'));
+  const [destination,       setDestination]        = useState(initValNoDraft('destination'));
+  // Coordinates picked via MapPicker — only populated when the map (not typed
+  // text) was used to set the field. null until then; geofencing skips any
+  // point that's still null when the booking is created.
+  const [pickupCoords,      setPickupCoords]       = useState(null);
+  const [dropoffCoords,     setDropoffCoords]      = useState(null);
+  const [destinationCoords, setDestinationCoords]  = useState(null);
+  const [sameAsPickup]                             = useState(true); // permanent — no path to uncheck this
+  // Additional destination pins beyond the primary Destination field —
+  // purely for geofencing multiple stops, not part of the coding-rule/
+  // extra-fee logic (that stays keyed to the single primary `destination`,
+  // which is a business rule about one city/area, not a per-stop thing).
+  const [extraDestinations, setExtraDestinations]  = useState([]);
+
+  // Dropoff always mirrors pickup now — this always runs.
+  useEffect(() => {
+    setDropoffLocation(pickupLocation);
+    setDropoffCoords(pickupCoords);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupLocation, pickupCoords]);
+
+  const addExtraDestination = () => {
+    setExtraDestinations(prev => [...prev, { id: `dest_${Date.now()}_${prev.length}`, address: '', lat: null, lng: null }]);
+  };
+  const updateExtraDestinationAddress = (id, address) => {
+    setExtraDestinations(prev => prev.map(d => d.id === id ? { ...d, address } : d));
+  };
+  const updateExtraDestinationCoords = (id, { lat, lng, city }) => {
+    setExtraDestinations(prev => prev.map(d => d.id === id ? { ...d, lat, lng, city } : d));
+  };
+  const removeExtraDestination = (id) => {
+    setExtraDestinations(prev => prev.filter(d => d.id !== id));
+  };
   const [driveType,         setDriveType]          = useState('chauffeur');
   const [firstName,         setFirstName]          = useState(() => {
     return userDetails?.firstName || "";
@@ -287,9 +377,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   }, []);
 
   // ── Persist booking draft to localStorage whenever fields change ──
+  // pickupLocation/dropoffLocation/destination are deliberately excluded —
+  // those should never be recalled on a fresh visit, only carried over
+  // live via heroState within the same navigation.
   useEffect(() => {
-    saveDraft({ pickupLocation, dropoffLocation, duration, startDate, startTime, endDate, endTime, destination });
-  }, [pickupLocation, dropoffLocation, duration, startDate, startTime, endDate, endTime, destination]);
+    saveDraft({ duration, startDate, startTime, endDate, endTime });
+  }, [duration, startDate, startTime, endDate, endTime]);
 
   // ── Fetch service types ──────────────────────────────────────
   useEffect(() => {
@@ -350,11 +443,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       runCodingCheck({
         carID: selectedCar.carID,
         startDate, startTime, endDate, endTime, destination,
+        destinationCity: destinationCoords?.city || "",
       });
     }, 400);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination, startDate, startTime, endDate, endTime, selectedCar?.carID, currentStep]);
+  }, [destination, destinationCoords, startDate, startTime, endDate, endTime, selectedCar?.carID, currentStep]);
 
   const handleStartTimeChange = (time) => {
     setCodingError("");
@@ -362,9 +456,22 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (duration === '12 Hours' && startDate && time) {
       const { endDate: ed, endTime: et } = calcEnd(startDate, time, 12);
       setEndDate(ed); setEndTime(et);
+    } else if (duration === '22 Hours' && startDate && time) {
+      // Auto-fill End as soon as Start date + time are both known, instead
+      // of leaving the right calendar blank and waiting for a manual click
+      // (which was easy to get wrong — e.g. clicking the same day as Start,
+      // which silently produced "0 day(s) billed"). Default End = the day
+      // after Start; if the customer already picked a later End date
+      // themselves (extending the rental), keep that date and just
+      // recalculate its time. IMPORTANT: only trust `prev` if it's actually
+      // valid (strictly after Start) — a same-day/earlier value can survive
+      // here from a stale localStorage draft saved before this fix existed,
+      // or from switching duration types, and must not be blindly kept.
+      setEndDate(prev => (prev && prev > startDate) ? prev : defaultNextDay(startDate));
+      setEndTime(calc22EndTime(time));
     }
-    // 22 Hours: end time is set separately by user
   };
+
 
   // ── Pricing ──────────────────────────────────────────────────
   const pricingOptions = selectedCar?.pricing || [];
@@ -423,7 +530,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setCodingError("");
 
     if (duration === '12 Hours') {
-      // 12 hours: only pick start, end auto-calculated from time
+      // 12 hours: end is always auto-calculated from start+time, never
+      // independently pickable — so a click on the End calendar (idx 1)
+      // must do nothing, not silently overwrite the start date. This was
+      // the bug: previously any click here fell through to setStartDate()
+      // regardless of which calendar it came from.
+      if (idx === 1) return;
       setStartDate(key);
       setEndDate(''); setEndTime('');
       if (startTime) {
@@ -431,38 +543,33 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         setEndDate(ed); setEndTime(et);
       }
     } else if (duration === '22 Hours') {
-      // 22 hours: calendar 0 (left) is Start-only, calendar 1 (right) is End-only.
       if (idx === 0) {
-        // Left calendar: always sets the start date.
+        // Left calendar: always sets Start, never End. Default End to the
+        // day after Start right away — the customer can still move it
+        // further out via the right calendar to extend the rental, but
+        // this way they're never left with a blank/wrong End by default.
         setStartDate(key);
+        setEndDate(defaultNextDay(key));
+        setEndTime('');
         setStartTime('');
-        // If the current end date is no longer after the new start, clear it.
-        if (endDate && new Date(endDate) <= new Date(key)) {
-          setEndDate('');
-          setEndTime('');
-        }
       } else {
-        // Right calendar: always sets the end date — but a start must exist
-        // first, and the end must fall after the start.
-        if (!startDate) {
-          setCodingError("Please pick a Start date first (left calendar).");
-          return;
-        }
+        // Right calendar: always sets End, never Start. With no start date
+        // yet, there's nothing to set an end relative to — do nothing
+        // (this calendar is rendered disabled in that state anyway).
+        if (!startDate) return;
         const clickedDate  = new Date(key);
         const startDateObj = new Date(startDate);
         if (clickedDate <= startDateObj) {
-          setCodingError("End date must be after the Start date.");
+          // Can't end on or before the day it starts — a 22-hour block
+          // never fits inside the same calendar day for any realistic
+          // pickup time, so same-day was the exact bug being fixed here.
+          // Ignore rather than silently accepting a same-day End.
           return;
         }
         setEndDate(key);
         // Auto-calc end time: start time - 2 hours (22hrs = next day same time minus 2hrs)
         if (startTime) {
-          const [sh, sm] = startTime.split(':').map(Number);
-          const endTotalMins = (sh * 60 + sm) - 120; // minus 2 hours
-          const adjMins = ((endTotalMins % 1440) + 1440) % 1440;
-          const eh = Math.floor(adjMins / 60);
-          const em = adjMins % 60;
-          setEndTime(`${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`);
+          setEndTime(calc22EndTime(startTime));
         }
       }
     }
@@ -499,7 +606,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           {Array.from({ length: numDays }, (_, i) => {
             const date   = new Date(year, month, i + 1);
             date.setHours(0,0,0,0);
-            const key    = date.toISOString().split('T')[0];
+            const key    = toLocalDateStr(date);
             const ds     = dateStatuses[key] || 'available';
             const style  = DATE_STYLES[ds] || DATE_STYLES.available;
             const isPast = date < today;
@@ -509,25 +616,59 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             const inRange   = startDO && endDO && date > startDO && date < endDO;
             const isHover   = hoverDate && startDO && !endDO && date > startDO && date <= toMidnight(hoverDate);
 
+            // In 12-Hour mode, end = start + fixed hours, always. There's
+            // nothing to independently pick on the End calendar — it's
+            // purely a readout, so it shouldn't look or behave clickable.
+            // Right calendar is locked in two different cases, for two
+            // different reasons: 12-Hour mode never has an independent end
+            // date at all (it's auto-calculated); 22-Hour mode's end date
+            // is real, but meaningless with no start date to be relative to.
+            const endCalendarLocked = idx === 1 && (duration === '12 Hours' || (duration === '22 Hours' && !startDate));
+            // Same-day End is invalid in 22-Hour mode — a 22-hour block never
+            // fits inside the calendar day it starts on for any realistic
+            // pickup time. This is the exact cell that produced "0 day(s)
+            // billed" when clicked, so it's shown disabled instead.
+            const sameDayEndInvalid = idx === 1 && duration === '22 Hours' && isStart;
+            const interactionDisabled = isBlocked || endCalendarLocked || sameDayEndInvalid;
+
             let cls = `text-center text-sm py-2 rounded-xl transition-all font-medium relative `;
-            if (isPast)                    cls += 'text-gray-300 cursor-not-allowed ';
-            else if (isBlocked && !isPast) cls += `${style.bg} ${style.text} cursor-not-allowed text-xs `;
-            else if (isStart)              cls += 'bg-green-600 text-white cursor-pointer font-black shadow-md scale-105 ';
-            else if (isEnd)                cls += 'bg-red-600 text-white cursor-pointer font-black shadow-md scale-105 ';
-            else if (inRange)              cls += 'bg-arl-secondary/20 text-arl-primary cursor-pointer ';
-            else if (isHover)              cls += 'bg-arl-secondary/10 text-arl-primary cursor-pointer ';
-            else                           cls += 'text-gray-700 hover:bg-arl-primary/10 hover:text-arl-primary cursor-pointer ';
+            if (isPast) {
+              cls += 'text-gray-300 cursor-not-allowed ';
+            } else if (isBlocked) {
+              cls += `${style.bg} ${style.text} cursor-not-allowed text-xs `;
+            } else if (sameDayEndInvalid) {
+              cls += 'bg-gray-100 text-gray-300 cursor-not-allowed ';
+            } else if (idx === 1 ? isEnd : isStart) {
+              // Each calendar shows its own role's color first when a date
+              // is both (the 12-Hour same-day case) — Start calendar → green,
+              // End calendar → red, even though it's the same calendar date.
+              cls += idx === 1
+                ? `bg-red-600 text-white font-black shadow-md scale-105 ${endCalendarLocked ? 'cursor-not-allowed' : 'cursor-pointer'} `
+                : 'bg-green-600 text-white cursor-pointer font-black shadow-md scale-105 ';
+            } else if (idx === 1 ? isStart : isEnd) {
+              cls += idx === 1
+                ? 'bg-green-600 text-white cursor-pointer font-black shadow-md scale-105 '
+                : 'bg-red-600 text-white cursor-pointer font-black shadow-md scale-105 ';
+            } else if (endCalendarLocked) {
+              cls += 'text-gray-300 cursor-not-allowed ';
+            } else if (inRange) {
+              cls += 'bg-arl-secondary/20 text-arl-primary cursor-pointer ';
+            } else if (isHover) {
+              cls += 'bg-arl-secondary/10 text-arl-primary cursor-pointer ';
+            } else {
+              cls += 'text-gray-700 hover:bg-arl-primary/10 hover:text-arl-primary cursor-pointer ';
+            }
 
             return (
               <button
                 key={i}
                 type="button"
                 className={cls}
-                title={!isPast && ds !== 'available' ? style.label : undefined}
-                onClick={() => !isBlocked && handleDayClick(date, idx)}
-                onMouseEnter={() => { if (startDO && !endDO && !isBlocked) setHoverDate(date); }}
+                title={!isPast && ds !== 'available' ? style.label : (sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (duration === '12 Hours' ? 'Auto-calculated from pickup time' : 'Pick a start date first') : undefined)}
+                onClick={() => !interactionDisabled && handleDayClick(date, idx)}
+                onMouseEnter={() => { if (startDO && !endDO && !interactionDisabled) setHoverDate(date); }}
                 onMouseLeave={() => setHoverDate(null)}
-                disabled={isBlocked}>
+                disabled={interactionDisabled}>
                 {i + 1}
               </button>
             );
@@ -564,6 +705,44 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return true;
   };
 
+  // Plain-language list of what's still missing for the current step — shown
+  // next to the Next button live, so the customer never has to click first
+  // (or guess) to find out why it's grayed out. Mirrors canProceed()'s checks
+  // exactly, one item per thing that's blocking.
+  const getIncompleteReason = () => {
+    const missing = [];
+    if (currentStep === 1) {
+      if (!selectedCar) missing.push('a vehicle');
+    } else if (currentStep === 2) {
+      if (!serviceType)            missing.push('a service type');
+      if (!duration)                missing.push('a duration');
+      if (!startDate || !startTime) missing.push('a pickup date & time');
+      if (!endDate || !endTime)     missing.push('an end date & time');
+      if (!pickupLocation)          missing.push('a pickup location');
+      if (!dropoffLocation)         missing.push('a drop-off location');
+      if (!destination)             missing.push('a destination');
+      if (codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
+    } else if (currentStep === 3) {
+      if (!firstName) missing.push('your first name');
+      if (!lastName)  missing.push('your last name');
+      if (!contact || !/^(\+639|09)\d{9}$/.test(contact)) {
+        missing.push(user ? 'a valid contact number on your account' : 'a valid contact number');
+      }
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        missing.push(user ? 'a valid email on your account' : 'a valid email');
+      }
+    } else if (currentStep === 4) {
+      if (!isPaymongoMethod(paymentMethod)) {
+        if (!gcashReference)    missing.push('a reference number');
+        if (!paymentScreenshot) missing.push('a payment screenshot');
+      }
+    }
+    if (missing.length === 0) return '';
+    if (missing.length === 1) return `Add ${missing[0]} to continue.`;
+    const last = missing[missing.length - 1];
+    return `Add ${missing.slice(0, -1).join(', ')} and ${last} to continue.`;
+  };
+
   const validateStep = () => {
     const e = {};
     if (currentStep === 1 && !selectedCar)  e.vehicle = 'Please select a vehicle.';
@@ -582,10 +761,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (currentStep === 3) {
       if (!firstName) e.firstName = 'Required.';
       if (!lastName)  e.lastName  = 'Required.';
-      if (!contact)   e.contact   = 'Required.';
-      else if (!/^(\+639|09)\d{9}$/.test(contact)) e.contact = 'Enter a valid PH number.';
-      if (!email) e.email = 'Required.';
-      else if (!/\S+@\S+\.\S+/.test(email)) e.email = 'Invalid email.';
+      if (!contact) {
+        e.contact = user
+          ? 'No contact number saved on your account.'
+          : 'Required.';
+      } else if (!/^(\+639|09)\d{9}$/.test(contact)) {
+        e.contact = user
+          ? 'The contact number on your account is not a valid PH number.'
+          : 'Enter a valid PH number.';
+      }
+      if (!email) {
+        e.email = user
+          ? 'No email saved on your account.'
+          : 'Required.';
+      } else if (!/\S+@\S+\.\S+/.test(email)) {
+        e.email = user
+          ? 'The email on your account is not valid.'
+          : 'Invalid email.';
+      }
     }
     if (currentStep === 4) {
       if (!isPaymongoMethod(paymentMethod)) {
@@ -598,7 +791,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   };
 
   // ── Shared coding rule checker ─────────────────────────────
-  const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination }) => {
+  const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination, destinationCity }) => {
     if (!carID || !startDate || !startTime) return; // not enough info yet
     setCodingChecking(true);
     setCodingError("");
@@ -610,9 +803,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("arl_token")}` },
         body: JSON.stringify({
           carID,
-          startDateTime: startDT.toISOString(),
-          endDateTime:   endDT ? endDT.toISOString() : null,
-          destination:   destination || "",
+          startDateTime:   startDT.toISOString(),
+          endDateTime:     endDT ? endDT.toISOString() : null,
+          destination:     destination || "",
+          // Exact structured city, when we have one (map-picked, not typed) —
+          // backend prefers this over the fuzzy substring match on destination.
+          destinationCity: destinationCity || "",
         }),
       });
       const data = await res.json();
@@ -663,7 +859,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   };
 
   const handleNext = async () => {
-    if (!validateStep()) return;
+    if (!validateStep()) {
+      stepTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
 
     // ── Auth check — only when user tries to go past Step 1 ──
     if (currentStep === 1 && !user) {
@@ -678,6 +877,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         const blocked = await runCodingCheck({
           carID: selectedCar.carID,
           startDate, startTime, endDate, endTime, destination,
+          destinationCity: destinationCoords?.city || "",
         });
         if (blocked) return; // stop — don't advance to step 3
       }
@@ -725,6 +925,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           pickupLocation:  pickupLocation,
           dropoffLocation: dropoffLocation,
           destination,
+          // Only set if the customer actually used the map picker for that
+          // field — backend skips geofencing for whichever ones are missing.
+          pickupLat:       pickupCoords?.lat      ?? null,
+          pickupLng:       pickupCoords?.lng      ?? null,
+          dropoffLat:      dropoffCoords?.lat     ?? null,
+          dropoffLng:      dropoffCoords?.lng     ?? null,
+          destinationLat:  destinationCoords?.lat ?? null,
+          destinationLng:  destinationCoords?.lng ?? null,
+          // Structured city, when we have one — backend prefers this over
+          // fuzzy substring-matching the address string for coding rules.
+          pickupCity:      pickupCoords?.city      || "",
+          destinationCity: destinationCoords?.city || "",
+          // Additional stop pins beyond the primary destination — only sent
+          // for entries that actually have coordinates (map-picked, not just
+          // typed text with no pin).
+          extraDestinations: extraDestinations
+            .filter(d => d.lat != null && d.lng != null)
+            .map(d => ({ address: d.address || "", lat: d.lat, lng: d.lng, city: d.city || "" })),
           driveType,
           firstName,
           lastName,
@@ -774,8 +992,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     clearDraft();
     setShowConfirmModal(false); setCurrentStep(1); setSelectedCar(null);
     setServiceType(''); setOtherServiceNote(''); setDuration(''); setStartDate(''); setStartTime('');
-    setEndDate(''); setEndTime(''); setPickupLocation(DEFAULT_LOCATION);
-    setDropoffLocation(DEFAULT_LOCATION); setDestination(''); setDriveType('chauffeur');
+    setEndDate(''); setEndTime(''); setPickupLocation('');
+    setDropoffLocation(''); setDestination(''); setDriveType('chauffeur');
+    setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]);
     setFirstName(''); setLastName(''); setContact(''); setEmail('');
     setSpecialNotes(''); setRememberName(false); setPaymentAmount('partial'); setPaymentMethod('gcash');
     setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); setErrors({});
@@ -831,6 +1050,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             <div className="bg-white rounded-2xl border-2 border-arl-primary p-8 shadow-card">
 
               {/* ══ STEP 1 — VEHICLE ═══════════════════════════════ */}
+              <div ref={stepTopRef} />
               {currentStep === 1 && (
                 <div>
                   <h3 className="text-2xl font-bold text-arl-dark mb-1">Choose your vehicle</h3>
@@ -896,7 +1116,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <span className="text-green-700 font-medium">Your previous selections were restored. You can change them below.</span>
                       <button
                         type="button"
-                        onClick={() => { clearDraft(); setDuration(''); setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); setDestination(''); setPickupLocation(DEFAULT_LOCATION); setDropoffLocation(DEFAULT_LOCATION); }}
+                        onClick={() => { clearDraft(); setDuration(''); setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); setDestination(''); setPickupLocation(''); setDropoffLocation(''); setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]); }}
                         className="ml-auto text-xs text-red-500 hover:text-red-700 font-semibold underline"
                       >Clear</button>
                     </div>
@@ -976,40 +1196,78 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       label="Pickup Location"
                       value={pickupLocation}
                       onValueChange={setPickupLocation}
+                      onCoordsChange={setPickupCoords}
                       placeholder="Enter pick-up location…"
                     />
                     {errors.pickupLocation && <p className="text-arl-cta text-xs mt-1">{errors.pickupLocation}</p>}
 
-                    <LocationInput
-                      label="Drop-off Location"
-                      value={dropoffLocation}
-                      onValueChange={setDropoffLocation}
-                      placeholder="Enter drop-off location…"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="sameAsPickup"
+                        checked={sameAsPickup}
+                        disabled
+                        readOnly
+                        className="w-4 h-4 accent-arl-primary rounded opacity-70 cursor-not-allowed"
+                      />
+                      <label htmlFor="sameAsPickup" className="text-xs font-semibold text-gray-500">
+                        Drop-off is always the same as pickup
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-bold text-arl-dark mb-1 block">Drop-off Location</label>
+                      <div className="w-full border-2 border-gray-100 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-500">
+                        {pickupLocation || 'Same as pickup'}
+                      </div>
+                    </div>
                     {errors.dropoffLocation && <p className="text-arl-cta text-xs mt-1">{errors.dropoffLocation}</p>}
 
                     <LocationInput
                       label="Destination"
                       value={destination}
                       onValueChange={(v) => { setDestination(v); setCodingError(''); }}
+                      onCoordsChange={setDestinationCoords}
                       placeholder="Search for a destination…"
                     />
                     {errors.destination && <p className="text-arl-cta text-xs mt-1">{errors.destination}</p>}
+
+                    {extraDestinations.map((d, i) => (
+                      <div key={d.id} className="relative">
+                        <LocationInput
+                          label={`Additional Destination ${i + 1}`}
+                          value={d.address}
+                          onValueChange={(v) => updateExtraDestinationAddress(d.id, v)}
+                          onCoordsChange={(c) => updateExtraDestinationCoords(d.id, c)}
+                          placeholder="Search for another stop…"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeExtraDestination(d.id)}
+                          className="absolute top-0 right-0 text-xs font-bold text-red-500 hover:text-red-700">
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addExtraDestination}
+                      className="text-xs font-bold text-arl-primary hover:text-arl-secondary transition">
+                      + Add another destination
+                    </button>
                   </div>
 
                   {/* ── CALENDAR ── */}
                   {duration && (
                     <div className="mb-6">
                       <label className="block text-sm font-semibold text-arl-dark mb-1">
-                        {duration === '22 Hours' ? (startDate ? (endDate ? 'Date Range Selected' : 'Now pick End Date') : 'Pick Start Date') : 'Pickup Date'}
+                        {duration === '22 Hours' ? 'Pickup & Return Dates' : 'Pickup Date'}
                       </label>
                       <p className="text-xs text-gray-500 mb-3">
                         {duration === '22 Hours'
-                          ? !startDate
-                            ? '1st click = Start date, 2nd click = End date.'
-                            : !endDate
-                            ? `Start: ${fmt(startDate)} — now click your end date.`
-                            : `${fmt(startDate)} → ${fmt(endDate)} · ${days} day(s) billed`
+                          ? (startDate && endDate)
+                            ? `${fmt(startDate)} → ${fmt(endDate)} · ${days} day(s) billed`
+                            : 'Left calendar picks your start date, right calendar picks your end date.'
                           : 'Click any available date. End time auto-calculated.'
                         }
                       </p>
@@ -1177,7 +1435,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             readOnly
                             className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
                           />
-                          <p className="text-xs text-gray-400 mt-1">From your account</p>
+                          {errors.contact ? (
+                            <p className="text-arl-cta text-xs mt-1">
+                              {errors.contact}{' '}
+                              <a href="/profile" className="underline">Update it in your profile</a>.
+                            </p>
+                          ) : (
+                            <p className="text-xs text-gray-400 mt-1">From your account</p>
+                          )}
                         </div>
                       ) : (
                         <div>
@@ -1204,7 +1469,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             readOnly
                             className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
                           />
-                          <p className="text-xs text-gray-400 mt-1">From your account</p>
+                          {errors.email ? (
+                            <p className="text-arl-cta text-xs mt-1">
+                              {errors.email}{' '}
+                              <a href="/profile" className="underline">Update it in your profile</a>.
+                            </p>
+                          ) : (
+                            <p className="text-xs text-gray-400 mt-1">From your account</p>
+                          )}
                         </div>
                       ) : (
                         <div>
@@ -1413,22 +1685,27 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               )}
 
               {/* Navigation */}
-              <div className="flex justify-between mt-8">
+              <div className="flex justify-between items-start mt-8">
                 <button onClick={handleBack}
                   className="px-8 py-3 bg-arl-dark text-white rounded-full font-medium hover:bg-gray-800 transition flex items-center gap-2">
                   <ChevronLeft size={20} />
                   {currentStep === 5 ? 'Edit' : 'Back'}
                 </button>
-                <button onClick={handleNext} disabled={!canProceed() || loading || codingChecking}
-                  className={`px-8 py-3 rounded-full font-medium transition flex items-center gap-2 ${
-                    (canProceed() && !codingChecking) ? 'bg-arl-cta text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
-                  {currentStep === 5
-                    ? (loading ? 'Submitting…' : 'Confirm Booking')
-                    : codingChecking
-                    ? 'Checking coding…'
-                    : 'Next'}
-                  {currentStep < 5 && !codingChecking && <ChevronRight size={20} />}
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                  <button onClick={handleNext} disabled={loading || codingChecking}
+                    className={`px-8 py-3 rounded-full font-medium transition flex items-center gap-2 ${
+                      (canProceed() && !codingChecking) ? 'bg-arl-cta text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+                    {currentStep === 5
+                      ? (loading ? 'Submitting…' : 'Confirm Booking')
+                      : codingChecking
+                      ? 'Checking coding…'
+                      : 'Next'}
+                    {currentStep < 5 && !codingChecking && <ChevronRight size={20} />}
+                  </button>
+                  {!canProceed() && !loading && !codingChecking && (
+                    <p className="text-xs text-gray-500 text-right max-w-xs">{getIncompleteReason()}</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
