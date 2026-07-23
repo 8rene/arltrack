@@ -360,7 +360,7 @@ const MyBookings = ({ user }) => {
     );
   };
 
-  const upcoming  = bookings.filter(b => ["pending", "approved", "confirmed"].includes(b.status));
+  const upcoming  = bookings.filter(b => b.status === "upcoming");
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
   const displayed = activeTab === "upcoming" ? upcoming : activeTab === "ongoing" ? ongoing : history;
@@ -397,7 +397,7 @@ const MyBookings = ({ user }) => {
 
         <p className="text-xs text-gray-400 mb-4 px-1">
           {activeTab === "upcoming"
-            ? "Pending, Approved & Confirmed — You can cancel bookings before they start."
+            ? "Upcoming — You can cancel bookings before they start."
             : activeTab === "ongoing"
             ? "Your trip is currently active."
             : "Cancelled & Completed — Use Rebook to book the same car again."}
