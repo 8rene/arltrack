@@ -34,6 +34,36 @@ const makePinIcon = (color) => L.divIcon({
 
 const pinIconFor = (kind) => makePinIcon(PIN_COLORS[kind] || PIN_COLORS.stop);
 
+const peso = (v) => `₱${Number(v || 0).toLocaleString()}`;
+
+// Same palette/labels as MyBookings.jsx's StatusBadge, just for payment
+// status instead of booking status.
+const PAYMENT_STATUS_CONFIG = {
+  pending:   { label: "Pending Payment", bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
+  paid:      { label: "Paid",            bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
+  failed:    { label: "Failed",          bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
+  cancelled: { label: "Cancelled",       bg: "bg-gray-100",   text: "text-gray-600",   border: "border-gray-300",   icon: "🚫" },
+};
+
+const PaymentStatusBadge = ({ status }) => {
+  const s   = (status || "pending").toLowerCase();
+  const cfg = PAYMENT_STATUS_CONFIG[s] || PAYMENT_STATUS_CONFIG.pending;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      {cfg.icon} {cfg.label}
+    </span>
+  );
+};
+
+// Small label/value pair, same layout as DR in MyBookings.jsx
+const DR = ({ label, value, mono = false }) =>
+  value ? (
+    <div>
+      <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{label}</p>
+      <p className={`text-sm text-gray-700 font-medium break-all ${mono ? "font-mono" : ""}`}>{value}</p>
+    </div>
+  ) : null;
+
 // Pans/zooms the map to a pin when its list item is clicked. Lives inside
 // MapContainer (needs useMap's context), so it's its own tiny component
 // rather than logic inline in the page — same pattern as MapFlyTo in
@@ -113,7 +143,7 @@ const BookingDetailsPage = () => {
     );
   }
 
-  const { booking, pickupLocation, dropoffLocation, geofenceZones } = details;
+  const { booking, pickupLocation, dropoffLocation, geofenceZones, payment } = details;
 
   // Pins to plot: pickup, drop-off (always shown as its own pin even when
   // it's the same point as pickup today — the customer still booked a
@@ -171,6 +201,49 @@ const BookingDetailsPage = () => {
           <p className="text-xs text-gray-400 mb-0.5">Status</p>
           <p className="font-semibold text-arl-dark capitalize">{booking.status}</p>
         </div>
+      </div>
+
+      {/* Payment info */}
+      <div className="mb-5 border border-gray-200 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
+          <p className="text-xs font-black text-arl-primary uppercase tracking-widest">💳 Payment</p>
+          {payment && <PaymentStatusBadge status={payment.status} />}
+        </div>
+
+        {payment ? (
+          <div className="px-4 py-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-3">
+              <DR label="Payment ID"     value={payment.paymentID} mono />
+              <DR label="Total Amount"   value={peso(payment.amount)} />
+              <DR label="Deposit Paid"   value={peso(payment.depositFee)} />
+              <DR label="Balance Due"    value={peso(Math.max(0, (payment.amount || 0) - (payment.depositFee || 0)))} />
+              <DR label="Payment Method" value={payment.methodOfPayment || payment.paymentMethod} />
+              <DR label="Reference No."  value={payment.referenceNumber} mono />
+            </div>
+
+            {payment.proofUrl && (
+              <div className="mb-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Proof of Payment</p>
+                <img src={payment.proofUrl} alt="Payment proof"
+                  className="max-h-48 w-auto rounded-xl border border-gray-200 object-contain bg-white"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              </div>
+            )}
+
+            {/* Still pending with a live checkout session — let the customer
+                jump straight back in instead of hunting for how to pay. */}
+            {payment.status === 'pending' && payment.checkoutUrl && (
+              <a
+                href={payment.checkoutUrl}
+                className="inline-block text-xs font-bold text-white bg-arl-cta hover:bg-opacity-90 px-4 py-2 rounded-lg transition">
+                Complete Payment
+              </a>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 px-4 py-3">No payment record found for this booking.</p>
+        )}
       </div>
 
       {/* Pin list */}
