@@ -54,48 +54,82 @@ const DraggableMarker = ({ position, onDrag }) => {
   return <Marker draggable position={position} ref={markerRef} eventHandlers={eventHandlers} />;
 };
 
+// Service area — pickup can be restricted to these PSGC regions (matches
+// the region list customers can actually register under; see SignUpModal).
+// Matched case-insensitively as a substring against whatever Nominatim
+// puts in address.region / address.state / address.state_district, since
+// Nominatim's exact field and naming for PH regions is inconsistent
+// (e.g. NCR sometimes comes back as "Metro Manila" rather than "National
+// Capital Region").
+const ALLOWED_REGIONS = [
+  'cordillera administrative region', 'car',
+  'national capital region', 'ncr', 'metro manila',
+  'cagayan valley', 'region ii',
+  'central luzon', 'region iii',
+  'calabarzon', 'region iv-a',
+];
+const SERVICE_AREA_LABEL = 'CAR, NCR, Region II, Region III, or Region IV-A (CALABARZON)';
+
+const pickRegion = (addr) => addr?.region || addr?.state || addr?.state_district || '';
+
+const isAllowedRegion = (regionStr) => {
+  const r = (regionStr || '').toLowerCase();
+  if (!r) return false;
+  return ALLOWED_REGIONS.some((a) => r.includes(a) || a.includes(r));
+};
+
 // Reverse geocode using Nominatim (free, no API key).
-// Returns both the display label and the raw address block, since the caller
-// needs address.country_code to reject picks outside the Philippines
-// (this also catches most open-water picks, since Nominatim generally can't
-// resolve an address for open sea).
+// Returns the display label, the raw address block (caller needs
+// address.country_code to reject picks outside the Philippines — this also
+// catches most open-water picks, since Nominatim generally can't resolve an
+// address for open sea), and an `error` flag so a failed request can be
+// told apart from a location that was resolved and simply rejected.
 const reverseGeocode = async (lat, lng) => {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
       { headers: { 'Accept-Language': 'en' } }
     );
+    if (!res.ok) throw new Error(`Reverse geocode failed: ${res.status}`);
     const data = await res.json();
     return {
       label:   data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
       address: data.address || null,
+      error:   false,
     };
-  } catch {
-    return { label: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, address: null };
+  } catch (err) {
+    console.error('[MapPicker] reverseGeocode failed:', err.message);
+    return { label: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, address: null, error: true };
   }
 };
 
-// Search using Nominatim — returns up to 10 results, Philippines only
+// Search using Nominatim — returns up to 10 results, Philippines only.
+// `error: true` means the request itself failed (network/CORS/rate-limit),
+// as distinct from the request succeeding with zero matches.
 const searchAddress = async (query) => {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&countrycodes=ph&addressdetails=1`,
       { headers: { 'Accept-Language': 'en' } }
     );
-    return await res.json();
-  } catch {
-    return [];
+    if (!res.ok) throw new Error(`Search failed: ${res.status}`);
+    const results = await res.json();
+    return { results, error: false };
+  } catch (err) {
+    console.error('[MapPicker] searchAddress failed:', err.message);
+    return { results: [], error: true };
   }
 };
 
 // ── MapPicker modal ──────────────────────────────────────────────
-const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
+const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false }) => {
   const [markerPos,    setMarkerPos]    = useState(DEFAULT_COORDS);
   const [address,      setAddress]      = useState(initialLabel);
   const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
   const [searchQuery,  setSearchQuery]  = useState('');
   const [searchResults,setSearchResults]= useState([]);
   const [searching,    setSearching]    = useState(false);
+  const [searchError,  setSearchError]  = useState(''); // request itself failed — distinct from "no matches"
   const [flyTarget,    setFlyTarget]    = useState(null);
   const [loading,      setLoading]      = useState(false);
   const [pickError,    setPickError]    = useState('');
@@ -120,6 +154,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
       setResolvedCity('');
       setSearchQuery('');
       setSearchResults([]);
+      setSearchError('');
       setFlyTarget(null);
       setPickError('');
     }
@@ -127,7 +162,13 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
 
   const handleLocationChange = useCallback(async (lat, lng) => {
     setLoading(true);
-    const { label, address } = await reverseGeocode(lat, lng);
+    const { label, address, error } = await reverseGeocode(lat, lng);
+
+    if (error) {
+      setPickError("Couldn't look up that location — check your connection and try again.");
+      setLoading(false);
+      return;
+    }
 
     // A country match alone isn't enough — Nominatim happily returns
     // country_code "ph" for open water anywhere inside Philippine
@@ -147,25 +188,40 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
       return; // marker/address left unchanged — previous valid pick stays
     }
 
+    if (restrictToServiceArea && !isAllowedRegion(pickRegion(address))) {
+      setPickError(`Pickup is currently only available within ${SERVICE_AREA_LABEL}.`);
+      setLoading(false);
+      return;
+    }
+
     setPickError('');
     setMarkerPos([lat, lng]);
     setAddress(label);
     setResolvedCity(pickCity(address));
     setHasSelected(true);
     setLoading(false);
-  }, []);
+  }, [restrictToServiceArea]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
-    const results = await searchAddress(searchQuery);
+    setSearchError('');
+    const { results, error } = await searchAddress(searchQuery);
     setSearchResults(results);
+    if (error) setSearchError("Search failed — check your connection and try again.");
     setSearching(false);
   };
 
   const handleSearchSelect = async (result) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
+
+    if (restrictToServiceArea && !isAllowedRegion(pickRegion(result.address))) {
+      setPickError(`Pickup is currently only available within ${SERVICE_AREA_LABEL}.`);
+      return; // don't accept the pick; leave the previous valid selection in place
+    }
+
+    setPickError('');
     setMarkerPos([lat, lng]);
     setFlyTarget([lat, lng]);
     setAddress(result.display_name);
@@ -191,7 +247,12 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-black text-arl-primary">📍 Pick Location</h3>
+          <div>
+            <h3 className="text-lg font-black text-arl-primary">📍 Pick Location</h3>
+            {restrictToServiceArea && (
+              <p className="text-xs text-gray-400 mt-0.5">Available in {SERVICE_AREA_LABEL}</p>
+            )}
+          </div>
           <button onClick={onClose}
             className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-sm transition">
             ✕
@@ -242,7 +303,10 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '' }) => {
               })}
             </div>
           )}
-          {searchResults.length === 0 && searchQuery && !searching && (
+          {searchError && !searching && (
+            <p className="text-xs text-red-500 mt-2 px-1">⚠ {searchError}</p>
+          )}
+          {!searchError && searchResults.length === 0 && searchQuery && !searching && (
             <p className="text-xs text-gray-400 mt-2 px-1">No results. Try a different keyword.</p>
           )}
         </div>

@@ -191,7 +191,7 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
 };
 
 // ── Location input with map button ────────────────────────────
-const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange }) => {
+const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   return (
@@ -203,12 +203,14 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
           value={value}
           placeholder={placeholder}
           onChange={(e) => onValueChange(e.target.value)}
-          className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm"
+          disabled={disabled}
+          className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
         />
         <button
           type="button"
           onClick={() => setMapOpen(true)}
-          className="px-3 py-3 rounded-xl border-2 border-arl-secondary text-arl-secondary hover:bg-arl-secondary hover:text-white transition flex items-center gap-1 text-sm font-semibold"
+          disabled={disabled}
+          className="px-3 py-3 rounded-xl border-2 border-arl-secondary text-arl-secondary hover:bg-arl-secondary hover:text-white transition flex items-center gap-1 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-arl-secondary"
         >
           <MapPin size={16} /> Map
         </button>
@@ -223,11 +225,18 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
             setMapOpen(false);
           }}
           initialLabel={value}
+          restrictToServiceArea={restrictToServiceArea}
         />
       )}
     </div>
   );
 };
+
+// ── In-store pickup: fixed location configured via env ─────────
+const STORE_LABEL = process.env.REACT_APP_STORE_LABEL || '';
+const STORE_LAT   = parseFloat(process.env.REACT_APP_STORE_LAT);
+const STORE_LNG   = parseFloat(process.env.REACT_APP_STORE_LNG);
+const STORE_CONFIGURED = !!STORE_LABEL && !Number.isNaN(STORE_LAT) && !Number.isNaN(STORE_LNG);
 
 // ══════════════════════════════════════════════════════════════
 // MAIN BOOKING PAGE
@@ -294,6 +303,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [endDate,           setEndDate]            = useState(inboundStartDateIsPast ? '' : initVal('endDate',   'endDate'));
   const [endTime,           setEndTime]            = useState(inboundStartDateIsPast ? '' : initVal('endTime',   'endTime'));
   const [pickupLocation,    setPickupLocation]     = useState(initValNoDraft('pickupLocation'));
+  const [pickupInStore,     setPickupInStore]      = useState(false);
+  // What pickupLocation/pickupCoords were right before checking "in-store" —
+  // restored if the customer unchecks it, so they don't lose typed/mapped
+  // work just from toggling the box on and off.
+  const preLockPickup = useRef({ location: '', coords: null });
   const [dropoffLocation,   setDropoffLocation]    = useState(initValNoDraft('dropoffLocation'));
   const [destination,       setDestination]        = useState(initValNoDraft('destination'));
   // Coordinates picked via MapPicker — only populated when the map (not typed
@@ -308,6 +322,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // extra-fee logic (that stays keyed to the single primary `destination`,
   // which is a business rule about one city/area, not a per-stop thing).
   const [extraDestinations, setExtraDestinations]  = useState([]);
+
+  const handleTogglePickupInStore = (checked) => {
+    if (checked) {
+      preLockPickup.current = { location: pickupLocation, coords: pickupCoords };
+      setPickupLocation(STORE_LABEL);
+      setPickupCoords({ lat: STORE_LAT, lng: STORE_LNG, city: '' });
+      setPickupInStore(true);
+    } else {
+      setPickupLocation(preLockPickup.current.location);
+      setPickupCoords(preLockPickup.current.coords);
+      setPickupInStore(false);
+    }
+  };
 
   // Dropoff always mirrors pickup now — this always runs.
   useEffect(() => {
@@ -992,9 +1019,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     clearDraft();
     setShowConfirmModal(false); setCurrentStep(1); setSelectedCar(null);
     setServiceType(''); setOtherServiceNote(''); setDuration(''); setStartDate(''); setStartTime('');
-    setEndDate(''); setEndTime(''); setPickupLocation('');
+    setEndDate(''); setEndTime(''); setPickupLocation(''); setPickupInStore(false);
     setDropoffLocation(''); setDestination(''); setDriveType('chauffeur');
     setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]);
+    preLockPickup.current = { location: '', coords: null };
     setFirstName(''); setLastName(''); setContact(''); setEmail('');
     setSpecialNotes(''); setRememberName(false); setPaymentAmount('partial'); setPaymentMethod('gcash');
     setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); setErrors({});
@@ -1116,7 +1144,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <span className="text-green-700 font-medium">Your previous selections were restored. You can change them below.</span>
                       <button
                         type="button"
-                        onClick={() => { clearDraft(); setDuration(''); setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); setDestination(''); setPickupLocation(''); setDropoffLocation(''); setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]); }}
+                        onClick={() => { clearDraft(); setDuration(''); setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); setDestination(''); setPickupLocation(''); setPickupInStore(false); setDropoffLocation(''); setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]); preLockPickup.current = { location: '', coords: null }; }}
                         className="ml-auto text-xs text-red-500 hover:text-red-700 font-semibold underline"
                       >Clear</button>
                     </div>
@@ -1192,12 +1220,29 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                   {/* ── LOCATIONS — always visible ── */}
                   <div className="space-y-4 mb-6">
+                    {STORE_CONFIGURED && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="pickupInStore"
+                          checked={pickupInStore}
+                          onChange={(e) => handleTogglePickupInStore(e.target.checked)}
+                          className="w-4 h-4 accent-arl-primary rounded"
+                        />
+                        <label htmlFor="pickupInStore" className="text-xs font-semibold text-gray-600">
+                          🏬 Pick up in-store — {STORE_LABEL}
+                        </label>
+                      </div>
+                    )}
+
                     <LocationInput
                       label="Pickup Location"
                       value={pickupLocation}
                       onValueChange={setPickupLocation}
                       onCoordsChange={setPickupCoords}
                       placeholder="Enter pick-up location…"
+                      disabled={pickupInStore}
+                      restrictToServiceArea
                     />
                     {errors.pickupLocation && <p className="text-arl-cta text-xs mt-1">{errors.pickupLocation}</p>}
 

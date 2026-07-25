@@ -1,25 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-// ── Status config ─────────────────────────────────────────────
-const STATUS_CONFIG = {
-  pending:   { label: "Pending",   bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
-  approved:  { label: "Approved",  bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
-  ongoing:   { label: "Ongoing",   bg: "bg-purple-100", text: "text-purple-700", border: "border-purple-300", icon: "🚗" },
-  cancelled: { label: "Cancelled", bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
-  completed: { label: "Completed", bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300",   icon: "🏁" },
-};
-
-const StatusBadge = ({ status }) => {
-  const s   = (status || "pending").toLowerCase();
-  const cfg = STATUS_CONFIG[s] || STATUS_CONFIG.pending;
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      {cfg.icon} {cfg.label}
-    </span>
-  );
-};
-
 // ── Date formatter — handles Firestore Timestamps, JS Dates, ISO strings ──
 const fmtDT = (val) => {
   if (!val) return "—";
@@ -31,6 +12,57 @@ const fmtDT = (val) => {
 };
 
 const peso = (v) => `₱${Number(v || 0).toLocaleString()}`;
+
+// ── Payment status config (badge shown on each booking card) ──────
+const PAYMENT_STATUS_CONFIG = {
+  due:       { label: "Payment Due",       bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
+  partial:   { label: "Partial",           bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300", icon: "🔶" },
+  paid:      { label: "Fully Paid",        bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
+  failed:    { label: "Payment Failed",    bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "⚠️" },
+  cancelled: { label: "Payment Cancelled", bg: "bg-gray-100",   text: "text-gray-500",   border: "border-gray-300",   icon: "🚫" },
+};
+
+// Mirrors admin's computeAmounts() in payments.service.js, so the customer
+// sees the same paid/balance math the admin dashboard uses.
+const getPaymentInfo = (payment) => {
+  if (!payment) return { key: "due", extra: "" };
+
+  const amount     = Number(payment.amount) || 0;
+  const depositFee = Number(payment.depositFee) || 0;
+  const method     = (payment.methodOfPayment || "").toLowerCase();
+  const status     = (payment.status || "").toLowerCase();
+
+  if (status === "failed" || status === "rejected") return { key: "failed", extra: "" };
+  if (status === "cancelled") return { key: "cancelled", extra: "" };
+
+  let amountPaid;
+  if (method.includes("full")) {
+    amountPaid = amount;
+  } else if (method.includes("down")) {
+    amountPaid = Math.round(amount / 2);
+  } else if (method.includes("deposit") || method.includes("partial")) {
+    amountPaid = depositFee;
+  } else if (status === "paid" || status === "approved") {
+    amountPaid = amount;
+  } else {
+    amountPaid = depositFee;
+  }
+
+  const balance = Math.max(0, amount - amountPaid);
+  if (amountPaid > 0 && balance <= 0) return { key: "paid", extra: "" };
+  if (amountPaid > 0) return { key: "partial", extra: peso(balance) };
+  return { key: "due", extra: "" };
+};
+
+const PaymentStatusBadge = ({ payment }) => {
+  const { key, extra } = getPaymentInfo(payment);
+  const cfg = PAYMENT_STATUS_CONFIG[key];
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      {cfg.icon} {cfg.label}{extra ? ` — ${extra} due` : ""}
+    </span>
+  );
+};
 
 // ── Skeleton ──────────────────────────────────────────────────
 const Skeleton = () => (
@@ -174,7 +206,7 @@ const BookingCard = ({ booking, user, onCancelled }) => {
                 <h4 className="font-black text-arl-primary text-lg leading-tight">{carName}</h4>
                 {carBodyType && <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{carBodyType}</p>}
               </div>
-              <StatusBadge status={status} />
+              <PaymentStatusBadge payment={payment} />
             </div>
 
             <div className="space-y-0.5 mb-2">
@@ -208,8 +240,8 @@ const BookingCard = ({ booking, user, onCancelled }) => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Cancel — for pending and approved */}
-                {(status === "pending" || status === "approved") && (
+                {/* Cancel — only upcoming bookings can be cancelled (matches backend rule) */}
+                { status === "upcoming" && (
                   <button
                     onClick={() => setShowCancelModal(true)}
                     className="text-xs font-bold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition">
@@ -235,7 +267,7 @@ const BookingCard = ({ booking, user, onCancelled }) => {
 
                 <button onClick={() => setExpanded(!expanded)}
                   className="text-xs font-bold text-arl-secondary hover:text-arl-primary transition flex items-center gap-1">
-                  {expanded ? "Hide details ▲" : "View details ▼"}
+                  {expanded ? "Hide overview ▲" : "View overview ▼"}
                 </button>
               </div>
             </div>
