@@ -191,7 +191,7 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
 };
 
 // ── Location input with map button ────────────────────────────
-const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false }) => {
+const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   return (
@@ -206,11 +206,13 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
           disabled={disabled}
           className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
         />
+        {/* Map button stays clickable even while locked — opens in read-only
+            view mode so the customer can still see exactly where it is,
+            they just can't move the pin from here (see disabled note below). */}
         <button
           type="button"
           onClick={() => setMapOpen(true)}
-          disabled={disabled}
-          className="px-3 py-3 rounded-xl border-2 border-arl-secondary text-arl-secondary hover:bg-arl-secondary hover:text-white transition flex items-center gap-1 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-arl-secondary"
+          className="px-3 py-3 rounded-xl border-2 border-arl-secondary text-arl-secondary hover:bg-arl-secondary hover:text-white transition flex items-center gap-1 text-sm font-semibold"
         >
           <MapPin size={16} /> Map
         </button>
@@ -225,7 +227,9 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
             setMapOpen(false);
           }}
           initialLabel={value}
+          initialCoords={coords}
           restrictToServiceArea={restrictToServiceArea}
+          readOnly={disabled}
         />
       )}
     </div>
@@ -533,7 +537,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // GCash, Maya, and QRPH now all go through PayMongo's hosted checkout
   // (redirect flow, like the "GCash Test Payment Page" in test mode)
   // instead of the manual send-money-then-upload-screenshot flow.
-  const isPaymongoMethod = (m) => ['gcash', 'maya', 'paymongo'].includes(m);
+  const isPaymongoMethod = (m) => ['gcash', 'maya', 'qrph'].includes(m);
 
   // methodOfPayment label stored in DB
   const getMethodOfPayment = () => {
@@ -1243,6 +1247,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       placeholder="Enter pick-up location…"
                       disabled={pickupInStore}
                       restrictToServiceArea
+                      coords={pickupCoords}
                     />
                     {errors.pickupLocation && <p className="text-arl-cta text-xs mt-1">{errors.pickupLocation}</p>}
 
@@ -1577,7 +1582,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     {[
                       { key: 'gcash',    label: 'GCash', img: gcashLogo  },
                       { key: 'maya',     label: 'Maya',  img: mayaLogo   },
-                      { key: 'paymongo', label: 'QRPH',  img: qrphLogo   },
+                      { key: 'qrph',     label: 'QRPH',  img: qrphLogo   },
                     ].map((item) => (
                       <button key={item.key} type="button"
                         onClick={() => { setPaymentMethod(item.key); setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); }}
@@ -1715,7 +1720,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Gateway Fee',   `₱${gatewayFee.toLocaleString()}`],
                       ['Total Fee',     `₱${grandTotal.toLocaleString()}`],
                       ['Payment Type',  getMethodOfPayment()],
-                      ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'paymongo' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
+                      ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
                       ['Ref. Number',   gcashReference || '-'],
                       ['Screenshot',    paymentScreenshot?.name || '-'],
                       ['Balance',       `₱${getBalance().toLocaleString()} on pickup`],
@@ -1775,7 +1780,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   ['Hire',       driveType === 'self-drive' ? 'Self-Drive' : 'With Chauffeur'],
                   ['Destination', destination || '-'],
                   ['Passenger',  firstName && lastName ? `${firstName} ${lastName}` : '-'],
-                  ['Payment',    `${paymentAmount} — ${paymentMethod === 'paymongo' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
+                  ['Payment',    `${paymentAmount} — ${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between">
                     <span className="font-medium text-arl-dark">{label}</span>

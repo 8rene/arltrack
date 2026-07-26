@@ -122,7 +122,14 @@ const searchAddress = async (query) => {
 };
 
 // ── MapPicker modal ──────────────────────────────────────────────
-const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false }) => {
+// `readOnly`: view-only mode — pin is fixed, search bar is hidden, and the
+// footer is just a Close button. Used for the "Pick up in-store" lock, so
+// the customer can still see exactly where the store is on the map without
+// being able to move the pin while it's locked.
+// `initialCoords`: { lat, lng } to center on immediately when opening —
+// without this the map always starts at DEFAULT_COORDS regardless of what
+// location is already selected.
+const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false, readOnly = false, initialCoords = null }) => {
   const [markerPos,    setMarkerPos]    = useState(DEFAULT_COORDS);
   const [address,      setAddress]      = useState(initialLabel);
   const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
@@ -152,7 +159,8 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   // When modal opens, reset to initial or default
   useEffect(() => {
     if (isOpen) {
-      setMarkerPos(DEFAULT_COORDS);
+      const startPos = initialCoords ? [initialCoords.lat, initialCoords.lng] : DEFAULT_COORDS;
+      setMarkerPos(startPos);
       setAddress(initialLabel);
       setHasSelected(!!initialLabel);
       setResolvedCity('');
@@ -160,12 +168,15 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
       setSearchResults([]);
       setSearchError('');
       setHasSearched(false);
-      setFlyTarget(null);
+      // Center on the known location immediately rather than making the
+      // customer hunt for a pin that's already sitting at DEFAULT_COORDS.
+      setFlyTarget(initialCoords ? startPos : null);
       setPickError('');
     }
-  }, [isOpen, initialLabel]);
+  }, [isOpen, initialLabel, initialCoords]);
 
   const handleLocationChange = useCallback(async (lat, lng) => {
+    if (readOnly) return; // pin is fixed — see MapClickHandler/DraggableMarker below, which also don't wire up in this mode
     setLoading(true);
     const { label, address, error } = await reverseGeocode(lat, lng);
 
@@ -205,7 +216,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setResolvedCity(pickCity(address));
     setHasSelected(true);
     setLoading(false);
-  }, [restrictToServiceArea]);
+  }, [restrictToServiceArea, readOnly]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -255,7 +266,9 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <h3 className="text-lg font-black text-arl-primary">📍 Pick Location</h3>
-            {restrictToServiceArea && (
+            {readOnly ? (
+              <p className="text-xs text-gray-400 mt-0.5">Fixed pickup location — uncheck "Pick up in-store" to choose elsewhere</p>
+            ) : restrictToServiceArea && (
               <p className="text-xs text-gray-400 mt-0.5">Available in {SERVICE_AREA_LABEL}</p>
             )}
           </div>
@@ -265,7 +278,8 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
           </button>
         </div>
 
-        {/* Search bar */}
+        {/* Search bar — hidden in read-only mode, since there's nothing to search for */}
+        {!readOnly && (
         <div className="px-6 py-3 border-b border-gray-100">
           <div className="flex gap-2">
             <input
@@ -321,6 +335,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             <p className="text-xs text-gray-400 mt-2 px-1">No results. Try a different keyword.</p>
           )}
         </div>
+        )}
 
         {/* Map */}
         <div className="flex-1 relative" style={{ minHeight: '350px' }}>
@@ -337,9 +352,11 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
               attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <MapClickHandler onLocationChange={handleLocationChange} />
+            <MapClickHandler onLocationChange={readOnly ? () => {} : handleLocationChange} />
             {flyTarget && <MapFlyTo coords={flyTarget} />}
-            <DraggableMarker position={markerPos} onDrag={handleLocationChange} />
+            {readOnly
+              ? <Marker position={markerPos} />
+              : <DraggableMarker position={markerPos} onDrag={handleLocationChange} />}
           </MapContainer>
 
           {loading && (
@@ -359,14 +376,23 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             <p className="text-xs text-red-500 mb-3">⚠ {pickError}</p>
           )}
           <div className="flex gap-3">
-            <button onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-500 text-sm font-semibold hover:border-gray-300 transition">
-              Cancel
-            </button>
-            <button onClick={handleConfirm} disabled={loading || !hasSelected}
-              className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-semibold hover:bg-arl-secondary transition disabled:opacity-50">
-              ✓ Use this location
-            </button>
+            {readOnly ? (
+              <button onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-semibold hover:bg-arl-secondary transition">
+                Close
+              </button>
+            ) : (
+              <>
+                <button onClick={onClose}
+                  className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-500 text-sm font-semibold hover:border-gray-300 transition">
+                  Cancel
+                </button>
+                <button onClick={handleConfirm} disabled={loading || !hasSelected}
+                  className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-semibold hover:bg-arl-secondary transition disabled:opacity-50">
+                  ✓ Use this location
+                </button>
+              </>
+            )}
           </div>
         </div>
 
