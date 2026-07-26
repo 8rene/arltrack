@@ -130,6 +130,10 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   const [searchResults,setSearchResults]= useState([]);
   const [searching,    setSearching]    = useState(false);
   const [searchError,  setSearchError]  = useState(''); // request itself failed — distinct from "no matches"
+  // Whether the CURRENT searchQuery has actually been submitted (Enter or
+  // Search click) and come back. Typing alone must not count — otherwise
+  // "No results" flashes for text the user hasn't searched yet at all.
+  const [hasSearched,  setHasSearched]  = useState(false);
   const [flyTarget,    setFlyTarget]    = useState(null);
   const [loading,      setLoading]      = useState(false);
   const [pickError,    setPickError]    = useState('');
@@ -155,6 +159,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
       setSearchQuery('');
       setSearchResults([]);
       setSearchError('');
+      setHasSearched(false);
       setFlyTarget(null);
       setPickError('');
     }
@@ -209,6 +214,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     const { results, error } = await searchAddress(searchQuery);
     setSearchResults(results);
     if (error) setSearchError("Search failed — check your connection and try again.");
+    setHasSearched(true);
     setSearching(false);
   };
 
@@ -267,7 +273,12 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
               className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm"
               placeholder="Search address in Philippines…"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setHasSearched(false);
+                setSearchResults([]);
+                setSearchError('');
+              }}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
             <button
@@ -306,7 +317,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
           {searchError && !searching && (
             <p className="text-xs text-red-500 mt-2 px-1">⚠ {searchError}</p>
           )}
-          {!searchError && searchResults.length === 0 && searchQuery && !searching && (
+          {!searchError && hasSearched && searchResults.length === 0 && !searching && (
             <p className="text-xs text-gray-400 mt-2 px-1">No results. Try a different keyword.</p>
           )}
         </div>
