@@ -118,21 +118,14 @@ const calc22EndTime = (startTimeStr) => {
 // came from — clicking the same day as Start looked valid but wasn't).
 const defaultNextDay = (dateStr) => toLocalDateStr(addDays(new Date(dateStr + 'T00:00:00'), 1));
 
-// ── Day count with 25h rule ────────────────────────────────────
-const calcDays = (startDate, startTime, endDate, endTime, pricePerDay, durationType) => {
-  if (!startDate || !startTime || !endDate || !endTime) return { days: 0, total: 0, diffHrs: 0 };
-  const [sh, sm] = startTime.split(':').map(Number);
-  const [eh, em] = endTime.split(':').map(Number);
-  const startDT  = new Date(startDate); startDT.setHours(sh, sm, 0, 0);
-  const endDT    = new Date(endDate);   endDT.setHours(eh, em, 0, 0);
-  const diffHrs  = (endDT - startDT) / 3600000;
-  if (diffHrs <= 0) return { days: 0, total: 0, diffHrs: 0 };
-  // 22 Hours: each 22-hr block = 1 billing day
-  // 12 Hours: each 12-hr block = 1 billing day (but auto-calc so always 1)
-  const blockHrs = durationType === '22 Hours' ? 22 : 25;
-  const days     = Math.max(1, Math.ceil(diffHrs / blockHrs));
-  return { days, total: days * (pricePerDay || 0), diffHrs };
-};
+// ── Pricing/day-count/fee math used to live here (calcDays, isBaseArea,
+// extraFee/driversFee/serviceFee/gatewayFee/grandTotal) and was simply
+// trusted by the backend when the booking was submitted — meaning the
+// numbers shown on screen were also the numbers anyone could tamper with
+// via devtools before checkout. All of that now lives server-side in
+// arltrack-customer-backend/utils/pricing.js, and this page just displays
+// whatever POST /bookings/quote returns (see the `quote` state + the
+// debounced fetch effect below).
 
 // ── Skeleton card ──────────────────────────────────────────────
 const SkeletonCard = () => (
@@ -506,33 +499,64 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   // ── Pricing ──────────────────────────────────────────────────
   const pricingOptions = selectedCar?.pricing || [];
-  const selectedPricing = pricingOptions.find(p => p.durationType === duration);
-  const pricePerDay     = selectedPricing?.price || 0;
-  const { days, total, diffHrs } = calcDays(startDate, startTime, endDate, endTime, pricePerDay, duration);
 
-  // ── Extra Fees based on destination & driveType ───────────────
-  // Manila / Bulacan = base area → no extraFee; Outside = +₱500
-  const isBaseArea = (dest) => {
-    if (!dest) return true; // default/no destination = no extra
-    const d = dest.toLowerCase();
-    return d.includes('manila') || d.includes('bulacan');
-  };
-  const extraFee   = isBaseArea(destination) ? 0 : 500;
-  // driversFee: only when With Chauffeur — Manila/Bulacan=₱1000, Outside=₱1500
-  const driversFee = driveType === 'chauffeur'
-    ? (isBaseArea(destination) ? 1000 : 1500)
-    : 0;
-  const serviceFee = 50;   // fixed platform/service fee
-  const gatewayFee = 53;   // fixed payment gateway fee
+  // Every peso figure on this page (days billed, rental fee, extra/driver's/
+  // service/gateway fees, grand total, pay-now/balance split) is computed
+  // server-side by POST /bookings/quote — see the debounced effect below.
+  // This state is purely a display cache of that response; nothing here is
+  // ever sent back to the server as-is (booking creation and PayMongo
+  // checkout both recompute their own authoritative totals independently).
+  const [quote, setQuote] = useState({
+    days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0,
+    serviceFee: 0, gatewayFee: 0, grandTotal: 0, payNow: 0, balance: 0,
+  });
+  const [quoteLoading, setQuoteLoading] = useState(false);
 
-  // grandTotal = rental + all add-on fees
-  const grandTotal = total + extraFee + driversFee + serviceFee + gatewayFee;
+  useEffect(() => {
+    if (!selectedCar?.carID || !duration) {
+      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, serviceFee: 0, gatewayFee: 0, grandTotal: 0, payNow: 0, balance: 0 });
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/quote`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            carID: selectedCar.carID, duration, startDate, startTime, endDate, endTime,
+            destination, driveType, paymentAmount,
+          }),
+        });
+        const data = await res.json();
+        if (!cancelled && res.ok) {
+          setQuote({
+            days: data.days || 0,
+            diffHrs: data.diffHrs || 0,
+            total: data.rentalFee || 0,
+            extraFee: data.extraFee || 0,
+            driversFee: data.driversFee || 0,
+            serviceFee: data.serviceFee || 0,
+            gatewayFee: data.gatewayFee || 0,
+            grandTotal: data.grandTotal || 0,
+            payNow: data.payNow || 0,
+            balance: data.balance || 0,
+          });
+        }
+      } catch (err) {
+        console.warn("Quote fetch failed:", err);
+      } finally {
+        if (!cancelled) setQuoteLoading(false);
+      }
+    }, 300); // debounce — avoid a request per keystroke/calendar click
 
-  const getPayNow = () => {
-    if (paymentAmount === 'partial') return Math.floor(grandTotal * 0.5);
-    return grandTotal; // full
-  };
-  const getBalance = () => grandTotal - getPayNow();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [selectedCar?.carID, duration, startDate, startTime, endDate, endTime, destination, driveType, paymentAmount]);
+
+  const { days, total, diffHrs, extraFee, driversFee, serviceFee, gatewayFee, grandTotal } = quote;
+  const getPayNow  = () => quote.payNow;
+  const getBalance = () => quote.balance;
 
   // GCash, Maya, and QRPH now all go through PayMongo's hosted checkout
   // (redirect flow, like the "GCash Test Payment Page" in test mode)
@@ -873,7 +897,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         body: JSON.stringify({
           bookingID,
           paymentID,
-          amount: getPayNow(),
           description: `ARL Track Booking #${bookingID}`,
           paymentMethod,
         }),
@@ -944,15 +967,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           startTime,
           endDate,
           endTime,
-          totalDays:       days,
-          rentalFee:       total,
-          extraFee,
-          driversFee,
-          serviceFee,
-          gatewayFee,
-          grandTotal,
-          depositFee:      1000,
-          methodOfPayment: getMethodOfPayment(),
+          // NOTE: totalDays / rentalFee / extraFee / driversFee / serviceFee /
+          // gatewayFee / grandTotal / depositFee / methodOfPayment are no
+          // longer sent — the backend recomputes every one of these itself
+          // (from the car's Firestore pricing + these dates/destination/
+          // driveType) instead of trusting whatever the browser calculated.
           pickupLocation:  pickupLocation,
           dropoffLocation: dropoffLocation,
           destination,
@@ -1789,7 +1808,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 ))}
               </div>
               <div className="border-t-2 border-arl-primary my-4" />
-              <div className="text-arl-cta text-3xl font-black mb-1">₱{grandTotal.toLocaleString()}</div>
+              <div className="text-arl-cta text-3xl font-black mb-1">
+                {quoteLoading ? <span className="text-lg text-gray-400 font-medium">Computing…</span> : `₱${grandTotal.toLocaleString()}`}
+              </div>
               <div className="text-sm text-arl-dark">Pay now: <span className="font-bold">₱{getPayNow().toLocaleString()}</span></div>
             </div>
           </div>
