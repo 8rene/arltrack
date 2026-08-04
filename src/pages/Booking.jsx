@@ -925,6 +925,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
 
 
+    // ── Save name to profile when leaving Step 3, only if user opted in ──
+    if (currentStep === 3 && rememberName && user?.userID && (firstName || lastName)) {
+      try {
+        const token = localStorage.getItem("arl_token");
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/user/details/${user.userID}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ firstName, lastName }),
+        });
+        await res.json();
+        if (onUserDetailsUpdate) {
+          onUserDetailsUpdate({ ...userDetails, firstName, lastName });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
     // ── Coding rule check when leaving Step 2 ────────────────
     if (currentStep === 2) {
       if (selectedCar?.carID && startDate && startTime) {
@@ -1462,28 +1480,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       type="checkbox"
                       id="rememberName"
                       checked={rememberName}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setRememberName(checked);
-                        if (checked) {
-                          // firstName/lastName saved to backend below — no localStorage needed
-                          // Also save to DB if logged in
-                          if (user?.userID && (firstName || lastName)) {
-                            const token = localStorage.getItem("arl_token");
-                            fetch(`${process.env.REACT_APP_API_URL}/user/details/${user.userID}`, {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                              body: JSON.stringify({ firstName, lastName }),
-                            }).then(r => r.json()).then(() => {
-                              if (onUserDetailsUpdate) {
-                                onUserDetailsUpdate({ ...userDetails, firstName, lastName });
-                              }
-                            }).catch(console.error);
-                          }
-                        } else {
-
-                        }
-                      }}
+                      onChange={(e) => setRememberName(e.target.checked)}
                       className="accent-arl-primary w-4 h-4"
                     />
                     <label htmlFor="rememberName" className="text-sm text-gray-600 cursor-pointer select-none">
