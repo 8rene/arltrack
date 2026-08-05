@@ -29,6 +29,9 @@ const ViewDetailsModal = ({ car, onClose }) => {
   const [data, setData]         = useState(null);
   const [filterStar, setFilterStar] = useState(0);
 
+  const REVIEWS_PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(REVIEWS_PAGE_SIZE);
+
   // Fetch on first render
   const [fetched, setFetched] = useState(false);
   if (!fetched) {
@@ -133,7 +136,7 @@ const ViewDetailsModal = ({ car, onClose }) => {
               {/* Star filter */}
               <div className="flex gap-2 flex-wrap mb-4">
                 <button
-                  onClick={() => setFilterStar(0)}
+                  onClick={() => { setFilterStar(0); setVisibleCount(REVIEWS_PAGE_SIZE); }}
                   className={`px-3 py-1 rounded-full text-xs font-bold border transition ${
                     filterStar === 0 ? "bg-arl-primary text-white border-arl-primary" : "bg-white text-gray-600 border-gray-200 hover:border-arl-primary"
                   }`}
@@ -141,7 +144,7 @@ const ViewDetailsModal = ({ car, onClose }) => {
                 {[5, 4, 3, 2, 1].map((s) => (
                   <button
                     key={s}
-                    onClick={() => setFilterStar(filterStar === s ? 0 : s)}
+                    onClick={() => { setFilterStar(filterStar === s ? 0 : s); setVisibleCount(REVIEWS_PAGE_SIZE); }}
                     className={`px-3 py-1 rounded-full text-xs font-bold border transition flex items-center gap-1 ${
                       filterStar === s ? "bg-yellow-400 text-white border-yellow-400" : "bg-white text-gray-600 border-gray-200 hover:border-yellow-300"
                     }`}
@@ -155,7 +158,7 @@ const ViewDetailsModal = ({ car, onClose }) => {
                 {filteredReviews.length === 0 && (
                   <p className="text-center text-gray-400 text-sm py-8">No reviews for this rating.</p>
                 )}
-                {filteredReviews.map((r) => (
+                {filteredReviews.slice(0, visibleCount).map((r) => (
                   <div key={r.reviewID} className="border border-gray-100 rounded-2xl p-4 hover:bg-gray-50 transition">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
@@ -176,6 +179,15 @@ const ViewDetailsModal = ({ car, onClose }) => {
                     )}
                   </div>
                 ))}
+
+                {visibleCount < filteredReviews.length && (
+                  <button
+                    onClick={() => setVisibleCount((c) => c + REVIEWS_PAGE_SIZE)}
+                    className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-arl-primary hover:bg-gray-50 transition"
+                  >
+                    See more ({filteredReviews.length - visibleCount} more)
+                  </button>
+                )}
               </div>
             </div>
           )}
