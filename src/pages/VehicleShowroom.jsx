@@ -186,7 +186,7 @@ const VehicleShowroom = () => {
   const bodyTypes  = useMemo(() => ["All", ...new Set(cars.map((c) => c.bodyType).filter(Boolean))].sort(), [cars]);
   const fuelTypes  = useMemo(() => ["All", ...new Set(cars.map((c) => c.fuelType).filter(Boolean))].sort(), [cars]);
   const transTypes = useMemo(() => ["All", ...new Set(cars.map((c) => c.transmission).filter(Boolean))].sort(), [cars]);
-  const statuses   = ["All", "Active", "Rented", "Reserved", "Maintenance"];
+  const statuses   = ["All", "Active", "Rented", "Maintenance"];
 
   // Filtered + sorted cars
   const displayed = useMemo(() => {
