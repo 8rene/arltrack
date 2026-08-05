@@ -46,9 +46,14 @@ export default function Footer() {
 
                             <div className="flex items-start gap-3">
                                 <Mail size={18} className="text-arl-cta mt-0.5" />
-                                <span className="break-all">
+                                <a
+                                    href="https://mail.google.com/mail/?view=cm&fs=1&to=manalastas.arlene299@gmail.com"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="break-all hover:text-white transition"
+                                >
                                     manalastas.arlene299@gmail.com
-                                </span>
+                                </a>
                             </div>
 
                         </div>
