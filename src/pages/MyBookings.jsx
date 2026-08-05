@@ -25,15 +25,15 @@ const PAYMENT_STATUS_CONFIG = {
 // Mirrors admin's computeAmounts() in payments.service.js, so the customer
 // sees the same paid/balance math the admin dashboard uses.
 const getPaymentInfo = (payment) => {
-  if (!payment) return { key: "due", extra: "" };
+  if (!payment) return { key: "due", extra: "", amountPaid: 0 };
 
   const amount     = Number(payment.amount) || 0;
   const depositFee = Number(payment.depositFee) || 0;
   const method     = (payment.methodOfPayment || "").toLowerCase();
   const status     = (payment.status || "").toLowerCase();
 
-  if (status === "failed" || status === "rejected") return { key: "failed", extra: "" };
-  if (status === "cancelled") return { key: "cancelled", extra: "" };
+  if (status === "failed" || status === "rejected") return { key: "failed", extra: "", amountPaid: 0 };
+  if (status === "cancelled") return { key: "cancelled", extra: "", amountPaid: 0 };
 
   let amountPaid;
   if (method.includes("full")) {
@@ -49,9 +49,9 @@ const getPaymentInfo = (payment) => {
   }
 
   const balance = Math.max(0, amount - amountPaid);
-  if (amountPaid > 0 && balance <= 0) return { key: "paid", extra: "" };
-  if (amountPaid > 0) return { key: "partial", extra: peso(balance) };
-  return { key: "due", extra: "" };
+  if (amountPaid > 0 && balance <= 0) return { key: "paid", extra: "", amountPaid };
+  if (amountPaid > 0) return { key: "partial", extra: peso(balance), amountPaid };
+  return { key: "due", extra: "", amountPaid: 0 };
 };
 
 const PaymentStatusBadge = ({ payment }) => {
@@ -119,12 +119,13 @@ const RefundStatusBadge = ({ status }) => {
 const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
   const [reason, setReason] = useState(REFUND_REASONS[0]);
   const [notes, setNotes]   = useState("");
+  const { amountPaid } = getPaymentInfo(booking.payment);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <h3 className="text-lg font-black text-gray-800 mb-1">Request Refund</h3>
         <p className="text-sm text-gray-500 mb-4">
-          {booking.carName} — {peso(booking.payment?.amount || booking.totalFee)}
+          {booking.carName} — {peso(amountPaid)} paid
         </p>
 
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
