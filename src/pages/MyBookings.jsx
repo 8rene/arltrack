@@ -87,6 +87,91 @@ const DR = ({ label, value, mono = false }) =>
     </div>
   ) : null;
 
+// ── Refund reasons + status config ──
+const REFUND_REASONS = [
+  "Cancelled trip",
+  "Overcharged",
+  "Service issue",
+  "Duplicate payment",
+  "Other",
+];
+
+// ── Refund request status config (badge shown once a refund is requested) ──
+const REFUND_STATUS_CONFIG = {
+  Pending:  { label: "Refund: Pending",  bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
+  Approved: { label: "Refund: Approved", bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300",   icon: "🔵" },
+  Refunded: { label: "Refund: Refunded", bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
+  Rejected: { label: "Refund: Rejected", bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
+  Failed:   { label: "Refund: Failed",   bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
+};
+
+const RefundStatusBadge = ({ status }) => {
+  const cfg = REFUND_STATUS_CONFIG[status];
+  if (!cfg) return null;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      {cfg.icon} {cfg.label}
+    </span>
+  );
+};
+
+// ── Refund modal ──
+const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
+  const [reason, setReason] = useState(REFUND_REASONS[0]);
+  const [notes, setNotes]   = useState("");
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <h3 className="text-lg font-black text-gray-800 mb-1">Request Refund</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          {booking.carName} — {peso(booking.payment?.amount || booking.totalFee)}
+        </p>
+
+        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          Reason
+        </label>
+        <select
+          className="w-full border border-gray-200 rounded-xl p-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        >
+          {REFUND_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+
+        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          Additional notes (optional)
+        </label>
+        <textarea
+          className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
+          rows={3}
+          placeholder="Tell us more about your refund request..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+
+        <p className="text-xs text-gray-400 mt-3">
+          Your refund request will be reviewed by our team. You'll be notified once it's processed.
+        </p>
+
+        <div className="flex gap-3 mt-4">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(reason, notes)}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-arl-cta text-white text-sm font-bold hover:bg-arl-secondary transition disabled:opacity-60">
+            {loading ? "Sending…" : "Confirm & Send"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Cancel modal ──
 const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
   const [reason, setReason] = useState("");
@@ -127,12 +212,16 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, onCancelled }) => {
+const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundRequested }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling,      setCancelling]      = useState(false);
   const [cancelError,     setCancelError]     = useState("");
+
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refunding,       setRefunding]       = useState(false);
+  const [refundError,     setRefundError]     = useState("");
 
   const {
     bookingID, carName, carImage, carBodyType,
@@ -172,6 +261,28 @@ const BookingCard = ({ booking, user, onCancelled }) => {
     navigate(`/booking${carID ? `?carID=${carID}` : ""}`);
   };
 
+  const handleRefundRequest = async (reason, notes) => {
+    if (!p.paymentID) return;
+    setRefunding(true);
+    setRefundError("");
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res   = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/refunds`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ paymentID: p.paymentID, reason, notes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send refund request.");
+      setShowRefundModal(false);
+      onRefundRequested(); // re-fetch refund requests in the parent
+    } catch (err) {
+      setRefundError(err.message);
+    } finally {
+      setRefunding(false);
+    }
+  };
+
   return (
     <>
       {showCancelModal && (
@@ -180,6 +291,15 @@ const BookingCard = ({ booking, user, onCancelled }) => {
           onConfirm={handleCancel}
           onClose={() => { setShowCancelModal(false); setCancelError(""); }}
           loading={cancelling}
+        />
+      )}
+
+      {showRefundModal && (
+        <RefundModal
+          booking={booking}
+          onConfirm={handleRefundRequest}
+          onClose={() => { setShowRefundModal(false); setRefundError(""); }}
+          loading={refunding}
         />
       )}
 
@@ -206,7 +326,10 @@ const BookingCard = ({ booking, user, onCancelled }) => {
                 <h4 className="font-black text-arl-primary text-lg leading-tight">{carName}</h4>
                 {carBodyType && <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{carBodyType}</p>}
               </div>
-              <PaymentStatusBadge payment={payment} />
+              <div className="flex flex-col items-end gap-1">
+                <PaymentStatusBadge payment={payment} />
+                {existingRefund && <RefundStatusBadge status={existingRefund.status} />}
+              </div>
             </div>
 
             <div className="space-y-0.5 mb-2">
@@ -233,6 +356,10 @@ const BookingCard = ({ booking, user, onCancelled }) => {
               <p className="text-xs text-red-500 mb-2">⚠️ {cancelError}</p>
             )}
 
+            {refundError && (
+              <p className="text-xs text-red-500 mb-2">⚠️ {refundError}</p>
+            )}
+
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-3">
                 <span className="text-xl font-black text-arl-cta">{peso(p.amount || totalFee)}</span>
@@ -246,6 +373,15 @@ const BookingCard = ({ booking, user, onCancelled }) => {
                     onClick={() => setShowCancelModal(true)}
                     className="text-xs font-bold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition">
                     ✕ Cancel
+                  </button>
+                )}
+
+                {/* Request Refund — only when fully paid and no active refund request yet */}
+                { p.status === "paid" && !existingRefund && (
+                  <button
+                    onClick={() => setShowRefundModal(true)}
+                    className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">
+                    💸 Request Refund
                   </button>
                 )}
 
@@ -358,9 +494,12 @@ const MyBookings = ({ user }) => {
   const [error,     setError]     = useState("");
   const [activeTab, setActiveTab] = useState("upcoming");
 
+  const [refundRequests, setRefundRequests] = useState([]);
+
   useEffect(() => {
     if (!user?.userID) { navigate("/"); return; }
     fetchBookings();
+    fetchRefundRequests();
   }, [user]);
 
   const fetchBookings = async () => {
@@ -380,6 +519,24 @@ const MyBookings = ({ user }) => {
       setLoading(false);
     }
   };
+
+  const fetchRefundRequests = async () => {
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res   = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/refunds/mine`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) setRefundRequests(data.data || []);
+    } catch {
+      // non-critical — refund badges/buttons just won't reflect the latest state
+    }
+  };
+
+  // Only these statuses count as "there's already an active request" —
+  // Rejected/Failed lets the customer try requesting again.
+  const findActiveRefund = (paymentID) =>
+    refundRequests.find((r) => r.paymentID === paymentID && ["Pending", "Approved", "Refunded"].includes(r.status));
 
   // Optimistically update cancelled booking in local state
   const handleCancelled = (bookingID, reason) => {
@@ -451,6 +608,8 @@ const MyBookings = ({ user }) => {
                   booking={b}
                   user={user}
                   onCancelled={handleCancelled}
+                  existingRefund={b.payment?.paymentID ? findActiveRefund(b.payment.paymentID) : null}
+                  onRefundRequested={fetchRefundRequests}
                 />
               ))
             : <EmptyState tab={activeTab} />
