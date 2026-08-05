@@ -1,25 +1,25 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-// ΓöÇΓöÇ Date formatter ΓÇö handles Firestore Timestamps, JS Dates, ISO strings ΓöÇΓöÇ
+// ── Date formatter — handles Firestore Timestamps, JS Dates, ISO strings ──
 const fmtDT = (val) => {
-  if (!val) return "ΓÇö";
+  if (!val) return "—";
   if (val?.toDate) return val.toDate().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
   if (val?._seconds !== undefined) return new Date(val._seconds * 1000).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const d = new Date(val);
-  if (isNaN(d.getTime())) return "ΓÇö";
+  if (isNaN(d.getTime())) return "—";
   return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
-const peso = (v) => `Γé▒${Number(v || 0).toLocaleString()}`;
+const peso = (v) => `₱${Number(v || 0).toLocaleString()}`;
 
-// ΓöÇΓöÇ Payment status config (badge shown on each booking card) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── Payment status config (badge shown on each booking card) ──
 const PAYMENT_STATUS_CONFIG = {
-  due:       { label: "Payment Due",       bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "ΓÅ│" },
-  partial:   { label: "Partial",           bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300", icon: "≡ƒö╢" },
-  paid:      { label: "Fully Paid",        bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "Γ£à" },
-  failed:    { label: "Payment Failed",    bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "ΓÜá∩╕Å" },
-  cancelled: { label: "Payment Cancelled", bg: "bg-gray-100",   text: "text-gray-500",   border: "border-gray-300",   icon: "≡ƒÜ½" },
+  due:       { label: "Payment Due",       bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
+  partial:   { label: "Partial",           bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300", icon: "🟠" },
+  paid:      { label: "Fully Paid",        bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
+  failed:    { label: "Payment Failed",    bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
+  cancelled: { label: "Payment Cancelled", bg: "bg-gray-100",   text: "text-gray-500",   border: "border-gray-300",   icon: "🚫" },
 };
 
 // Mirrors admin's computeAmounts() in payments.service.js, so the customer
@@ -59,12 +59,12 @@ const PaymentStatusBadge = ({ payment }) => {
   const cfg = PAYMENT_STATUS_CONFIG[key];
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      {cfg.icon} {cfg.label}{extra ? ` ΓÇö ${extra} due` : ""}
+      {cfg.icon} {cfg.label}{extra ? ` — ${extra} due` : ""}
     </span>
   );
 };
 
-// ΓöÇΓöÇ Skeleton ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── Skeleton ──
 const Skeleton = () => (
   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-pulse">
     <div className="flex gap-4 p-5">
@@ -78,7 +78,7 @@ const Skeleton = () => (
   </div>
 );
 
-// ΓöÇΓöÇ Detail row ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── Detail row ──
 const DR = ({ label, value, mono = false }) =>
   value ? (
     <div>
@@ -87,7 +87,7 @@ const DR = ({ label, value, mono = false }) =>
     </div>
   ) : null;
 
-// ΓöÇΓöÇ Cancel modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── Cancel modal ──
 const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
   const [reason, setReason] = useState("");
   return (
@@ -118,7 +118,7 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
             onClick={() => onConfirm(reason)}
             disabled={loading}
             className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition disabled:opacity-60">
-            {loading ? "CancellingΓÇª" : "Yes, Cancel"}
+            {loading ? "Cancelling…" : "Yes, Cancel"}
           </button>
         </div>
       </div>
@@ -126,7 +126,7 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
   );
 };
 
-// ΓöÇΓöÇ Booking card ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── Booking card ──
 const BookingCard = ({ booking, user, onCancelled }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
@@ -187,7 +187,7 @@ const BookingCard = ({ booking, user, onCancelled }) => {
         status === "cancelled" ? "border-red-100" : status === "completed" ? "border-blue-100" : status === "ongoing" ? "border-purple-100" : "border-gray-100"
       }`}>
 
-        {/* ΓöÇΓöÇ Main row ΓöÇΓöÇ */}
+        {/* ── Main row ── */}
         <div className="flex gap-4 p-5">
           {/* Car image */}
           <div className="flex-shrink-0 w-28 h-20 rounded-xl overflow-hidden bg-gray-100">
@@ -196,7 +196,7 @@ const BookingCard = ({ booking, user, onCancelled }) => {
                   onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
               : null}
             <div className="w-full h-full items-center justify-center text-3xl text-gray-300"
-              style={{ display: carImage ? "none" : "flex" }}>≡ƒÜù</div>
+              style={{ display: carImage ? "none" : "flex" }}>🚗</div>
           </div>
 
           {/* Info */}
@@ -211,7 +211,7 @@ const BookingCard = ({ booking, user, onCancelled }) => {
 
             <div className="space-y-0.5 mb-2">
               <p className="text-xs text-gray-500">
-                <span className="font-semibold text-gray-600">Service:</span> {serviceType || "ΓÇö"}
+                <span className="font-semibold text-gray-600">Service:</span> {serviceType || "—"}
               </p>
               <p className="text-xs text-gray-500">
                 <span className="font-semibold text-gray-600">Start:</span> {fmtDT(startDateTime)}
@@ -230,7 +230,7 @@ const BookingCard = ({ booking, user, onCancelled }) => {
             </div>
 
             {cancelError && (
-              <p className="text-xs text-red-500 mb-2">Γ¢ö {cancelError}</p>
+              <p className="text-xs text-red-500 mb-2">⚠️ {cancelError}</p>
             )}
 
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -240,45 +240,45 @@ const BookingCard = ({ booking, user, onCancelled }) => {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Cancel ΓÇö only upcoming bookings can be cancelled (matches backend rule) */}
+                {/* Cancel — only upcoming bookings can be cancelled (matches backend rule) */}
                 { status === "upcoming" && (
                   <button
                     onClick={() => setShowCancelModal(true)}
                     className="text-xs font-bold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition">
-                    Γ£ò Cancel
+                    ✕ Cancel
                   </button>
                 )}
 
-                {/* Booking Details ΓÇö pins + trip info for every booking */}
+                {/* Booking Details — pins + trip info for every booking */}
                 <button
                   onClick={() => navigate(`/booking/${bookingID}/details`)}
                   className="text-xs font-bold text-purple-600 border border-purple-200 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition">
-                  ≡ƒôï Details
+                  📋 Details
                 </button>
 
-                {/* Rebook ΓÇö for cancelled and completed */}
+                {/* Rebook — for cancelled and completed */}
                 {(status === "cancelled" || status === "completed") && (
                   <button
                     onClick={handleRebook}
                     className="text-xs font-bold text-arl-secondary border border-arl-secondary/30 hover:bg-arl-secondary/10 px-3 py-1.5 rounded-lg transition">
-                    ≡ƒöü Rebook
+                    🔁 Rebook
                   </button>
                 )}
 
                 <button onClick={() => setExpanded(!expanded)}
                   className="text-xs font-bold text-arl-secondary hover:text-arl-primary transition flex items-center gap-1">
-                  {expanded ? "Hide overview Γû▓" : "View overview Γû╝"}
+                  {expanded ? "Hide overview ▲" : "View overview ▼"}
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ΓöÇΓöÇ Expanded details ΓöÇΓöÇ */}
+        {/* ── Expanded details ── */}
         {expanded && (
           <div className="border-t border-gray-100">
             <div className="px-5 py-4 bg-gray-50">
-              <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">≡ƒÜù Booking Details</p>
+              <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🚗 Booking Details</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                 <DR label="Booking ID"  value={bookingID} mono />
                 <DR label="Booked On"   value={fmtDT(createdAt)} />
@@ -295,7 +295,7 @@ const BookingCard = ({ booking, user, onCancelled }) => {
 
             {payment ? (
               <div className="px-5 py-4 bg-blue-50/50 border-t border-blue-100">
-                <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">≡ƒÆ│ Payment Details</p>
+                <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">💳 Payment Details</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
                   <DR label="Payment ID"        value={p.paymentID} mono />
                   <DR label="Total Amount"      value={peso(p.amount)} />
@@ -332,11 +332,11 @@ const BookingCard = ({ booking, user, onCancelled }) => {
   );
 };
 
-// ΓöÇΓöÇ Empty state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── Empty state ──
 const EMPTY_STATE_COPY = {
-  upcoming: { icon: "≡ƒôà", title: "No upcoming bookings",  body: "Book a ride to see it here." },
-  ongoing:  { icon: "≡ƒÜù", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
-  history:  { icon: "≡ƒôª", title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
+  upcoming: { icon: "📅", title: "No upcoming bookings",  body: "Book a ride to see it here." },
+  ongoing:  { icon: "🚗", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
+  history:  { icon: "📜", title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
 };
 
 const EmptyState = ({ tab }) => {
@@ -350,7 +350,7 @@ const EmptyState = ({ tab }) => {
   );
 };
 
-// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+// ── My Bookings page ──
 const MyBookings = ({ user }) => {
   const navigate   = useNavigate();
   const [bookings,  setBookings]  = useState([]);
@@ -408,9 +408,9 @@ const MyBookings = ({ user }) => {
 
         <div className="flex bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1">
           {[
-            { key: "upcoming", label: "Upcoming", count: upcoming.length, icon: "≡ƒôà" },
-            { key: "ongoing",  label: "Ongoing",  count: ongoing.length,  icon: "≡ƒÜù" },
-            { key: "history",  label: "History",  count: history.length,  icon: "≡ƒôª" },
+            { key: "upcoming", label: "Upcoming", count: upcoming.length, icon: "📅" },
+            { key: "ongoing",  label: "Ongoing",  count: ongoing.length,  icon: "🚗" },
+            { key: "history",  label: "History",  count: history.length,  icon: "📜" },
           ].map(({ key, label, count, icon }) => (
             <button key={key} onClick={() => setActiveTab(key)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
@@ -421,7 +421,7 @@ const MyBookings = ({ user }) => {
               <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
                 activeTab === key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
               }`}>
-                {loading ? "ΓÇª" : count}
+                {loading ? "…" : count}
               </span>
             </button>
           ))}
@@ -429,15 +429,15 @@ const MyBookings = ({ user }) => {
 
         <p className="text-xs text-gray-400 mb-4 px-1">
           {activeTab === "upcoming"
-            ? "Upcoming ΓÇö You can cancel bookings before they start."
+            ? "Upcoming — You can cancel bookings before they start."
             : activeTab === "ongoing"
             ? "Your trip is currently active."
-            : "Cancelled & Completed ΓÇö Use Rebook to book the same car again."}
+            : "Cancelled & Completed — Use Rebook to book the same car again."}
         </p>
 
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-            Γ¢ö {error}
+            ⚠️ {error}
           </div>
         )}
 
@@ -461,7 +461,7 @@ const MyBookings = ({ user }) => {
           <div className="text-center mt-8">
             <button onClick={fetchBookings}
               className="text-sm text-arl-secondary hover:text-arl-primary font-semibold transition">
-              ≡ƒöä Refresh
+              🔄 Refresh
             </button>
           </div>
         )}
