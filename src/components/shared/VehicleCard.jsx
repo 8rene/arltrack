@@ -28,6 +28,7 @@ const ViewDetailsModal = ({ car, onClose }) => {
   const [loading, setLoading]   = useState(true);
   const [data, setData]         = useState(null);
   const [filterStar, setFilterStar] = useState(0);
+  const [activeTab, setActiveTab] = useState("details");
 
   const REVIEWS_PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(REVIEWS_PAGE_SIZE);
@@ -89,9 +90,22 @@ const ViewDetailsModal = ({ car, onClose }) => {
 
         {/* Tabs */}
         <div className="flex border-b border-gray-100 px-6">
-          <div className="py-3 px-4 text-sm font-bold border-b-2 border-arl-cta text-arl-cta -mb-px">
+          <button
+            onClick={() => setActiveTab("details")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 -mb-px transition ${
+              activeTab === "details" ? "border-arl-cta text-arl-cta" : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            Details
+          </button>
+          <button
+            onClick={() => setActiveTab("reviews")}
+            className={`py-3 px-4 text-sm font-bold border-b-2 -mb-px transition ${
+              activeTab === "reviews" ? "border-arl-cta text-arl-cta" : "border-transparent text-gray-400 hover:text-gray-600"
+            }`}
+          >
             Reviews ({allReviews.length})
-          </div>
+          </button>
         </div>
 
         {/* Scrollable content */}
@@ -107,8 +121,81 @@ const ViewDetailsModal = ({ car, onClose }) => {
             <p className="text-center text-red-400 py-12 text-sm">Failed to load details.</p>
           )}
 
+          {/* DETAILS */}
+          {!loading && !data?.error && activeTab === "details" && (
+            <div className="p-6 space-y-6">
+              {car.longDescription ? (
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2">About this vehicle</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{car.longDescription}</p>
+                </div>
+              ) : car.shortDescription ? (
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2">About this vehicle</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">{car.shortDescription}</p>
+                </div>
+              ) : null}
+
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3">Specifications</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {car.bodyType && (
+                    <div>
+                      <p className="text-xs text-gray-400">Body Type</p>
+                      <p className="text-sm font-semibold text-gray-700">{car.bodyType}</p>
+                    </div>
+                  )}
+                  {!!car.seatingCapacity && (
+                    <div>
+                      <p className="text-xs text-gray-400">Seats</p>
+                      <p className="text-sm font-semibold text-gray-700">{car.seatingCapacity}</p>
+                    </div>
+                  )}
+                  {car.fuelType && (
+                    <div>
+                      <p className="text-xs text-gray-400">Fuel Type</p>
+                      <p className="text-sm font-semibold text-gray-700">{car.fuelType}</p>
+                    </div>
+                  )}
+                  {car.transmission && (
+                    <div>
+                      <p className="text-xs text-gray-400">Transmission</p>
+                      <p className="text-sm font-semibold text-gray-700">{car.transmission}</p>
+                    </div>
+                  )}
+                  {car.color && (
+                    <div>
+                      <p className="text-xs text-gray-400">Color</p>
+                      <p className="text-sm font-semibold text-gray-700">{car.color}</p>
+                    </div>
+                  )}
+                  {car.year && (
+                    <div>
+                      <p className="text-xs text-gray-400">Year</p>
+                      <p className="text-sm font-semibold text-gray-700">{car.year}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {car.pricing?.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3">Pricing</h3>
+                  <div className="flex gap-4 flex-wrap">
+                    {car.pricing.map((p, i) => (
+                      <div key={i} className="bg-gray-50 rounded-xl px-4 py-2 text-center">
+                        <p className="text-xs text-gray-400">{p.durationType}</p>
+                        <p className="text-sm font-black text-arl-dark">₱{Number(p.price).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* REVIEWS */}
-          {!loading && !data?.error && (
+          {!loading && !data?.error && activeTab === "reviews" && (
             <div className="p-6">
               <div className="flex items-center gap-6 mb-6 p-4 bg-gray-50 rounded-2xl">
                 <div className="text-center flex-shrink-0">
@@ -293,4 +380,5 @@ const VehicleCard = ({ car, badge }) => {
   );
 };
 
+export { ViewDetailsModal };
 export default VehicleCard;

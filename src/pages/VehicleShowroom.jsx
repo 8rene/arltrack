@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { ViewDetailsModal } from "../components/shared/VehicleCard";
 
 // ── Skeleton card ─────────────────────────────────────────────
 const SkeletonCard = () => (
@@ -23,6 +24,8 @@ const SkeletonCard = () => (
 
 // ── Car card ──────────────────────────────────────────────────
 const CarCard = ({ car, heroState }) => {
+  const [showModal, setShowModal] = useState(false);
+
   const {
     carID,
     name            = "",
@@ -50,7 +53,11 @@ const CarCard = ({ car, heroState }) => {
   const isAvailable = status.toLowerCase() === "active" || status.toLowerCase() === "available";
 
   return (
-    <div className="group bg-white rounded-3xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden border border-gray-100 flex flex-col">
+    <>
+      {showModal && (
+        <ViewDetailsModal car={car} onClose={() => setShowModal(false)} />
+      )}
+      <div className="group bg-white rounded-3xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden border border-gray-100 flex flex-col">
 
       {/* Image */}
       <div className="relative overflow-hidden">
@@ -119,18 +126,25 @@ const CarCard = ({ car, heroState }) => {
           </div>
         )}
 
-        {/* Book button */}
-        <div className="mt-auto pt-5">
+        {/* Book + View Details buttons */}
+        <div className="mt-auto pt-5 flex gap-2">
           <Link
             to="/booking"
             state={{ vehicleName: name, carID, ...(heroState || {}) }}
-            className="block text-center bg-arl-cta text-white px-5 py-2.5 rounded-full text-sm font-bold hover:bg-arl-primary transition-all duration-300 shadow-md hover:shadow-lg"
+            className="flex-1 text-center bg-arl-cta text-white px-5 py-2.5 rounded-full text-sm font-bold hover:bg-arl-primary transition-all duration-300 shadow-md hover:shadow-lg"
           >
             Book →
           </Link>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex-1 text-center bg-white border border-gray-200 text-arl-primary px-5 py-2.5 rounded-full text-sm font-bold hover:border-arl-primary hover:bg-gray-50 transition-all duration-300"
+          >
+            View Details
+          </button>
         </div>
       </div>
     </div>
+    </>
   );
 };
 
