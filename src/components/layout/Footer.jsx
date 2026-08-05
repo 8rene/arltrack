@@ -11,7 +11,7 @@ export default function Footer() {
             <div className="relative max-w-6xl mx-auto px-6">
 
                 {/* TOP GRID */}
-                <div className="grid md:grid-cols-2 gap-12 mb-12">
+                <div className="grid md:grid-cols-3 gap-12 mb-12">
 
                     {/* BRAND */}
                     <div>
@@ -24,7 +24,14 @@ export default function Footer() {
 
                             <div className="flex items-start gap-3">
                                 <MapPin size={18} className="text-arl-cta mt-0.5" />
-                                <span>Villa Roma V, Lias, Marilao, Bulacan</span>
+                                <a
+                                    href="https://www.google.com/maps/search/?api=1&query=Villa+Roma+V+Lias+Marilao+Bulacan"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:text-white transition"
+                                >
+                                    Villa Roma V, Lias, Marilao, Bulacan
+                                </a>
                             </div>
 
                             <div className="flex items-start gap-3">
@@ -78,6 +85,31 @@ export default function Footer() {
                                 Booking Guidelines
                             </Link>
                         </div>
+                    </div>
+
+                    {/* LOCATION MAP */}
+                    <div>
+                        <h4 className="text-sm uppercase tracking-[0.3em] text-gray-400 mb-5">
+                            Find Us
+                        </h4>
+
+                        <a
+                            href="https://www.google.com/maps/search/?api=1&query=Villa+Roma+V+Lias+Marilao+Bulacan"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block rounded-xl overflow-hidden border border-gray-800 hover:border-arl-cta/60 transition"
+                        >
+                            <iframe
+                                title="ARL Car Rental Location"
+                                src="https://www.google.com/maps?q=Villa+Roma+V,+Lias,+Marilao,+Bulacan&output=embed"
+                                width="100%"
+                                height="160"
+                                style={{ border: 0, pointerEvents: "none" }}
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                            />
+                        </a>
+                        <p className="text-xs text-gray-500 mt-2">Tap to open in Google Maps</p>
                     </div>
 
                 </div>
