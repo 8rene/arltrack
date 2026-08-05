@@ -9,7 +9,7 @@ import qrphLogo   from '../assets/images/qr-ph-logo-6f76723590.webp';
 const LS_KEY = 'arl_booking_draft';
 // Bump this whenever a field's meaning/default changes (like removing
 // DEFAULT_LOCATION) so an old draft sitting in someone's browser gets
-// discarded instead of silently resurfacing stale values forever — this
+// discarded instead of silently resurfacing stale values forever ΓÇö this
 // exact class of bug (stale endDate, stale pickupLocation) has bitten
 // multiple fixes in this file already.
 const DRAFT_VERSION = 2;
@@ -18,20 +18,20 @@ const loadDraft = () => {
     const r = localStorage.getItem(LS_KEY);
     if (!r) return {};
     const parsed = JSON.parse(r);
-    if (parsed.__v !== DRAFT_VERSION) return {}; // stale shape — discard, don't trust it
+    if (parsed.__v !== DRAFT_VERSION) return {}; // stale shape ΓÇö discard, don't trust it
     return parsed;
   } catch { return {}; }
 };
 const saveDraft = (data) => { try { localStorage.setItem(LS_KEY, JSON.stringify({ ...data, __v: DRAFT_VERSION })); } catch {} };
 const clearDraft = () => { try { localStorage.removeItem(LS_KEY); } catch {} };
 
-// ── Date helpers ───────────────────────────────────────────────
+// ΓöÇΓöÇ Date helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const toMidnight  = (d) => { const c = new Date(d); c.setHours(0,0,0,0); return c; };
-// ── Local calendar-date string, e.g. "2026-08-13" ──────────────
+// ΓöÇΓöÇ Local calendar-date string, e.g. "2026-08-13" ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // NEVER use `.toISOString().split('T')[0]` for this. toISOString()
 // always converts to UTC first, so for any user in a timezone ahead
 // of UTC (e.g. Asia/Manila, UTC+8), a local midnight rolls back to
-// the previous day once converted — silently shifting every date by
+// the previous day once converted ΓÇö silently shifting every date by
 // one day. This was the root cause of the "22-hour end date shows
 // the same day as start" bug and several other date-key mismatches
 // in this file. Always build the string from local getFullYear /
@@ -49,7 +49,7 @@ const fmt12       = (t) => { if (!t) return ''; const [h,m]=t.split(':').map(Num
 const MONTHS      = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS        = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
-// ── Booking date status calculator ────────────────────────────
+// ΓöÇΓöÇ Booking date status calculator ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const getDateStatuses = (carBookings) => {
   // Returns a map of "YYYY-MM-DD" -> status string
   const map = {};
@@ -87,7 +87,7 @@ const DATE_STYLES = {
 };
 const BLOCKED_STATUSES = new Set(['booked', 'preparation', 'maintenance']);
 
-// ── End date/time calculator ───────────────────────────────────
+// ΓöÇΓöÇ End date/time calculator ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const calcEnd = (startDate, startTime, hours) => {
   if (!startDate || !startTime) return { endDate: '', endTime: '' };
   const [h, m]   = startTime.split(':').map(Number);
@@ -100,7 +100,7 @@ const calcEnd = (startDate, startTime, hours) => {
   };
 };
 
-// ── 22-Hour end time: start time minus 2 hours, wrapping across midnight ──
+// ΓöÇΓöÇ 22-Hour end time: start time minus 2 hours, wrapping across midnight ΓöÇΓöÇ
 const calc22EndTime = (startTimeStr) => {
   const [sh, sm] = startTimeStr.split(':').map(Number);
   const endTotalMins = (sh * 60 + sm) - 120; // minus 2 hours
@@ -111,23 +111,23 @@ const calc22EndTime = (startTimeStr) => {
 };
 
 // The default End date for a 22-Hour booking is always the day after Start
-// — a 22-hour block, displayed with the -2h buffer time above, never fits
+// ΓÇö a 22-hour block, displayed with the -2h buffer time above, never fits
 // inside the same calendar day for any realistic pickup time. Used to
 // auto-fill End instead of leaving the right calendar blank for the
 // customer to click themselves (which is where the "0 days billed" bug
-// came from — clicking the same day as Start looked valid but wasn't).
+// came from ΓÇö clicking the same day as Start looked valid but wasn't).
 const defaultNextDay = (dateStr) => toLocalDateStr(addDays(new Date(dateStr + 'T00:00:00'), 1));
 
-// ── Pricing/day-count/fee math used to live here (calcDays, isBaseArea,
+// ΓöÇΓöÇ Pricing/day-count/fee math used to live here (calcDays, isBaseArea,
 // extraFee/driversFee/serviceFee/gatewayFee/grandTotal) and was simply
-// trusted by the backend when the booking was submitted — meaning the
+// trusted by the backend when the booking was submitted ΓÇö meaning the
 // numbers shown on screen were also the numbers anyone could tamper with
 // via devtools before checkout. All of that now lives server-side in
 // arltrack-customer-backend/utils/pricing.js, and this page just displays
 // whatever POST /bookings/quote returns (see the `quote` state + the
 // debounced fetch effect below).
 
-// ── Skeleton card ──────────────────────────────────────────────
+// ΓöÇΓöÇ Skeleton card ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const SkeletonCard = () => (
   <div className="rounded-2xl bg-white border border-gray-100 shadow-md overflow-hidden animate-pulse">
     <div className="w-full h-36 bg-gray-200" />
@@ -142,7 +142,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-// ── Vehicle pick card ──────────────────────────────────────────
+// ΓöÇΓöÇ Vehicle pick card ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const VehiclePickCard = ({ car, selected, onSelect }) => {
   const { name='', brandName='', bodyType='', seatingCapacity=0, fuelType='', transmission='', shortDescription='', imageURL='', pricing=[], status='' } = car;
   const tags = [bodyType, seatingCapacity ? `${seatingCapacity} Seater` : '', transmission, fuelType].filter(Boolean);
@@ -168,7 +168,7 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
           ? <img src={imageURL} alt={name} className="w-full h-36 object-cover"
               onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
           : null}
-        <div className="w-full h-36 items-center justify-center text-4xl text-gray-300 bg-gray-100" style={{ display: imageURL ? 'none' : 'flex' }}>🚗</div>
+        <div className="w-full h-36 items-center justify-center text-4xl text-gray-300 bg-gray-100" style={{ display: imageURL ? 'none' : 'flex' }}>≡ƒÜù</div>
         <span className="absolute bottom-2 right-3 text-white/70 text-xs font-black tracking-widest uppercase drop-shadow">{brandName}</span>
       </div>
       <div className="p-4">
@@ -177,13 +177,13 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
         <div className="flex flex-wrap gap-1 mt-3">
           {tags.map((t,i) => <span key={i} className="px-2 py-0.5 bg-arl-secondary/10 text-arl-primary text-xs font-semibold rounded-full">{t}</span>)}
         </div>
-        {lowest && <p className="mt-3 text-xs font-semibold text-arl-cta">From ₱{Number(lowest.price).toLocaleString()} / {lowest.durationType}</p>}
+        {lowest && <p className="mt-3 text-xs font-semibold text-arl-cta">From Γé▒{Number(lowest.price).toLocaleString()} / {lowest.durationType}</p>}
       </div>
     </div>
   );
 };
 
-// ── Location input with map button ────────────────────────────
+// ΓöÇΓöÇ Location input with map button ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
@@ -199,7 +199,7 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
           disabled={disabled}
           className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
         />
-        {/* Map button stays clickable even while locked — opens in read-only
+        {/* Map button stays clickable even while locked ΓÇö opens in read-only
             view mode so the customer can still see exactly where it is,
             they just can't move the pin from here (see disabled note below). */}
         <button
@@ -229,17 +229,17 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
   );
 };
 
-// ── In-store pickup: fixed location configured via env ─────────
+// ΓöÇΓöÇ In-store pickup: fixed location configured via env ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const STORE_LABEL = process.env.REACT_APP_STORE_LABEL || '';
 const STORE_LAT   = parseFloat(process.env.REACT_APP_STORE_LAT);
 const STORE_LNG   = parseFloat(process.env.REACT_APP_STORE_LNG);
 const STORE_CONFIGURED = !!STORE_LABEL && !Number.isNaN(STORE_LAT) && !Number.isNaN(STORE_LNG);
 
-// ══════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 // MAIN BOOKING PAGE
-// ══════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) => {
-  // Scroll target for the top of each step's content — used to bring a
+  // Scroll target for the top of each step's content ΓÇö used to bring a
   // validation error into view when it clicking Next fails, since on Step 1
   // the error banner sits above a tall scrollable car grid and can end up
   // off-screen from the Next button otherwise.
@@ -248,7 +248,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const navigate = useNavigate();
 
 
-  // ── Cars ────────────────────────────────────────────────────
+  // ΓöÇΓöÇ Cars ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const [cars,        setCars]        = useState([]);
   const [carsLoading, setCarsLoading] = useState(true);
   const [carsError,   setCarsError]   = useState('');
@@ -256,15 +256,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [filterBody,  setFilterBody]  = useState('All');
   const [selectedCar, setSelectedCar] = useState(null);
 
-  // ── Service types ────────────────────────────────────────────
+  // ΓöÇΓöÇ Service types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const [serviceTypes,    setServiceTypes]    = useState([]);
   const [serviceTypesLoading, setServiceTypesLoading] = useState(true);
 
-  // ── Car bookings (for calendar) ──────────────────────────────
+  // ΓöÇΓöÇ Car bookings (for calendar) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const [carBookings,  setCarBookings]  = useState([]);
   const [dateStatuses, setDateStatuses] = useState({});
 
-  // ── Booking form ─────────────────────────────────────────────
+  // ΓöÇΓöÇ Booking form ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   // Pre-populate from Hero form if navigated from there
   const heroState = location.state || {};
   // Merge: heroState (from navigation) takes priority, then localStorage draft, then defaults
@@ -277,7 +277,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         : fallback;
 
   // pickupLocation/dropoffLocation/destination should never be recalled from
-  // a past draft — only an explicit, same-visit hand-off from the Hero form
+  // a past draft ΓÇö only an explicit, same-visit hand-off from the Hero form
   // (heroState) counts. A fresh /booking visit always starts blank.
   const initValNoDraft = (heroKey, fallback = '') =>
     (heroState[heroKey] !== undefined && heroState[heroKey] !== '')
@@ -285,7 +285,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       : fallback;
 
   // Guard against a stale/past date inherited from Hero navigation state or
-  // a leftover localStorage draft (e.g. from an earlier session) — never
+  // a leftover localStorage draft (e.g. from an earlier session) ΓÇö never
   // trust an inbound startDate/endDate that's already in the past.
   const todayStrInit = toLocalDateStr(new Date());
   const inboundStartDate = initVal('startDate', 'startDate');
@@ -301,20 +301,20 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [endTime,           setEndTime]            = useState(inboundStartDateIsPast ? '' : initVal('endTime',   'endTime'));
   const [pickupLocation,    setPickupLocation]     = useState(initValNoDraft('pickupLocation'));
   const [pickupInStore,     setPickupInStore]      = useState(false);
-  // What pickupLocation/pickupCoords were right before checking "in-store" —
+  // What pickupLocation/pickupCoords were right before checking "in-store" ΓÇö
   // restored if the customer unchecks it, so they don't lose typed/mapped
   // work just from toggling the box on and off.
   const preLockPickup = useRef({ location: '', coords: null });
   const [dropoffLocation,   setDropoffLocation]    = useState(initValNoDraft('dropoffLocation'));
   const [destination,       setDestination]        = useState(initValNoDraft('destination'));
-  // Coordinates picked via MapPicker — only populated when the map (not typed
+  // Coordinates picked via MapPicker ΓÇö only populated when the map (not typed
   // text) was used to set the field. null until then; geofencing skips any
   // point that's still null when the booking is created.
   const [pickupCoords,      setPickupCoords]       = useState(null);
   const [dropoffCoords,     setDropoffCoords]      = useState(null);
   const [destinationCoords, setDestinationCoords]  = useState(null);
-  const [sameAsPickup]                             = useState(true); // permanent — no path to uncheck this
-  // Additional destination pins beyond the primary Destination field —
+  const [sameAsPickup]                             = useState(true); // permanent ΓÇö no path to uncheck this
+  // Additional destination pins beyond the primary Destination field ΓÇö
   // purely for geofencing multiple stops, not part of the coding-rule/
   // extra-fee logic (that stays keyed to the single primary `destination`,
   // which is a business rule about one city/area, not a per-stop thing).
@@ -333,7 +333,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
   };
 
-  // Dropoff always mirrors pickup now — this always runs.
+  // Dropoff always mirrors pickup now ΓÇö this always runs.
   useEffect(() => {
     setDropoffLocation(pickupLocation);
     setDropoffCoords(pickupCoords);
@@ -382,7 +382,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [paymongoLoading,  setPaymongoLoading]  = useState(false);
   const [hoverDate,        setHoverDate]        = useState(null);
 
-  // Calendar view: two months — start from the month of the pre-selected startDate if available
+  // Calendar view: two months ΓÇö start from the month of the pre-selected startDate if available
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const [calViews, setCalViews] = useState(() => {
     const sd = initVal('startDate', 'startDate');
@@ -393,36 +393,36 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     ];
   });
 
-  // ── Fetch cars ───────────────────────────────────────────────
+  // ΓöÇΓöÇ Fetch cars ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     fetch(`${process.env.REACT_APP_API_URL}/cars/all`)
       .then(r => r.json()).then(d => { setCars(d); setCarsLoading(false); })
       .catch(() => { setCarsError('Could not load vehicles.'); setCarsLoading(false); });
   }, []);
 
-  // ── Persist booking draft to localStorage whenever fields change ──
-  // pickupLocation/dropoffLocation/destination are deliberately excluded —
+  // ΓöÇΓöÇ Persist booking draft to localStorage whenever fields change ΓöÇΓöÇ
+  // pickupLocation/dropoffLocation/destination are deliberately excluded ΓÇö
   // those should never be recalled on a fresh visit, only carried over
   // live via heroState within the same navigation.
   useEffect(() => {
     saveDraft({ duration, startDate, startTime, endDate, endTime });
   }, [duration, startDate, startTime, endDate, endTime]);
 
-  // ── Fetch service types ──────────────────────────────────────
+  // ΓöÇΓöÇ Fetch service types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     fetch(`${process.env.REACT_APP_API_URL}/services/types`)
       .then(r => r.json()).then(d => { setServiceTypes(d); setServiceTypesLoading(false); })
       .catch(() => setServiceTypesLoading(false));
   }, []);
 
-  // ── Pre-select car from showroom navigation ──────────────────
+  // ΓöÇΓöÇ Pre-select car from showroom navigation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   useEffect(() => {
     if (!location.state?.carID || cars.length === 0) return;
     const match = cars.find(c => c.carID === location.state.carID);
     if (match) { handleCarSelect(match); setCurrentStep(2); }
   }, [cars, location.state]);
 
-  // ── Fetch bookings when car is selected ──────────────────────
+  // ΓöÇΓöÇ Fetch bookings when car is selected ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const handleCarSelect = useCallback(async (car) => {
     setSelectedCar(car);
     // Only reset date fields if no pre-filled draft data exists
@@ -446,7 +446,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, startDate, startTime]);
 
-  // ── Duration selection → auto-calc end ──────────────────────
+  // ΓöÇΓöÇ Duration selection ΓåÆ auto-calc end ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const DURATION_HOURS = { '12 Hours': 12 }; // 22 Hours = user picks end date/time
 
   const handleDurationSelect = (dur) => {
@@ -455,7 +455,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setCodingError('');
   };
 
-  // ── Live coding check — fires whenever destination or schedule changes ──
+  // ΓöÇΓöÇ Live coding check ΓÇö fires whenever destination or schedule changes ΓöÇΓöÇ
   useEffect(() => {
     if (currentStep !== 2) return;
     if (!selectedCar?.carID || !startDate || !startTime || !destination) {
@@ -483,12 +483,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     } else if (duration === '22 Hours' && startDate && time) {
       // Auto-fill End as soon as Start date + time are both known, instead
       // of leaving the right calendar blank and waiting for a manual click
-      // (which was easy to get wrong — e.g. clicking the same day as Start,
+      // (which was easy to get wrong ΓÇö e.g. clicking the same day as Start,
       // which silently produced "0 day(s) billed"). Default End = the day
       // after Start; if the customer already picked a later End date
       // themselves (extending the rental), keep that date and just
       // recalculate its time. IMPORTANT: only trust `prev` if it's actually
-      // valid (strictly after Start) — a same-day/earlier value can survive
+      // valid (strictly after Start) ΓÇö a same-day/earlier value can survive
       // here from a stale localStorage draft saved before this fix existed,
       // or from switching duration types, and must not be blindly kept.
       setEndDate(prev => (prev && prev > startDate) ? prev : defaultNextDay(startDate));
@@ -497,12 +497,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   };
 
 
-  // ── Pricing ──────────────────────────────────────────────────
+  // ΓöÇΓöÇ Pricing ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const pricingOptions = selectedCar?.pricing || [];
 
   // Every peso figure on this page (days billed, rental fee, extra/driver's/
   // service/gateway fees, grand total, pay-now/balance split) is computed
-  // server-side by POST /bookings/quote — see the debounced effect below.
+  // server-side by POST /bookings/quote ΓÇö see the debounced effect below.
   // This state is purely a display cache of that response; nothing here is
   // ever sent back to the server as-is (booking creation and PayMongo
   // checkout both recompute their own authoritative totals independently).
@@ -549,7 +549,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       } finally {
         if (!cancelled) setQuoteLoading(false);
       }
-    }, 300); // debounce — avoid a request per keystroke/calendar click
+    }, 300); // debounce ΓÇö avoid a request per keystroke/calendar click
 
     return () => { cancelled = true; clearTimeout(timer); };
   }, [selectedCar?.carID, duration, startDate, startTime, endDate, endTime, destination, driveType, paymentAmount]);
@@ -569,7 +569,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return 'Full';
   };
 
-  // ── Calendar rendering ───────────────────────────────────────
+  // ΓöÇΓöÇ Calendar rendering ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const navMonth = (idx, dir) => {
     setCalViews(prev => {
       const next = [...prev];
@@ -586,7 +586,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
     if (duration === '12 Hours') {
       // 12 hours: end is always auto-calculated from start+time, never
-      // independently pickable — so a click on the End calendar (idx 1)
+      // independently pickable ΓÇö so a click on the End calendar (idx 1)
       // must do nothing, not silently overwrite the start date. This was
       // the bug: previously any click here fell through to setStartDate()
       // regardless of which calendar it came from.
@@ -600,7 +600,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     } else if (duration === '22 Hours') {
       if (idx === 0) {
         // Left calendar: always sets Start, never End. Default End to the
-        // day after Start right away — the customer can still move it
+        // day after Start right away ΓÇö the customer can still move it
         // further out via the right calendar to extend the rental, but
         // this way they're never left with a blank/wrong End by default.
         setStartDate(key);
@@ -609,13 +609,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         setStartTime('');
       } else {
         // Right calendar: always sets End, never Start. With no start date
-        // yet, there's nothing to set an end relative to — do nothing
+        // yet, there's nothing to set an end relative to ΓÇö do nothing
         // (this calendar is rendered disabled in that state anyway).
         if (!startDate) return;
         const clickedDate  = new Date(key);
         const startDateObj = new Date(startDate);
         if (clickedDate <= startDateObj) {
-          // Can't end on or before the day it starts — a 22-hour block
+          // Can't end on or before the day it starts ΓÇö a 22-hour block
           // never fits inside the same calendar day for any realistic
           // pickup time, so same-day was the exact bug being fixed here.
           // Ignore rather than silently accepting a same-day End.
@@ -648,10 +648,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         <div className="border-2 border-gray-200 rounded-2xl p-4">
         <div className="flex items-center justify-between mb-4">
           <button type="button" onClick={() => navMonth(idx, -1)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:bg-arl-primary hover:text-white hover:border-arl-primary text-gray-600 text-xl font-bold transition-colors">‹</button>
+            className="w-9 h-9 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:bg-arl-primary hover:text-white hover:border-arl-primary text-gray-600 text-xl font-bold transition-colors">ΓÇ╣</button>
           <span className="text-base font-bold text-arl-dark">{MONTHS[month]} {year}</span>
           <button type="button" onClick={() => navMonth(idx, 1)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:bg-arl-primary hover:text-white hover:border-arl-primary text-gray-600 text-xl font-bold transition-colors">›</button>
+            className="w-9 h-9 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:bg-arl-primary hover:text-white hover:border-arl-primary text-gray-600 text-xl font-bold transition-colors">ΓÇ║</button>
         </div>
         <div className="grid grid-cols-7 gap-1 mb-2">
           {DAYS.map(d => <div key={d} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>)}
@@ -672,14 +672,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             const isHover   = hoverDate && startDO && !endDO && date > startDO && date <= toMidnight(hoverDate);
 
             // In 12-Hour mode, end = start + fixed hours, always. There's
-            // nothing to independently pick on the End calendar — it's
+            // nothing to independently pick on the End calendar ΓÇö it's
             // purely a readout, so it shouldn't look or behave clickable.
             // Right calendar is locked in two different cases, for two
             // different reasons: 12-Hour mode never has an independent end
             // date at all (it's auto-calculated); 22-Hour mode's end date
             // is real, but meaningless with no start date to be relative to.
             const endCalendarLocked = idx === 1 && (duration === '12 Hours' || (duration === '22 Hours' && !startDate));
-            // Same-day End is invalid in 22-Hour mode — a 22-hour block never
+            // Same-day End is invalid in 22-Hour mode ΓÇö a 22-hour block never
             // fits inside the calendar day it starts on for any realistic
             // pickup time. This is the exact cell that produced "0 day(s)
             // billed" when clicked, so it's shown disabled instead.
@@ -695,8 +695,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               cls += 'bg-gray-100 text-gray-300 cursor-not-allowed ';
             } else if (idx === 1 ? isEnd : isStart) {
               // Each calendar shows its own role's color first when a date
-              // is both (the 12-Hour same-day case) — Start calendar → green,
-              // End calendar → red, even though it's the same calendar date.
+              // is both (the 12-Hour same-day case) ΓÇö Start calendar ΓåÆ green,
+              // End calendar ΓåÆ red, even though it's the same calendar date.
               cls += idx === 1
                 ? `bg-red-600 text-white font-black shadow-md scale-105 ${endCalendarLocked ? 'cursor-not-allowed' : 'cursor-pointer'} `
                 : 'bg-green-600 text-white cursor-pointer font-black shadow-md scale-105 ';
@@ -743,7 +743,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     );
   };
 
-  // ── Validation ───────────────────────────────────────────────
+  // ΓöÇΓöÇ Validation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const steps = [
     { number: 1, label: 'Vehicle' }, { number: 2, label: 'Trip' },
     { number: 3, label: 'Details' }, { number: 4, label: 'Pay'  }, { number: 5, label: 'Confirm' },
@@ -760,7 +760,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return true;
   };
 
-  // Plain-language list of what's still missing for the current step — shown
+  // Plain-language list of what's still missing for the current step ΓÇö shown
   // next to the Next button live, so the customer never has to click first
   // (or guess) to find out why it's grayed out. Mirrors canProceed()'s checks
   // exactly, one item per thing that's blocking.
@@ -845,7 +845,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return Object.keys(e).length === 0;
   };
 
-  // ── Shared coding rule checker ─────────────────────────────
+  // ΓöÇΓöÇ Shared coding rule checker ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination, destinationCity }) => {
     if (!carID || !startDate || !startTime) return; // not enough info yet
     setCodingChecking(true);
@@ -861,14 +861,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           startDateTime:   startDT.toISOString(),
           endDateTime:     endDT ? endDT.toISOString() : null,
           destination:     destination || "",
-          // Exact structured city, when we have one (map-picked, not typed) —
+          // Exact structured city, when we have one (map-picked, not typed) ΓÇö
           // backend prefers this over the fuzzy substring match on destination.
           destinationCity: destinationCity || "",
         }),
       });
       const data = await res.json();
       if (data.holiday) {
-        // Holiday detected — coding rules are suspended, allow booking
+        // Holiday detected ΓÇö coding rules are suspended, allow booking
         setCodingError(""); 
         return false; // not blocked
       }
@@ -903,7 +903,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to create payment link.");
-      // Redirect to PayMongo checkout — paymentID in return URL so we can poll status
+      // Redirect to PayMongo checkout ΓÇö paymentID in return URL so we can poll status
       window.location.href = data.checkoutUrl + `?paymentID=${paymentID}`;
     } catch (err) {
       alert(err.message || "Could not connect to PayMongo. Please try again.");
@@ -918,14 +918,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       return;
     }
 
-    // ── Auth check — only when user tries to go past Step 1 ──
+    // ΓöÇΓöÇ Auth check ΓÇö only when user tries to go past Step 1 ΓöÇΓöÇ
     if (currentStep === 1 && !user) {
       setShowAuthModal(true);
       return;
     }
 
 
-    // ── Coding rule check when leaving Step 2 ────────────────
+    // ΓöÇΓöÇ Coding rule check when leaving Step 2 ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     if (currentStep === 2) {
       if (selectedCar?.carID && startDate && startTime) {
         const blocked = await runCodingCheck({
@@ -933,7 +933,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           startDate, startTime, endDate, endTime, destination,
           destinationCity: destinationCoords?.city || "",
         });
-        if (blocked) return; // stop — don't advance to step 3
+        if (blocked) return; // stop ΓÇö don't advance to step 3
       }
     }
 
@@ -942,7 +942,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       return;
     }
 
-    // Step 5 — submit booking to backend
+    // Step 5 ΓÇö submit booking to backend
     setLoading(true);
     try {
       // Convert screenshot to base64
@@ -969,25 +969,25 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           endTime,
           // NOTE: totalDays / rentalFee / extraFee / driversFee / serviceFee /
           // gatewayFee / grandTotal / depositFee / methodOfPayment are no
-          // longer sent — the backend recomputes every one of these itself
+          // longer sent ΓÇö the backend recomputes every one of these itself
           // (from the car's Firestore pricing + these dates/destination/
           // driveType) instead of trusting whatever the browser calculated.
           pickupLocation:  pickupLocation,
           dropoffLocation: dropoffLocation,
           destination,
           // Only set if the customer actually used the map picker for that
-          // field — backend skips geofencing for whichever ones are missing.
+          // field ΓÇö backend skips geofencing for whichever ones are missing.
           pickupLat:       pickupCoords?.lat      ?? null,
           pickupLng:       pickupCoords?.lng      ?? null,
           dropoffLat:      dropoffCoords?.lat     ?? null,
           dropoffLng:      dropoffCoords?.lng     ?? null,
           destinationLat:  destinationCoords?.lat ?? null,
           destinationLng:  destinationCoords?.lng ?? null,
-          // Structured city, when we have one — backend prefers this over
+          // Structured city, when we have one ΓÇö backend prefers this over
           // fuzzy substring-matching the address string for coding rules.
           pickupCity:      pickupCoords?.city      || "",
           destinationCity: destinationCoords?.city || "",
-          // Additional stop pins beyond the primary destination — only sent
+          // Additional stop pins beyond the primary destination ΓÇö only sent
           // for entries that actually have coordinates (map-picked, not just
           // typed text with no pin).
           extraDestinations: extraDestinations
@@ -1051,7 +1051,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); setErrors({});
   };
 
-  // ── Body types for filter ────────────────────────────────────
+  // ΓöÇΓöÇ Body types for filter ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const bodyTypes = useMemo(() => ['All', ...new Set(cars.map(c => c.bodyType).filter(Boolean))].sort(), [cars]);
 
   const filteredCars = useMemo(() => {
@@ -1064,7 +1064,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return r;
   }, [cars, carSearch, filterBody]);
 
-  // ─────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   return (
     <div className="min-h-screen bg-gradient-to-br from-arl-primary/10 to-arl-secondary/10 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -1100,7 +1100,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl border-2 border-arl-primary p-8 shadow-card">
 
-              {/* ══ STEP 1 — VEHICLE ═══════════════════════════════ */}
+              {/* ΓòÉΓòÉ STEP 1 ΓÇö VEHICLE ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
               <div ref={stepTopRef} />
               {currentStep === 1 && (
                 <div>
@@ -1108,8 +1108,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <p className="text-gray-500 text-sm mb-6">Select the car that suits your trip.</p>
                   <div className="flex flex-col sm:flex-row gap-3 mb-4">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-                      <input type="text" placeholder="Search by name or brand…" value={carSearch}
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">≡ƒöì</span>
+                      <input type="text" placeholder="Search by name or brandΓÇª" value={carSearch}
                         onChange={e => setCarSearch(e.target.value)}
                         className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm" />
                     </div>
@@ -1123,8 +1123,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       Showing <span className="font-semibold text-arl-primary">{filteredCars.length}</span> of <span className="font-semibold">{cars.length}</span> vehicles
                     </p>
                   )}
-                  {carsError  && <p className="text-red-400 text-sm mb-4">⚠ {carsError}</p>}
-                  {errors.vehicle && <p className="text-arl-cta text-sm mb-4">⚠ {errors.vehicle}</p>}
+                  {carsError  && <p className="text-red-400 text-sm mb-4">ΓÜá {carsError}</p>}
+                  {errors.vehicle && <p className="text-arl-cta text-sm mb-4">ΓÜá {errors.vehicle}</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-1">
                     {carsLoading
                       ? Array.from({length:6}).map((_,i) => <SkeletonCard key={i} />)
@@ -1134,13 +1134,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             selected={selectedCar?.carID === car.carID}
                             onSelect={handleCarSelect} />
                         ))
-                      : <div className="col-span-3 text-center py-12 text-gray-400"><p className="text-3xl mb-2">🔍</p><p className="text-sm">No vehicles found.</p></div>
+                      : <div className="col-span-3 text-center py-12 text-gray-400"><p className="text-3xl mb-2">≡ƒöì</p><p className="text-sm">No vehicles found.</p></div>
                     }
                   </div>
                 </div>
               )}
 
-              {/* ══ STEP 2 — TRIP DETAILS ══════════════════════════ */}
+              {/* ΓòÉΓòÉ STEP 2 ΓÇö TRIP DETAILS ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
               {currentStep === 2 && (
                 <div>
                   {/* Selected car banner */}
@@ -1148,11 +1148,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     <div className="flex items-center gap-4 bg-arl-primary/5 border border-arl-primary/20 rounded-xl p-4 mb-6">
                       {selectedCar.imageURL
                         ? <img src={selectedCar.imageURL} alt={selectedCar.name} className="w-20 h-14 object-cover rounded-lg" onError={e => e.target.style.display='none'} />
-                        : <div className="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">🚗</div>}
+                        : <div className="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">≡ƒÜù</div>}
                       <div>
                         <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Selected Vehicle</p>
                         <p className="text-lg font-black text-arl-primary">{selectedCar.name}</p>
-                        <p className="text-xs text-gray-500">{[selectedCar.bodyType, selectedCar.transmission, selectedCar.fuelType].filter(Boolean).join(' · ')}</p>
+                        <p className="text-xs text-gray-500">{[selectedCar.bodyType, selectedCar.transmission, selectedCar.fuelType].filter(Boolean).join(' ┬╖ ')}</p>
                       </div>
                     </div>
                   )}
@@ -1163,7 +1163,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* Draft restored notice */}
                   {(duration || startDate || startTime || destination) && (
                     <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 text-sm">
-                      <span className="text-lg">💾</span>
+                      <span className="text-lg">≡ƒÆ╛</span>
                       <span className="text-green-700 font-medium">Your previous selections were restored. You can change them below.</span>
                       <button
                         type="button"
@@ -1173,11 +1173,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                   )}
 
-                  {/* Service type — from Firestore */}
+                  {/* Service type ΓÇö from Firestore */}
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-arl-dark mb-3">Service Type</label>
                     {serviceTypesLoading
-                      ? <div className="text-sm text-gray-400 animate-pulse">Loading services…</div>
+                      ? <div className="text-sm text-gray-400 animate-pulse">Loading servicesΓÇª</div>
                       : (
                         <>
                           <div className="grid grid-cols-2 gap-3">
@@ -1204,7 +1204,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             <div className="mt-3">
                               <input
                                 type="text"
-                                placeholder="Please describe your service…"
+                                placeholder="Please describe your serviceΓÇª"
                                 value={otherServiceNote}
                                 onChange={e => setOtherServiceNote(e.target.value)}
                                 className="w-full px-4 py-3 rounded-xl border-2 border-arl-secondary bg-blue-50 text-sm text-arl-dark placeholder-gray-400 focus:outline-none focus:border-arl-primary transition-colors"
@@ -1217,7 +1217,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     {errors.serviceType && <p className="text-arl-cta text-xs mt-2">{errors.serviceType}</p>}
                   </div>
 
-                  {/* Duration — from car's pricing */}
+                  {/* Duration ΓÇö from car's pricing */}
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-arl-dark mb-3">Duration per Day</label>
                     {pricingOptions.length > 0 ? (
@@ -1228,7 +1228,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             className={`px-4 py-4 rounded-xl border-2 text-left transition-colors ${
                               duration === p.durationType ? 'border-arl-secondary bg-blue-50' : 'border-gray-300 hover:border-arl-primary'}`}>
                             <div className="text-base font-bold text-arl-dark">{p.durationType} / day</div>
-                            <div className="text-arl-cta text-xl font-black mt-1">₱{Number(p.price).toLocaleString()}</div>
+                            <div className="text-arl-cta text-xl font-black mt-1">Γé▒{Number(p.price).toLocaleString()}</div>
                             <div className="text-xs text-gray-400 mt-1">
                               {p.durationType === '12 Hours'
                                 ? 'End time auto-calculated.'
@@ -1241,7 +1241,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     {errors.duration && <p className="text-arl-cta text-xs mt-2">{errors.duration}</p>}
                   </div>
 
-                  {/* ── LOCATIONS — always visible ── */}
+                  {/* ΓöÇΓöÇ LOCATIONS ΓÇö always visible ΓöÇΓöÇ */}
                   <div className="space-y-4 mb-6">
                     {STORE_CONFIGURED && (
                       <div className="flex items-center gap-2">
@@ -1253,7 +1253,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           className="w-4 h-4 accent-arl-primary rounded"
                         />
                         <label htmlFor="pickupInStore" className="text-xs font-semibold text-gray-600">
-                          🏬 Pick up in-store — {STORE_LABEL}
+                          ≡ƒÅ¼ Pick up in-store ΓÇö {STORE_LABEL}
                         </label>
                       </div>
                     )}
@@ -1263,7 +1263,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       value={pickupLocation}
                       onValueChange={setPickupLocation}
                       onCoordsChange={setPickupCoords}
-                      placeholder="Enter pick-up location…"
+                      placeholder="Enter pick-up locationΓÇª"
                       disabled={pickupInStore}
                       restrictToServiceArea
                       coords={pickupCoords}
@@ -1297,7 +1297,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       value={destination}
                       onValueChange={(v) => { setDestination(v); setCodingError(''); }}
                       onCoordsChange={setDestinationCoords}
-                      placeholder="Search for a destination…"
+                      placeholder="Search for a destinationΓÇª"
                     />
                     {errors.destination && <p className="text-arl-cta text-xs mt-1">{errors.destination}</p>}
 
@@ -1308,7 +1308,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           value={d.address}
                           onValueChange={(v) => updateExtraDestinationAddress(d.id, v)}
                           onCoordsChange={(c) => updateExtraDestinationCoords(d.id, c)}
-                          placeholder="Search for another stop…"
+                          placeholder="Search for another stopΓÇª"
                         />
                         <button
                           type="button"
@@ -1326,7 +1326,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </button>
                   </div>
 
-                  {/* ── CALENDAR ── */}
+                  {/* ΓöÇΓöÇ CALENDAR ΓöÇΓöÇ */}
                   {duration && (
                     <div className="mb-6">
                       <label className="block text-sm font-semibold text-arl-dark mb-1">
@@ -1335,7 +1335,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <p className="text-xs text-gray-500 mb-3">
                         {duration === '22 Hours'
                           ? (startDate && endDate)
-                            ? `${fmt(startDate)} → ${fmt(endDate)} · ${days} day(s) billed`
+                            ? `${fmt(startDate)} ΓåÆ ${fmt(endDate)} ┬╖ ${days} day(s) billed`
                             : 'Left calendar picks your start date, right calendar picks your end date.'
                           : 'Click any available date. End time auto-calculated.'
                         }
@@ -1347,7 +1347,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                   )}
 
-                  {/* ── TIME PICKER ── */}
+                  {/* ΓöÇΓöÇ TIME PICKER ΓöÇΓöÇ */}
                   {duration && (
                     <div className="mb-6">
                       <label className="block text-sm font-semibold text-arl-dark mb-1">Pickup Time</label>
@@ -1359,7 +1359,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         onChange={e => handleStartTimeChange(e.target.value)}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm text-gray-700 bg-white focus:border-arl-primary focus:outline-none cursor-pointer"
                       >
-                        <option value="" disabled>Select a time…</option>
+                        <option value="" disabled>Select a timeΓÇª</option>
                         {Array.from({length:24},(_,h)=>h).flatMap(h =>
                           ['00','15','30','45'].map(m => {
                             const val = `${String(h).padStart(2,'0')}:${m}`;
@@ -1374,23 +1374,23 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       {/* Auto-end banner */}
                       {duration === '12 Hours' && startDate && startTime && endDate && endTime && (
                         <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center gap-4">
-                          <span className="text-2xl">🏁</span>
+                          <span className="text-2xl">≡ƒÅü</span>
                           <div>
                             <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (12 hrs)</p>
                             <p className="text-base font-black text-green-700">{fmt(endDate)}</p>
                             <p className="text-sm text-green-600">{(() => { const [h,m]=endTime.split(':').map(Number); const ampm=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ampm}`; })()}</p>
-                            <p className="text-xs text-green-500 mt-1">{days} day(s) · ₱{total.toLocaleString()}</p>
+                            <p className="text-xs text-green-500 mt-1">{days} day(s) ┬╖ Γé▒{total.toLocaleString()}</p>
                           </div>
                         </div>
                       )}
                       {duration === '22 Hours' && startDate && startTime && endDate && endTime && (
                         <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center gap-4">
-                          <span className="text-2xl">🏁</span>
+                          <span className="text-2xl">≡ƒÅü</span>
                           <div>
                             <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (22 hrs)</p>
-                            <p className="text-xs text-green-500">{fmt(startDate)} →</p>
+                            <p className="text-xs text-green-500">{fmt(startDate)} ΓåÆ</p>
                             <p className="text-base font-black text-green-700">{fmt(endDate)} {(() => { const [h,m]=endTime.split(':').map(Number); const ampm=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ampm}`; })()}</p>
-                            <p className="text-xs text-green-500 mt-1">{diffHrs > 0 ? `${diffHrs.toFixed(0)}h · ${days} day(s) · ₱${total.toLocaleString()}` : ''}</p>
+                            <p className="text-xs text-green-500 mt-1">{diffHrs > 0 ? `${diffHrs.toFixed(0)}h ┬╖ ${days} day(s) ┬╖ Γé▒${total.toLocaleString()}` : ''}</p>
                           </div>
                         </div>
                       )}
@@ -1410,10 +1410,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     ))}
                   </div>
 
-                  {/* ── Number Coding error ── */}
+                  {/* ΓöÇΓöÇ Number Coding error ΓöÇΓöÇ */}
                   {codingError && (
                     <div className="mt-6 flex gap-3 items-start bg-red-50 border-2 border-red-300 rounded-2xl p-4">
-                      <span className="text-2xl flex-shrink-0">🚫</span>
+                      <span className="text-2xl flex-shrink-0">≡ƒÜ½</span>
                       <div>
                         <p className="text-sm font-black text-red-700 mb-1">Number Coding Restriction</p>
                         <p className="text-sm text-red-600">{codingError}</p>
@@ -1424,7 +1424,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 </div>
               )}
 
-              {/* ══ STEP 3 — PERSONAL DETAILS ═══════════════════════ */}
+              {/* ΓòÉΓòÉ STEP 3 ΓÇö PERSONAL DETAILS ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
               {currentStep === 3 && (
                 <div>
                   <h3 className="text-2xl font-bold text-arl-dark mb-2">Your Information</h3>
@@ -1466,7 +1466,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         const checked = e.target.checked;
                         setRememberName(checked);
                         if (checked) {
-                          // firstName/lastName saved to backend below — no localStorage needed
+                          // firstName/lastName saved to backend below ΓÇö no localStorage needed
                           // Also save to DB if logged in
                           if (user?.userID && (firstName || lastName)) {
                             const token = localStorage.getItem("arl_token");
@@ -1492,7 +1492,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </label>
                   </div>
 
-                  {/* Contact — read-only if logged in */}
+                  {/* Contact ΓÇö read-only if logged in */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-2">Contact Number</label>
@@ -1527,7 +1527,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       )}
                     </div>
 
-                    {/* Email — read-only if logged in */}
+                    {/* Email ΓÇö read-only if logged in */}
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-2">Email</label>
                       {user ? (
@@ -1569,7 +1569,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 </div>
               )}
 
-              {/* ══ STEP 4 — PAYMENT ════════════════════════════════ */}
+              {/* ΓòÉΓòÉ STEP 4 ΓÇö PAYMENT ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
               {currentStep === 4 && (
                 <div>
                   <h3 className="text-2xl font-bold text-arl-dark mb-2">Payment</h3>
@@ -1578,24 +1578,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* Amount options */}
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     {[
-                      { key:'partial', label:'Partial (50%)', amount: Math.floor(grandTotal*0.5), note: `Balance ₱${Math.ceil(grandTotal*0.5).toLocaleString()} on pickup.` },
+                      { key:'partial', label:'Partial (50%)', amount: Math.floor(grandTotal*0.5), note: `Balance Γé▒${Math.ceil(grandTotal*0.5).toLocaleString()} on pickup.` },
                       { key:'full',    label:'Full Payment',  amount: grandTotal,                 note: 'No balance on pickup.' },
                     ].map(({ key, label, amount, note }) => (
                       <button key={key} type="button"
                         onClick={() => setPaymentAmount(key)}
                         className={`p-4 rounded-xl border-2 text-left transition-colors ${paymentAmount === key ? 'border-arl-secondary bg-blue-50' : 'border-gray-300 hover:border-arl-primary'}`}>
                         <div className="text-sm font-medium mb-1">{label}</div>
-                        <div className="text-arl-cta text-xl font-black">₱{Number(amount).toLocaleString()}</div>
+                        <div className="text-arl-cta text-xl font-black">Γé▒{Number(amount).toLocaleString()}</div>
                         <div className="text-xs text-gray-500 mt-1">{note}</div>
                       </button>
                     ))}
                   </div>
 
                   <div className="bg-blue-50 text-sm text-arl-primary p-3 rounded-lg mb-6">
-                    Remaining balance on pickup: <strong>₱{getBalance().toLocaleString()}</strong>
+                    Remaining balance on pickup: <strong>Γé▒{getBalance().toLocaleString()}</strong>
                   </div>
 
-                  {/* Payment method — GCash, Maya, and PayMongo */}
+                  {/* Payment method ΓÇö GCash, Maya, and PayMongo */}
                   <label className="block text-sm font-semibold text-arl-dark mb-3">Payment Method</label>
                   <div className="grid grid-cols-3 gap-4 mb-6">
                     {[
@@ -1616,11 +1616,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     ))}
                   </div>
 
-                  {/* Manual ref + screenshot — only shown for non-PayMongo methods */}
+                  {/* Manual ref + screenshot ΓÇö only shown for non-PayMongo methods */}
                   {!isPaymongoMethod(paymentMethod) && (
                   <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 space-y-4">
                     <p className="text-sm text-gray-600">
-                      Send <strong>₱{getPayNow().toLocaleString()}</strong> to our {paymentMethod === 'gcash' ? 'GCash' : 'Maya'} number first, then fill in the details below.
+                      Send <strong>Γé▒{getPayNow().toLocaleString()}</strong> to our {paymentMethod === 'gcash' ? 'GCash' : 'Maya'} number first, then fill in the details below.
                     </p>
 
                     {/* Reference number */}
@@ -1636,7 +1636,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm font-mono"
                       />
                       {errors.gcashReference && (
-                        <p className="text-arl-cta text-xs mt-1">⛔ {errors.gcashReference}</p>
+                        <p className="text-arl-cta text-xs mt-1">Γ¢ö {errors.gcashReference}</p>
                       )}
                     </div>
 
@@ -1648,7 +1648,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                       {!screenshotPreview ? (
                         <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-arl-primary hover:bg-arl-primary/5 transition-all group">
-                          <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">📸</div>
+                          <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">≡ƒô╕</div>
                           <p className="text-sm font-semibold text-gray-500 group-hover:text-arl-primary">
                             Click to upload screenshot
                           </p>
@@ -1679,14 +1679,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           />
                           <div className="absolute top-2 right-2 flex gap-2">
                             <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                              ✓ Uploaded
+                              Γ£ô Uploaded
                             </span>
                             <button
                               type="button"
                               onClick={() => { setPaymentScreenshot(null); setScreenshotPreview(''); }}
                               className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full hover:bg-red-600 transition"
                             >
-                              ✕ Remove
+                              Γ£ò Remove
                             </button>
                           </div>
                           <p className="text-xs text-gray-400 mt-2 text-center">
@@ -1695,7 +1695,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         </div>
                       )}
                       {errors.paymentScreenshot && (
-                        <p className="text-arl-cta text-xs mt-1">⛔ {errors.paymentScreenshot}</p>
+                        <p className="text-arl-cta text-xs mt-1">Γ¢ö {errors.paymentScreenshot}</p>
                       )}
                     </div>
                   </div>
@@ -1703,7 +1703,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 </div>
               )}
 
-              {/* ══ STEP 5 — REVIEW ═════════════════════════════════ */}
+              {/* ΓòÉΓòÉ STEP 5 ΓÇö REVIEW ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
               {currentStep === 5 && (
                 <div>
                   <h3 className="text-2xl font-bold text-arl-dark mb-2">Review & Confirm</h3>
@@ -1719,7 +1719,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <div className="space-y-0">
                     {[
                       ['Vehicle',       selectedCar?.name],
-                      ['Type',          [selectedCar?.bodyType, selectedCar?.transmission, selectedCar?.fuelType].filter(Boolean).join(' · ')],
+                      ['Type',          [selectedCar?.bodyType, selectedCar?.transmission, selectedCar?.fuelType].filter(Boolean).join(' ┬╖ ')],
                       ['Service',       serviceType],
                       ['Duration',      duration ? `${duration}/day` : '-'],
                       ['Start',         `${fmt(startDate)} ${fmt12(startTime)}`],
@@ -1732,17 +1732,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Passenger',     `${firstName} ${lastName}`],
                       ['Contact',       contact],
                       ['Email',         email],
-                      ['Rental Fee',    `₱${total.toLocaleString()}`],
-                      ...(extraFee > 0   ? [['Extra Fee (Outside Area)', `₱${extraFee.toLocaleString()}`]] : []),
-                      ...(driversFee > 0 ? [["Driver's Fee",             `₱${driversFee.toLocaleString()}`]] : []),
-                      ['Service Fee',   `₱${serviceFee.toLocaleString()}`],
-                      ['Gateway Fee',   `₱${gatewayFee.toLocaleString()}`],
-                      ['Total Fee',     `₱${grandTotal.toLocaleString()}`],
+                      ['Rental Fee',    `Γé▒${total.toLocaleString()}`],
+                      ...(extraFee > 0   ? [['Extra Fee (Outside Area)', `Γé▒${extraFee.toLocaleString()}`]] : []),
+                      ...(driversFee > 0 ? [["Driver's Fee",             `Γé▒${driversFee.toLocaleString()}`]] : []),
+                      ['Service Fee',   `Γé▒${serviceFee.toLocaleString()}`],
+                      ['Gateway Fee',   `Γé▒${gatewayFee.toLocaleString()}`],
+                      ['Total Fee',     `Γé▒${grandTotal.toLocaleString()}`],
                       ['Payment Type',  getMethodOfPayment()],
-                      ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
+                      ['Pay Now',       `Γé▒${getPayNow().toLocaleString()} (${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
                       ['Ref. Number',   gcashReference || '-'],
                       ['Screenshot',    paymentScreenshot?.name || '-'],
-                      ['Balance',       `₱${getBalance().toLocaleString()} on pickup`],
+                      ['Balance',       `Γé▒${getBalance().toLocaleString()} on pickup`],
                     ].map(([label, value]) => (
                       <div key={label} className="grid grid-cols-2 py-3 border-b border-gray-100">
                         <div className="font-medium text-arl-dark">{label}</div>
@@ -1765,9 +1765,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     className={`px-8 py-3 rounded-full font-medium transition flex items-center gap-2 ${
                       (canProceed() && !codingChecking) ? 'bg-arl-cta text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
                     {currentStep === 5
-                      ? (loading ? 'Submitting…' : 'Confirm Booking')
+                      ? (loading ? 'SubmittingΓÇª' : 'Confirm Booking')
                       : codingChecking
-                      ? 'Checking coding…'
+                      ? 'Checking codingΓÇª'
                       : 'Next'}
                     {currentStep < 5 && !codingChecking && <ChevronRight size={20} />}
                   </button>
@@ -1779,7 +1779,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             </div>
           </div>
 
-          {/* ── Sidebar ── */}
+          {/* ΓöÇΓöÇ Sidebar ΓöÇΓöÇ */}
           <div className="lg:col-span-1">
             <div className="bg-arl-light rounded-2xl border-2 border-arl-secondary p-6 shadow-soft sticky top-4">
               <h3 className="text-arl-cta text-xl font-bold mb-4">BOOKING SUMMARY</h3>
@@ -1799,7 +1799,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   ['Hire',       driveType === 'self-drive' ? 'Self-Drive' : 'With Chauffeur'],
                   ['Destination', destination || '-'],
                   ['Passenger',  firstName && lastName ? `${firstName} ${lastName}` : '-'],
-                  ['Payment',    `${paymentAmount} — ${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
+                  ['Payment',    `${paymentAmount} ΓÇö ${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between">
                     <span className="font-medium text-arl-dark">{label}</span>
@@ -1809,9 +1809,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               </div>
               <div className="border-t-2 border-arl-primary my-4" />
               <div className="text-arl-cta text-3xl font-black mb-1">
-                {quoteLoading ? <span className="text-lg text-gray-400 font-medium">Computing…</span> : `₱${grandTotal.toLocaleString()}`}
+                {quoteLoading ? <span className="text-lg text-gray-400 font-medium">ComputingΓÇª</span> : `Γé▒${grandTotal.toLocaleString()}`}
               </div>
-              <div className="text-sm text-arl-dark">Pay now: <span className="font-bold">₱{getPayNow().toLocaleString()}</span></div>
+              <div className="text-sm text-arl-dark">Pay now: <span className="font-bold">Γé▒{getPayNow().toLocaleString()}</span></div>
             </div>
           </div>
         </div>
@@ -1869,11 +1869,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               </div>
               <div>
                 <p className="text-xs text-gray-400">Total Fee</p>
-                <p className="text-sm font-black text-arl-cta">₱{grandTotal.toLocaleString()}</p>
+                <p className="text-sm font-black text-arl-cta">Γé▒{grandTotal.toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-400">Status</p>
-                <p className="text-sm font-semibold text-yellow-600">⏳ Pending Approval</p>
+                <p className="text-sm font-semibold text-yellow-600">ΓÅ│ Pending Approval</p>
               </div>
             </div>
             <button onClick={resetBooking}
@@ -1888,3 +1888,4 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 };
 
 export default BookingPage;
+
