@@ -1214,6 +1214,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
       )}
     </>
   );
+  
 };
 
 export default SignUpModal;
