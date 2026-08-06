@@ -1724,7 +1724,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Payment Type',  getMethodOfPayment()],
                       ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
                       ['Ref. Number',   gcashReference || '-'],
-                      ['Screenshot',    paymentScreenshot?.name || '-'],
                       ['Balance',       `₱${getBalance().toLocaleString()} on pickup`],
                     ].map(([label, value]) => (
                       <div key={label} className="grid grid-cols-2 py-3 border-b border-gray-100">
