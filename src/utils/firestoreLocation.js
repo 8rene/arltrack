@@ -43,3 +43,13 @@ export const fetchBarangays = (municipalityID) =>
         `${BASE_URL}/barangays?municipalityID=${municipalityID}`
       )
     : Promise.resolve([]);
+
+/** Look up the postal code for a given municipality/city name (best-effort). */
+export const fetchPostalCode = (municipalityName) =>
+  municipalityName
+    ? fetchCached(
+        `postalcode_${municipalityName}`,
+        `${BASE_URL}/postal-code?municipality=${encodeURIComponent(municipalityName)}`
+      )
+    : Promise.resolve({ postalCode: "", found: false });
+    

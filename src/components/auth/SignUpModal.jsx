@@ -24,6 +24,7 @@ import {
   fetchProvinces,
   fetchMunicipalities,
   fetchBarangays,
+  fetchPostalCode,
 } from "../../utils/firestoreLocation";
 import TandC from "../shared/TandC";
 
@@ -541,13 +542,28 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
   const [selMun,     setSelMun]     = useState(null);
   const [selBar,     setSelBar]     = useState(null);
   const [street,     setStreet]     = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [postalCodeTouched, setPostalCodeTouched] = useState(false); // true once user edits it manually
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms,     setShowTerms]     = useState(false);
   const [addrErr,       setAddrErr]       = useState("");
 
+  // ARL only operates within these regions — everything else is hidden from
+  // registration so people can't pick an address we don't service.
+  const SERVICE_REGIONS = [
+    "Cordillera Administrative Region (CAR)",
+    "National Capital Region (NCR)",
+    "Region II (Cagayan Valley)",
+    "Region III (Central Luzon)",
+    "Region IV-A (CALABARZON)",
+  ];
+
   useEffect(() => {
     setLoadingReg(true);
-    fetchRegions().then(setRegions).catch(console.error).finally(() => setLoadingReg(false));
+    fetchRegions()
+      .then((all) => setRegions(all.filter((r) => SERVICE_REGIONS.includes(r.regionName))))
+      .catch(console.error)
+      .finally(() => setLoadingReg(false));
   }, []);
 
   useEffect(() => {
@@ -570,6 +586,16 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
     setBarangays([]); setSelBar(null);
     fetchBarangays(selMun.municipalityID).then(setBarangays).catch(console.error).finally(() => setLoadingBar(false));
   }, [selMun]);
+
+  // Best-effort postal code suggestion once a Municipality/City is picked.
+  // Never overrides a value the user already typed themselves.
+  useEffect(() => {
+    if (!selMun) return;
+    if (postalCodeTouched) return;
+    fetchPostalCode(selMun.municipalityName)
+      .then((res) => { if (res?.found && !postalCodeTouched) setPostalCode(res.postalCode); })
+      .catch(() => {}); // silent — postal code stays optional/manual on failure
+  }, [selMun, postalCodeTouched]);
 
   const handleRegion = useCallback((e) => setSelRegion(regions.find((r) => r.regionID === e.target.value) || null), [regions]);
   const handleProv   = useCallback((e) => setSelProv(provinces.find((p) => p.provinceID === e.target.value) || null), [provinces]);
@@ -639,6 +665,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
           municipality: selMun?.municipalityName || "",
           barangay:     selBar?.barangayName     || "",
           street:       street.trim(),
+          postalCode:   postalCode.trim(),
         },
         // Step 3 — documents (base64 images — backend uploads to Storage)
         documentType:         s3.govIdType,
@@ -1007,6 +1034,19 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     <option value="">{loadingBar ? "Loading…" : selMun ? "— Select Barangay —" : "— Select a municipality first —"}</option>
                     {barangays.map((b) => <option key={b.barangayID} value={b.barangayID}>{b.barangayName}</option>)}
                   </select>
+                </div>
+
+                <div>
+                  <label className={labelCls}>Postal Code <span className="font-normal text-gray-400">(optional)</span></label>
+                  <input type="text" inputMode="numeric" maxLength={4} className={inputCls} placeholder="e.g. 3018"
+                    value={postalCode}
+                    onChange={(e) => {
+                      setPostalCodeTouched(true);
+                      setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 4));
+                    }} />
+                  {!postalCodeTouched && postalCode && (
+                    <p className="text-xs text-gray-400 mt-1">Auto-filled based on your municipality — feel free to correct it.</p>
+                  )}
                 </div>
 
                 <div>
