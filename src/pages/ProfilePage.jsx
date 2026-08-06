@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { storage } from "../firebase";
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 // ─────────────────────────────────────────────────────────────
 // HELPERS
@@ -187,8 +185,8 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="flex items-center gap-4 p-6 border-b border-gray-100 bg-gray-50">
           <div className="w-14 h-11 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
-            {booking.carImage
-              ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
+            {booking.imageURL
+              ? <img src={booking.imageURL} alt={booking.carName} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-xl">🚗</div>}
           </div>
           <div className="flex-1 min-w-0">
@@ -315,8 +313,8 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved, onCancelled }) => {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition overflow-hidden">
         <div className="flex gap-4 p-5">
           <div className="w-28 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-            {booking.carImage
-              ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
+            {booking.imageURL
+              ? <img src={booking.imageURL} alt={booking.carName} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">🚗</div>}
           </div>
           <div className="flex-1 min-w-0">
@@ -510,15 +508,12 @@ const ReviewsTab = ({ user, navigate }) => {
 // ─────────────────────────────────────────────────────────────
 const ProfilePage = ({ user }) => {
   const navigate   = useNavigate();
-  const fileRef    = useRef(null);
   const [activeTab, setActiveTab] = useState("profile");
 
   const [profile,      setProfile]      = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState("");
   const [avatarURL,    setAvatarURL]    = useState("");
-  const [uploading,    setUploading]    = useState(false);
-  const [uploadError,  setUploadError]  = useState("");
 
   // Flat field state (for display/EditableField)
   const [firstName,    setFirstName]    = useState("");
@@ -597,57 +592,10 @@ const ProfilePage = ({ user }) => {
     if (setters[field]) setters[field](value);
   };
 
-  // Profile photo upload
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { setUploadError("Please select an image file."); return; }
-    if (file.size > 5 * 1024 * 1024)    { setUploadError("Image must be under 5MB.");       return; }
-    setUploading(true); setUploadError("");
-    try {
-      const token = localStorage.getItem("arl_token");
-
-      // 1. Convert file to base64
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = () => resolve(reader.result.split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // 2. Upload to Firebase Storage directly from frontend
-      const storageRef   = ref(storage, `avatars/${user.userID}`);
-      await uploadString(storageRef, base64, "base64", { contentType: file.type });
-      const profileImage = await getDownloadURL(storageRef);
-
-      // 3. Send URL to backend — JSON body, not FormData
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/user/profile/${user.userID}/avatar`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ profileImage }),
-      });
-      if (!res.ok) throw new Error("Upload failed.");
-      const data = await res.json();
-      setAvatarURL(data.profileImage || profileImage);
-      setProfile(prev => ({ ...prev, profileImage: data.profileImage || profileImage }));
-    } catch (err) {
-      // Fallback: show local preview even if server upload fails
-      setAvatarURL(URL.createObjectURL(file));
-      setUploadError("Could not save to server, showing preview only.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   // Postal code — use value from Firestore directly (saved during registration/profile update)
   const derivedPostalCode = postalCode;
 
   if (!user?.userID) return null;
-
-  const TABS = [
-    { key: "profile", label: "My Profile", icon: "👤" },
-    { key: "reviews", label: "My Reviews",  icon: "⭐" },
-  ];
 
   // Initials fallback for avatar
   const initials = `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "?";
@@ -658,34 +606,16 @@ const ProfilePage = ({ user }) => {
 
         {/* Page header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-black text-arl-primary tracking-tight">
-            {activeTab === "profile" ? "My Profile" : "My Reviews"}
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {activeTab === "profile" ? "View and update your personal information" : "Rate and review the vehicles you've booked"}
-          </p>
+          <h1 className="text-3xl font-black text-arl-primary tracking-tight">My Profile</h1>
+          <p className="text-gray-500 text-sm mt-1">View and update your personal information</p>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex gap-1 mb-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 w-fit">
-          {TABS.map(({ key, label, icon }) => (
-            <button key={key} onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === key
-                  ? "bg-arl-primary text-white shadow"
-                  : "text-gray-500 hover:text-arl-primary hover:bg-gray-50"
-              }`}>
-              <span>{icon}</span> {label}
-            </button>
-          ))}
-        </div>
-
-        {error && activeTab === "profile" && (
+        {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">⛔ {error}</div>
         )}
 
-        {/* ── PROFILE TAB ── */}
-        {activeTab === "profile" && (
+        {/* ── PROFILE ── */}
+        {(
           <>
             {loading ? (
               <div className="space-y-6">
@@ -702,45 +632,20 @@ const ProfilePage = ({ user }) => {
             ) : (
               <div className="space-y-6">
 
-                {/* ── Profile Photo ── */}
+                {/* ── Profile Photo (view only) ── */}
                 <Section title="Profile Photo" icon="📷">
                   <div className="flex items-center gap-6">
                     {/* Avatar */}
-                    <div className="relative flex-shrink-0">
-                      <div className="w-24 h-24 rounded-full overflow-hidden bg-arl-primary/10 border-4 border-white shadow-md flex items-center justify-center">
-                        {avatarURL
-                          ? <img src={avatarURL} alt="Profile" className="w-full h-full object-cover" onError={() => setAvatarURL("")} />
-                          : <span className="text-2xl font-black text-arl-primary">{initials}</span>
-                        }
-                      </div>
-                      {/* Upload button overlay */}
-                      <button
-                        onClick={() => fileRef.current?.click()}
-                        disabled={uploading}
-                        className="absolute bottom-0 right-0 w-7 h-7 bg-arl-primary text-white rounded-full flex items-center justify-center shadow hover:bg-arl-secondary transition disabled:opacity-60"
-                        title="Change photo">
-                        {uploading
-                          ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                          : <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
-                        }
-                      </button>
-                      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                    <div className="w-24 h-24 rounded-full overflow-hidden bg-arl-primary/10 border-4 border-white shadow-md flex items-center justify-center flex-shrink-0">
+                      {avatarURL
+                        ? <img src={avatarURL} alt="Profile" className="w-full h-full object-cover" onError={() => setAvatarURL("")} />
+                        : <span className="text-2xl font-black text-arl-primary">{initials}</span>
+                      }
                     </div>
                     {/* Info */}
                     <div>
                       <p className="font-bold text-gray-700">{firstName} {lastName}</p>
                       <p className="text-sm text-gray-400 mt-0.5">{email}</p>
-                      <button
-                        onClick={() => fileRef.current?.click()}
-                        disabled={uploading}
-                        className="mt-3 px-4 py-2 bg-arl-primary/10 text-arl-primary text-xs font-bold rounded-full hover:bg-arl-primary/20 transition disabled:opacity-60">
-                        {uploading ? "Uploading…" : "Upload new photo"}
-                      </button>
-                      {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
-                      <p className="text-xs text-gray-400 mt-1">JPG, PNG or WEBP · Max 5MB</p>
                     </div>
                   </div>
                 </Section>
@@ -823,11 +728,6 @@ const ProfilePage = ({ user }) => {
               </div>
             )}
           </>
-        )}
-
-        {/* ── REVIEWS TAB ── */}
-        {activeTab === "reviews" && (
-          <ReviewsTab user={user} navigate={navigate} />
         )}
 
       </div>
