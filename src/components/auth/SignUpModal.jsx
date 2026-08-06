@@ -548,22 +548,9 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
   const [showTerms,     setShowTerms]     = useState(false);
   const [addrErr,       setAddrErr]       = useState("");
 
-  // ARL only operates within these regions — everything else is hidden from
-  // registration so people can't pick an address we don't service.
-  const SERVICE_REGIONS = [
-    "Cordillera Administrative Region (CAR)",
-    "National Capital Region (NCR)",
-    "Region II (Cagayan Valley)",
-    "Region III (Central Luzon)",
-    "Region IV-A (CALABARZON)",
-  ];
-
   useEffect(() => {
     setLoadingReg(true);
-    fetchRegions()
-      .then((all) => setRegions(all.filter((r) => SERVICE_REGIONS.includes(r.regionName))))
-      .catch(console.error)
-      .finally(() => setLoadingReg(false));
+    fetchRegions().then(setRegions).catch(console.error).finally(() => setLoadingReg(false));
   }, []);
 
   useEffect(() => {
