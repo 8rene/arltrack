@@ -1176,18 +1176,6 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                 </button>
               </div>
             )}
-
-            {/* ⚠️ DEV ONLY — bypasses whichever step's validation so you can test
-                later steps without filling everything out. For Step 3 (Documents)
-                this skips straight to Step 4 without actually sending an OTP, so
-                the Verify screen won't have a real code to check against.
-                Remove this button before shipping to prod. */}
-            {step < 4 && (
-              <button type="button" onClick={() => { setAddrErr(""); setStep((s) => s + 1); }}
-                className="w-full text-center text-xs text-gray-400 hover:text-arl-secondary underline mt-3">
-                Skip (dev only) →
-              </button>
-            )}
           </form>
 
           {step < 4 && (
