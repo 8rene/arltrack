@@ -187,8 +187,8 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="flex items-center gap-4 p-6 border-b border-gray-100 bg-gray-50">
           <div className="w-14 h-11 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
-            {booking.imageURL
-              ? <img src={booking.imageURL} alt={booking.carName} className="w-full h-full object-cover" />
+            {booking.carImage
+              ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-xl">🚗</div>}
           </div>
           <div className="flex-1 min-w-0">
@@ -315,8 +315,8 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved, onCancelled }) => {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition overflow-hidden">
         <div className="flex gap-4 p-5">
           <div className="w-28 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-            {booking.imageURL
-              ? <img src={booking.imageURL} alt={booking.carName} className="w-full h-full object-cover" />
+            {booking.carImage
+              ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">🚗</div>}
           </div>
           <div className="flex-1 min-w-0">
