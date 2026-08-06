@@ -473,6 +473,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
 const EMPTY_STATE_COPY = {
   upcoming: { icon: "📅", title: "No upcoming bookings",  body: "Book a ride to see it here." },
   ongoing:  { icon: "🚗", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
+  refunds:  { icon: "💸", title: "No refund requests",     body: "Bookings you've requested a refund for will show up here." },
   history:  { icon: "📜", title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
 };
 
@@ -552,8 +553,13 @@ const MyBookings = ({ user }) => {
 
   const upcoming  = bookings.filter(b => b.status === "upcoming");
   const ongoing   = bookings.filter(b => b.status === "ongoing");
+  const refunded  = bookings.filter(b => b.payment?.paymentID && findActiveRefund(b.payment.paymentID));
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
-  const displayed = activeTab === "upcoming" ? upcoming : activeTab === "ongoing" ? ongoing : history;
+  const displayed =
+    activeTab === "upcoming" ? upcoming :
+    activeTab === "ongoing"  ? ongoing  :
+    activeTab === "refunds"  ? refunded :
+    history;
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-16">
@@ -568,6 +574,7 @@ const MyBookings = ({ user }) => {
           {[
             { key: "upcoming", label: "Upcoming", count: upcoming.length, icon: "📅" },
             { key: "ongoing",  label: "Ongoing",  count: ongoing.length,  icon: "🚗" },
+            { key: "refunds",  label: "Refunds",  count: refunded.length, icon: "💸" },
             { key: "history",  label: "History",  count: history.length,  icon: "📜" },
           ].map(({ key, label, count, icon }) => (
             <button key={key} onClick={() => setActiveTab(key)}
@@ -590,6 +597,8 @@ const MyBookings = ({ user }) => {
             ? "Upcoming — You can cancel bookings before they start."
             : activeTab === "ongoing"
             ? "Your trip is currently active."
+            : activeTab === "refunds"
+            ? "Bookings with an active or past refund request."
             : "Cancelled & Completed — Use Rebook to book the same car again."}
         </p>
 
