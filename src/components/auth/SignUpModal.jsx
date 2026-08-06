@@ -1040,15 +1040,16 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>Postal Code <span className="font-normal text-gray-400">(optional)</span></label>
+                  <label className={labelCls}>Postal Code</label>
                   <input type="text" inputMode="numeric" maxLength={4} className={inputCls} placeholder="e.g. 3018"
                     value={postalCode}
+                    disabled={!postalCodeTouched && !!postalCode}
                     onChange={(e) => {
                       setPostalCodeTouched(true);
                       setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 4));
                     }} />
                   {!postalCodeTouched && postalCode && (
-                    <p className="text-xs text-gray-400 mt-1">Auto-filled based on your municipality — feel free to correct it.</p>
+                    <p className="text-xs text-gray-400 mt-1">🔒 Auto-filled based on your barangay/municipality.</p>
                   )}
                 </div>
 
@@ -1214,7 +1215,6 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
       )}
     </>
   );
-  
 };
 
 export default SignUpModal;
