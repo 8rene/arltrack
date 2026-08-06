@@ -361,9 +361,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   });
   const [contact,           setContact]            = useState(userDetails?.phone || user?.phone || "");
   const [email,             setEmail]              = useState(userDetails?.email || user?.email || "");
-  const [rememberName,      setRememberName]       = useState(
-!!(userDetails?.firstName || userDetails?.lastName)
-  );
   const [specialNotes,      setSpecialNotes]       = useState('');
   const [paymentAmount,     setPaymentAmount]      = useState('partial');
   const [paymentMethod,     setPaymentMethod]      = useState('gcash');
@@ -925,24 +922,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
 
 
-    // ── Save name to profile when leaving Step 3, only if user opted in ──
-    if (currentStep === 3 && rememberName && user?.userID && (firstName || lastName)) {
-      try {
-        const token = localStorage.getItem("arl_token");
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/user/details/${user.userID}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ firstName, lastName }),
-        });
-        await res.json();
-        if (onUserDetailsUpdate) {
-          onUserDetailsUpdate({ ...userDetails, firstName, lastName });
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
     // ── Coding rule check when leaving Step 2 ────────────────
     if (currentStep === 2) {
       if (selectedCar?.carID && startDate && startTime) {
@@ -1065,7 +1044,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]);
     preLockPickup.current = { location: '', coords: null };
     setFirstName(''); setLastName(''); setContact(''); setEmail('');
-    setSpecialNotes(''); setRememberName(false); setPaymentAmount('partial'); setPaymentMethod('gcash');
+    setSpecialNotes(''); setPaymentAmount('partial'); setPaymentMethod('gcash');
     setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); setErrors({});
   };
 
@@ -1448,46 +1427,53 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <h3 className="text-2xl font-bold text-arl-dark mb-2">Your Information</h3>
                   <p className="text-gray-600 mb-6">We'll use this to confirm your booking.</p>
 
-                  {/* Name fields */}
+                  {/* Name fields — always locked; must be set/updated via Profile */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-2">First Name</label>
                       <input
                         type="text"
                         value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="First name"
-                        className="w-full px-4 py-3 border-2 border-arl-primary rounded-xl focus:border-arl-secondary focus:outline-none"
+                        readOnly
+                        placeholder="Not set"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
                       />
-                      {errors.firstName && <p className="text-arl-cta text-xs mt-1">{errors.firstName}</p>}
+                      {errors.firstName ? (
+                        <p className="text-arl-cta text-xs mt-1">
+                          {errors.firstName}{' '}
+                          <a href="/profile" className="underline">Add it in your profile</a>.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-1">
+                          From your account —{' '}
+                          <a href="/profile" className="underline">update it in your profile</a>.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-2">Last Name</label>
                       <input
                         type="text"
                         value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Last name"
-                        className="w-full px-4 py-3 border-2 border-arl-primary rounded-xl focus:border-arl-secondary focus:outline-none"
+                        readOnly
+                        placeholder="Not set"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
                       />
-                      {errors.lastName && <p className="text-arl-cta text-xs mt-1">{errors.lastName}</p>}
+                      {errors.lastName ? (
+                        <p className="text-arl-cta text-xs mt-1">
+                          {errors.lastName}{' '}
+                          <a href="/profile" className="underline">Add it in your profile</a>.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-1">
+                          From your account —{' '}
+                          <a href="/profile" className="underline">update it in your profile</a>.
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Remember name checkbox */}
-                  <div className="flex items-center gap-2 mb-6">
-                    <input
-                      type="checkbox"
-                      id="rememberName"
-                      checked={rememberName}
-                      onChange={(e) => setRememberName(e.target.checked)}
-                      className="accent-arl-primary w-4 h-4"
-                    />
-                    <label htmlFor="rememberName" className="text-sm text-gray-600 cursor-pointer select-none">
-                      Remember my name for next time
-                      {user && <span className="text-arl-secondary text-xs ml-1">(saves to your profile)</span>}
-                    </label>
-                  </div>
+
 
                   {/* Contact — read-only if logged in */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
