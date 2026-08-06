@@ -44,12 +44,14 @@ export const fetchBarangays = (municipalityID) =>
       )
     : Promise.resolve([]);
 
-/** Look up the postal code for a given municipality/city name (best-effort). */
-export const fetchPostalCode = (municipalityName) =>
-  municipalityName
-    ? fetchCached(
-        `postalcode_${municipalityName}`,
-        `${BASE_URL}/postal-code?municipality=${encodeURIComponent(municipalityName)}`
-      )
-    : Promise.resolve({ postalCode: "", found: false });
-    
+/** Look up the postal code for a given municipality/city (+ optional barangay
+ *  for more precise results, e.g. NCR districts each have their own code). */
+export const fetchPostalCode = (municipalityName, barangayName = "") => {
+  if (!municipalityName) return Promise.resolve({ postalCode: "", found: false });
+  const params = new URLSearchParams({ municipality: municipalityName });
+  if (barangayName) params.set("barangay", barangayName);
+  return fetchCached(
+    `postalcode_${municipalityName}_${barangayName}`,
+    `${BASE_URL}/postal-code?${params.toString()}`
+  );
+};

@@ -587,15 +587,18 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
     fetchBarangays(selMun.municipalityID).then(setBarangays).catch(console.error).finally(() => setLoadingBar(false));
   }, [selMun]);
 
-  // Best-effort postal code suggestion once a Municipality/City is picked.
+  // Best-effort postal code suggestion once a Barangay is picked (some
+  // barangays/districts — especially in NCR — have their own postal code
+  // distinct from the rest of the city). Falls back to the municipality-level
+  // code on the backend if the barangay itself has no match.
   // Never overrides a value the user already typed themselves.
   useEffect(() => {
-    if (!selMun) return;
+    if (!selBar || !selMun) return;
     if (postalCodeTouched) return;
-    fetchPostalCode(selMun.municipalityName)
+    fetchPostalCode(selMun.municipalityName, selBar.barangayName)
       .then((res) => { if (res?.found && !postalCodeTouched) setPostalCode(res.postalCode); })
       .catch(() => {}); // silent — postal code stays optional/manual on failure
-  }, [selMun, postalCodeTouched]);
+  }, [selBar, selMun, postalCodeTouched]);
 
   const handleRegion = useCallback((e) => setSelRegion(regions.find((r) => r.regionID === e.target.value) || null), [regions]);
   const handleProv   = useCallback((e) => setSelProv(provinces.find((p) => p.provinceID === e.target.value) || null), [provinces]);
