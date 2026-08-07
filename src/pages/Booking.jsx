@@ -130,13 +130,13 @@ const defaultNextDay = (dateStr) => toLocalDateStr(addDays(new Date(dateStr + 'T
 // ── Skeleton card ──────────────────────────────────────────────
 const SkeletonCard = () => (
   <div className="rounded-2xl bg-white border border-gray-100 shadow-md overflow-hidden animate-pulse">
-    <div className="w-full h-36 bg-gray-200" />
-    <div className="p-4 space-y-2">
-      <div className="h-4 bg-gray-200 rounded w-1/2" />
-      <div className="h-3 bg-gray-100 rounded w-1/3" />
+    <div className="w-full h-20 sm:h-36 bg-gray-200" />
+    <div className="p-2 sm:p-4 space-y-2">
+      <div className="h-3 sm:h-4 bg-gray-200 rounded w-1/2" />
+      <div className="h-2 sm:h-3 bg-gray-100 rounded w-1/3" />
       <div className="flex gap-1 mt-2">
-        <div className="h-5 bg-gray-100 rounded-full w-14" />
-        <div className="h-5 bg-gray-100 rounded-full w-16" />
+        <div className="h-4 sm:h-5 bg-gray-100 rounded-full w-10 sm:w-14" />
+        <div className="h-4 sm:h-5 bg-gray-100 rounded-full w-12 sm:w-16" />
       </div>
     </div>
   </div>
@@ -156,28 +156,28 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
         : avail   ? 'border-gray-200 bg-white hover:border-arl-primary hover:shadow-lg'
         : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}`}>
       {selected && (
-        <div className="absolute top-2 right-2 z-10 w-6 h-6 bg-arl-secondary rounded-full flex items-center justify-center">
-          <CheckCircle size={14} className="text-white" />
+        <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 z-10 w-5 h-5 sm:w-6 sm:h-6 bg-arl-secondary rounded-full flex items-center justify-center">
+          <CheckCircle size={12} className="sm:w-3.5 sm:h-3.5 text-white" />
         </div>
       )}
-      <div className={`absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full text-xs font-bold ${avail ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'}`}>
+      <div className={`absolute top-1.5 left-1.5 sm:top-2 sm:left-2 z-10 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${avail ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'}`}>
         {status || 'Available'}
       </div>
       <div className="relative overflow-hidden bg-gray-100">
         {imageURL
-          ? <img src={imageURL} alt={name} className="w-full h-36 object-cover"
+          ? <img src={imageURL} alt={name} className="w-full h-20 sm:h-36 object-cover"
               onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
           : null}
-        <div className="w-full h-36 items-center justify-center text-4xl text-gray-300 bg-gray-100" style={{ display: imageURL ? 'none' : 'flex' }}>🚗</div>
-        <span className="absolute bottom-2 right-3 text-white/70 text-xs font-black tracking-widest uppercase drop-shadow">{brandName}</span>
+        <div className="w-full h-20 sm:h-36 items-center justify-center text-2xl sm:text-4xl text-gray-300 bg-gray-100" style={{ display: imageURL ? 'none' : 'flex' }}>🚗</div>
+        <span className="absolute bottom-1 right-2 sm:bottom-2 sm:right-3 text-white/70 text-[10px] sm:text-xs font-black tracking-widest uppercase drop-shadow">{brandName}</span>
       </div>
-      <div className="p-4">
-        <h4 className="text-lg font-black text-arl-primary tracking-tight">{name}</h4>
-        {shortDescription && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{shortDescription}</p>}
-        <div className="flex flex-wrap gap-1 mt-3">
-          {tags.map((t,i) => <span key={i} className="px-2 py-0.5 bg-arl-secondary/10 text-arl-primary text-xs font-semibold rounded-full">{t}</span>)}
+      <div className="p-2 sm:p-4">
+        <h4 className="text-sm sm:text-lg font-black text-arl-primary tracking-tight truncate">{name}</h4>
+        {shortDescription && <p className="hidden sm:block text-xs text-gray-500 mt-1 line-clamp-2">{shortDescription}</p>}
+        <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-3">
+          {tags.slice(0, 2).map((t,i) => <span key={i} className="px-1.5 sm:px-2 py-0.5 bg-arl-secondary/10 text-arl-primary text-[10px] sm:text-xs font-semibold rounded-full truncate max-w-full">{t}</span>)}
         </div>
-        {lowest && <p className="mt-3 text-xs font-semibold text-arl-cta">From ₱{Number(lowest.price).toLocaleString()} / {lowest.durationType}</p>}
+        {lowest && <p className="mt-1.5 sm:mt-3 text-[10px] sm:text-xs font-semibold text-arl-cta">From ₱{Number(lowest.price).toLocaleString()} / {lowest.durationType}</p>}
       </div>
     </div>
   );
@@ -1122,7 +1122,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   )}
                   {carsError  && <p className="text-red-400 text-sm mb-4">⚠ {carsError}</p>}
                   {errors.vehicle && <p className="text-arl-cta text-sm mb-4">⚠ {errors.vehicle}</p>}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 max-h-[600px] overflow-y-auto pr-1">
                     {carsLoading
                       ? Array.from({length:6}).map((_,i) => <SkeletonCard key={i} />)
                       : filteredCars.length > 0
