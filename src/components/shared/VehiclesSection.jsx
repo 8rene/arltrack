@@ -74,23 +74,23 @@ const VehiclesSection = () => {
   }, []);
 
   return (
-    <section className="relative py-28 overflow-hidden bg-gradient-to-b from-white via-arl-light to-white">
+    <section className="relative py-12 sm:py-28 overflow-hidden bg-gradient-to-b from-white via-arl-light to-white">
 
       {/* Background glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-arl-secondary/20 blur-3xl rounded-full pointer-events-none" />
 
-      <div className="relative max-w-7xl mx-auto px-6 space-y-24">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 space-y-10 sm:space-y-24">
 
         {/* Section header */}
         <div className="text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-arl-cta mb-4">
+          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-arl-cta mb-2 sm:mb-4">
             Our Fleet
           </p>
-          <h2 className="font-display text-5xl md:text-6xl font-bold text-arl-primary leading-tight tracking-tight">
+          <h2 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold text-arl-primary leading-tight tracking-tight">
             Drive in Comfort <br />
             <span className="text-arl-cta">Travel in Style</span>
           </h2>
-          <p className="mt-5 text-gray-500 text-lg max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-3 sm:mt-5 text-gray-500 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
             Explore our modern, well-maintained fleet designed for solo trips,
             family adventures, airport transfers, and business travel.
           </p>
