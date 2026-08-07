@@ -161,22 +161,22 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved }) => {
       )}
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition overflow-hidden">
-        <div className="flex gap-4 p-5">
+        <div className="flex gap-3 sm:gap-4 p-4 sm:p-5">
 
           {/* Car image */}
-          <div className="w-28 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+          <div className="w-20 h-16 sm:w-28 sm:h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
             {booking.carImage
               ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">🚗</div>
+              : <div className="w-full h-full flex items-center justify-center text-2xl sm:text-3xl text-gray-300">🚗</div>
             }
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 flex-wrap">
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="font-bold text-arl-primary truncate">{booking.carName || "Unknown Vehicle"}</h3>
-                <p className="text-xs text-gray-400 mt-0.5 font-mono">{booking.bookingID}</p>
+                <p className="text-xs text-gray-400 mt-0.5 font-mono truncate">{booking.bookingID}</p>
               </div>
               <span className="text-xs text-gray-400 flex-shrink-0">{fmtDT(booking.startDateTime)}</span>
             </div>
@@ -310,16 +310,16 @@ const MyReviews = ({ user }) => {
 
         {/* Stats */}
         {!loading && !error && bookings.length > 0 && (
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
             {[
               { label: "Total Bookings", value: bookings.length,  icon: "📅" },
               { label: "Reviewed",       value: reviewedCount,    icon: "⭐" },
               { label: "Pending Review", value: pendingCount,     icon: "✍️" },
             ].map(({ label, value, icon }) => (
-              <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-                <p className="text-2xl mb-1">{icon}</p>
-                <p className="text-2xl font-black text-arl-primary">{value}</p>
-                <p className="text-xs text-gray-400 font-medium">{label}</p>
+              <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-2.5 sm:p-4 text-center">
+                <p className="text-lg sm:text-2xl mb-1">{icon}</p>
+                <p className="text-xl sm:text-2xl font-black text-arl-primary">{value}</p>
+                <p className="text-[10px] sm:text-xs text-gray-400 font-medium leading-tight">{label}</p>
               </div>
             ))}
           </div>
@@ -336,7 +336,7 @@ const MyReviews = ({ user }) => {
               <button
                 key={key}
                 onClick={() => setFilter(key)}
-                className={`px-4 py-2 rounded-full text-xs font-bold border transition ${
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-bold border transition ${
                   filter === key
                     ? "bg-arl-primary text-white border-arl-primary"
                     : "bg-white text-gray-600 border-gray-200 hover:border-arl-primary"
