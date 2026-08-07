@@ -1,12 +1,23 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import "../../styles/otpModal.css";
+
+const RESEND_COOLDOWN_S = 60; // must match backend's OTP_COOLDOWN_MS in otp.controller.js
 
 const OTPModal = ({ email, onVerifySuccess, onClose }) => {
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0); // seconds left before Resend is clickable again
 
   const inputRefs = useRef([]);
+
+  // Tick the cooldown down once a second while it's active
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const handleChange = (value, index) => {
 
@@ -75,9 +86,14 @@ const OTPModal = ({ email, onVerifySuccess, onClose }) => {
 
   const handleResend = async () => {
 
+    if (resending || cooldown > 0) return; // already sending, or still cooling down
+
+    setResending(true);
+    setError("");
+
     try {
 
-      await fetch(`${process.env.REACT_APP_API_URL}/auth/send-otp`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/send-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -85,11 +101,30 @@ const OTPModal = ({ email, onVerifySuccess, onClose }) => {
         body: JSON.stringify({ email })
       });
 
-      alert("OTP sent again");
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        // Backend sends a specific "wait Xs" message on 429 (still cooling
+        // down server-side) — surface that instead of pretending it worked.
+        setError(data.message || "Could not resend OTP. Please try again.");
+        // Backend rejected it, so don't restart the cooldown from 0 —
+        // best-effort parse the seconds it told us, else just leave the
+        // button enabled so the person can retry once they read the message.
+        const match = /(\d+)\s*seconds?/.exec(data.message || "");
+        if (match) setCooldown(Number(match[1]));
+        return;
+      }
+
+      setCooldown(RESEND_COOLDOWN_S);
 
     } catch (err) {
 
       console.error(err);
+      setError("Server error — please check your connection and try again.");
+
+    } finally {
+
+      setResending(false);
 
     }
 
@@ -124,8 +159,16 @@ const OTPModal = ({ email, onVerifySuccess, onClose }) => {
           Verify OTP
         </button>
 
-        <button className="resend-btn" onClick={handleResend}>
-          Resend OTP
+        <button
+          className="resend-btn"
+          onClick={handleResend}
+          disabled={resending || cooldown > 0}
+        >
+          {cooldown > 0
+            ? `Resend OTP (${cooldown}s)`
+            : resending
+              ? "Sending…"
+              : "Resend OTP"}
         </button>
 
       </div>
