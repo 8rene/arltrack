@@ -152,7 +152,7 @@ const CarCard = ({ car, heroState }) => {
 const FilterPill = ({ label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
+    className={`flex-shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold border transition-all whitespace-nowrap ${
       active
         ? "bg-arl-primary text-white border-arl-primary shadow"
         : "bg-white text-gray-600 border-gray-200 hover:border-arl-primary hover:text-arl-primary"
@@ -246,20 +246,20 @@ const VehicleShowroom = () => {
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-arl-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-arl-secondary/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative max-w-7xl mx-auto px-6">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
 
         {/* ── Header ── */}
-        <div className="text-center mb-12">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-arl-cta mb-3">
+        <div className="text-center mb-6 sm:mb-12">
+          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-arl-cta mb-2 sm:mb-3">
             Our Fleet
           </p>
-          <h1 className="text-5xl font-display font-black text-arl-primary leading-tight">
+          <h1 className="text-2xl sm:text-5xl font-display font-black text-arl-primary leading-tight">
             Car Showroom
           </h1>
-          <p className="mt-4 text-gray-500 text-lg max-w-xl mx-auto">
+          <p className="mt-2 sm:mt-4 text-gray-500 text-sm sm:text-lg max-w-xl mx-auto">
             Browse our full fleet. Every car is well-maintained and ready for your next ride.
           </p>
-          <div className="flex items-center justify-center gap-3 mt-6">
+          <div className="hidden sm:flex items-center justify-center gap-3 mt-6">
             <div className="h-px w-16 bg-arl-secondary/40" />
             <div className="w-2 h-2 rounded-full bg-arl-cta" />
             <div className="h-px w-16 bg-arl-secondary/40" />
@@ -267,13 +267,13 @@ const VehicleShowroom = () => {
         </div>
 
         {/* ── Search + Sort bar ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-col sm:flex-row gap-3">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col sm:flex-row gap-2 sm:gap-3">
           {/* Search */}
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
             <input
               type="text"
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm"
+              className="w-full pl-9 pr-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm"
               placeholder="Search by brand, model, type…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -282,7 +282,7 @@ const VehicleShowroom = () => {
 
           {/* Sort */}
           <select
-            className="px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm bg-white text-gray-600 font-medium"
+            className="px-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm bg-white text-gray-600 font-medium"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
           >
@@ -295,7 +295,7 @@ const VehicleShowroom = () => {
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="px-4 py-2.5 rounded-xl border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition"
+              className="px-4 py-2 sm:py-2.5 rounded-xl border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition"
             >
               ✕ Clear
             </button>
@@ -304,37 +304,45 @@ const VehicleShowroom = () => {
 
         {/* ── Filter pills ── */}
         {!loading && !error && (
-          <div className="space-y-3 mb-8">
+          <div className="space-y-2 sm:space-y-3 mb-6 sm:mb-8">
             {/* Body type */}
-            <div className="flex gap-2 flex-wrap items-center">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide w-20">Type</span>
-              {bodyTypes.map((t) => (
-                <FilterPill key={t} label={t} active={filterBody === t} onClick={() => setFilterBody(t)} />
-              ))}
+            <div className="flex sm:items-center gap-1.5 sm:gap-2">
+              <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wide w-12 sm:w-20 flex-shrink-0 pt-1.5 sm:pt-0">Type</span>
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto sm:flex-wrap -mr-4 pr-4 sm:mr-0 sm:pr-0">
+                {bodyTypes.map((t) => (
+                  <FilterPill key={t} label={t} active={filterBody === t} onClick={() => setFilterBody(t)} />
+                ))}
+              </div>
             </div>
 
             {/* Fuel */}
-            <div className="flex gap-2 flex-wrap items-center">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide w-20">Fuel</span>
-              {fuelTypes.map((t) => (
-                <FilterPill key={t} label={t} active={filterFuel === t} onClick={() => setFilterFuel(t)} />
-              ))}
+            <div className="flex sm:items-center gap-1.5 sm:gap-2">
+              <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wide w-12 sm:w-20 flex-shrink-0 pt-1.5 sm:pt-0">Fuel</span>
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto sm:flex-wrap -mr-4 pr-4 sm:mr-0 sm:pr-0">
+                {fuelTypes.map((t) => (
+                  <FilterPill key={t} label={t} active={filterFuel === t} onClick={() => setFilterFuel(t)} />
+                ))}
+              </div>
             </div>
 
             {/* Transmission */}
-            <div className="flex gap-2 flex-wrap items-center">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide w-20">Trans.</span>
-              {transTypes.map((t) => (
-                <FilterPill key={t} label={t} active={filterTrans === t} onClick={() => setFilterTrans(t)} />
-              ))}
+            <div className="flex sm:items-center gap-1.5 sm:gap-2">
+              <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wide w-12 sm:w-20 flex-shrink-0 pt-1.5 sm:pt-0">Trans.</span>
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto sm:flex-wrap -mr-4 pr-4 sm:mr-0 sm:pr-0">
+                {transTypes.map((t) => (
+                  <FilterPill key={t} label={t} active={filterTrans === t} onClick={() => setFilterTrans(t)} />
+                ))}
+              </div>
             </div>
 
             {/* Status */}
-            <div className="flex gap-2 flex-wrap items-center">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide w-20">Status</span>
-              {statuses.map((t) => (
-                <FilterPill key={t} label={t} active={filterStatus === t} onClick={() => setFilterStatus(t)} />
-              ))}
+            <div className="flex sm:items-center gap-1.5 sm:gap-2">
+              <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wide w-12 sm:w-20 flex-shrink-0 pt-1.5 sm:pt-0">Status</span>
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto sm:flex-wrap -mr-4 pr-4 sm:mr-0 sm:pr-0">
+                {statuses.map((t) => (
+                  <FilterPill key={t} label={t} active={filterStatus === t} onClick={() => setFilterStatus(t)} />
+                ))}
+              </div>
             </div>
           </div>
         )}
