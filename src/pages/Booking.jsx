@@ -642,18 +642,18 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             {idx === 0 ? 'Start' : 'End'}
           </span>
         </div>
-        <div className="border-2 border-gray-200 rounded-2xl p-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="border-2 border-gray-200 rounded-2xl p-2.5 sm:p-4">
+        <div className="flex items-center justify-between mb-2.5 sm:mb-4">
           <button type="button" onClick={() => navMonth(idx, -1)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:bg-arl-primary hover:text-white hover:border-arl-primary text-gray-600 text-xl font-bold transition-colors">‹</button>
-          <span className="text-base font-bold text-arl-dark">{MONTHS[month]} {year}</span>
+            className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:bg-arl-primary hover:text-white hover:border-arl-primary text-gray-600 text-base sm:text-xl font-bold transition-colors">‹</button>
+          <span className="text-sm sm:text-base font-bold text-arl-dark">{MONTHS[month]} {year}</span>
           <button type="button" onClick={() => navMonth(idx, 1)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:bg-arl-primary hover:text-white hover:border-arl-primary text-gray-600 text-xl font-bold transition-colors">›</button>
+            className="w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border-2 border-gray-200 hover:bg-arl-primary hover:text-white hover:border-arl-primary text-gray-600 text-base sm:text-xl font-bold transition-colors">›</button>
         </div>
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {DAYS.map(d => <div key={d} className="text-center text-xs font-bold text-gray-400 py-1">{d}</div>)}
+        <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
+          {DAYS.map(d => <div key={d} className="text-center text-[10px] sm:text-xs font-bold text-gray-400 py-1">{d}</div>)}
         </div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
           {Array(firstDay).fill(null).map((_,i) => <div key={`e${i}`} />)}
           {Array.from({ length: numDays }, (_, i) => {
             const date   = new Date(year, month, i + 1);
@@ -1177,11 +1177,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ? <div className="text-sm text-gray-400 animate-pulse">Loading services…</div>
                       : (
                         <>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-2 gap-2 sm:gap-3">
                             {serviceTypes.map(s => (
                               <button key={s.serviceID} type="button"
                                 onClick={() => { setServiceType(s.serviceType); setOtherServiceNote(''); }}
-                                className={`px-4 py-3 rounded-xl border-2 text-sm font-medium text-left transition-colors ${
+                                className={`px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl border-2 text-xs sm:text-sm font-medium text-left transition-colors ${
                                   serviceType === s.serviceType
                                     ? 'border-arl-secondary bg-blue-50 text-arl-primary'
                                     : 'border-gray-300 text-gray-700 hover:border-arl-primary'}`}>
@@ -1190,7 +1190,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             ))}
                             <button type="button"
                               onClick={() => setServiceType('Others')}
-                              className={`px-4 py-3 rounded-xl border-2 text-sm font-medium text-left transition-colors ${
+                              className={`px-2.5 sm:px-4 py-2 sm:py-3 rounded-xl border-2 text-xs sm:text-sm font-medium text-left transition-colors ${
                                 serviceType === 'Others'
                                   ? 'border-arl-secondary bg-blue-50 text-arl-primary'
                                   : 'border-gray-300 text-gray-700 hover:border-arl-primary'}`}>
@@ -1218,15 +1218,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-arl-dark mb-3">Duration per Day</label>
                     {pricingOptions.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {pricingOptions.map(p => (
                           <button key={p.durationType} type="button"
                             onClick={() => handleDurationSelect(p.durationType)}
-                            className={`px-4 py-4 rounded-xl border-2 text-left transition-colors ${
+                            className={`px-3 sm:px-4 py-3 sm:py-4 rounded-xl border-2 text-left transition-colors ${
                               duration === p.durationType ? 'border-arl-secondary bg-blue-50' : 'border-gray-300 hover:border-arl-primary'}`}>
-                            <div className="text-base font-bold text-arl-dark">{p.durationType} / day</div>
-                            <div className="text-arl-cta text-xl font-black mt-1">₱{Number(p.price).toLocaleString()}</div>
-                            <div className="text-xs text-gray-400 mt-1">
+                            <div className="text-sm sm:text-base font-bold text-arl-dark">{p.durationType} / day</div>
+                            <div className="text-arl-cta text-lg sm:text-xl font-black mt-1">₱{Number(p.price).toLocaleString()}</div>
+                            <div className="text-[11px] sm:text-xs text-gray-400 mt-1">
                               {p.durationType === '12 Hours'
                                 ? 'End time auto-calculated.'
                                 : 'Pick start + end date/time. ~2 calendar days.'}
