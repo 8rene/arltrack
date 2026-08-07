@@ -1064,38 +1064,38 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-arl-primary/10 to-arl-secondary/10 py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
 
         {/* Title */}
-        <div className="mb-8">
-          <h2 className="font-display font-bold text-4xl text-arl-dark mb-2">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="font-display font-bold text-2xl sm:text-4xl text-arl-dark mb-2">
             Reserve your <span className="text-arl-secondary">ride.</span>
           </h2>
-          <p className="text-gray-600">Fill in the details below to complete your booking.</p>
+          <p className="text-sm sm:text-base text-gray-600">Fill in the details below to complete your booking.</p>
         </div>
 
         {/* Step progress */}
-        <div className="flex items-center justify-center mb-12">
+        <div className="flex items-center justify-center mb-8 sm:mb-12 overflow-x-auto px-2">
           {steps.map((step, index) => (
             <React.Fragment key={step.number}>
-              <div className="flex flex-col items-center">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
+              <div className="flex flex-col items-center flex-shrink-0">
+                <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-bold text-sm sm:text-lg ${
                   currentStep === step.number ? 'bg-arl-cta text-white'
                   : currentStep > step.number ? 'bg-arl-primary text-white'
                   : 'bg-gray-300 text-gray-600'
                 }`}>{step.number}</div>
-                <span className="text-xs mt-1 text-gray-600">{step.label}</span>
+                <span className="hidden sm:block text-xs mt-1 text-gray-600">{step.label}</span>
               </div>
               {index < steps.length - 1 && (
-                <div className={`w-16 h-1 mx-2 ${currentStep > step.number ? 'bg-arl-primary' : 'bg-gray-300'}`} />
+                <div className={`w-6 sm:w-16 h-1 mx-1 sm:mx-2 flex-shrink-0 ${currentStep > step.number ? 'bg-arl-primary' : 'bg-gray-300'}`} />
               )}
             </React.Fragment>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl border-2 border-arl-primary p-8 shadow-card">
+            <div className="bg-white rounded-2xl border-2 border-arl-primary p-4 sm:p-8 shadow-card">
 
               {/* ══ STEP 1 — VEHICLE ═══════════════════════════════ */}
               <div ref={stepTopRef} />
@@ -1177,7 +1177,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ? <div className="text-sm text-gray-400 animate-pulse">Loading services…</div>
                       : (
                         <>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {serviceTypes.map(s => (
                               <button key={s.serviceID} type="button"
                                 onClick={() => { setServiceType(s.serviceType); setOtherServiceNote(''); }}
@@ -1218,7 +1218,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-arl-dark mb-3">Duration per Day</label>
                     {pricingOptions.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {pricingOptions.map(p => (
                           <button key={p.durationType} type="button"
                             onClick={() => handleDurationSelect(p.durationType)}
@@ -1337,7 +1337,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           : 'Click any available date. End time auto-calculated.'
                         }
                       </p>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                         {calViews.map((v, i) => renderCalendar(v, i))}
                       </div>
                       {errors.startDate && <p className="text-arl-cta text-xs">{errors.startDate}</p>}
@@ -1428,7 +1428,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <p className="text-gray-600 mb-6">We'll use this to confirm your booking.</p>
 
                   {/* Name fields — always locked; must be set/updated via Profile */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-2">First Name</label>
                       <input
@@ -1476,7 +1476,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
 
                   {/* Contact — read-only if logged in */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-2">Contact Number</label>
                       {user ? (
@@ -1559,7 +1559,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <p className="text-gray-600 mb-6">Choose how much to pay now.</p>
 
                   {/* Amount options */}
-                  <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                     {[
                       { key:'partial', label:'Partial (50%)', amount: Math.floor(grandTotal*0.5), note: `Balance ₱${Math.ceil(grandTotal*0.5).toLocaleString()} on pickup.` },
                       { key:'full',    label:'Full Payment',  amount: grandTotal,                 note: 'No balance on pickup.' },
@@ -1736,25 +1736,25 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               )}
 
               {/* Navigation */}
-              <div className="flex justify-between items-start mt-8">
+              <div className="flex justify-between items-start mt-6 sm:mt-8 gap-2">
                 <button onClick={handleBack}
-                  className="px-8 py-3 bg-arl-dark text-white rounded-full font-medium hover:bg-gray-800 transition flex items-center gap-2">
-                  <ChevronLeft size={20} />
+                  className="px-4 sm:px-8 py-2.5 sm:py-3 bg-arl-dark text-white rounded-full font-medium hover:bg-gray-800 transition flex items-center gap-1 sm:gap-2 text-sm sm:text-base flex-shrink-0">
+                  <ChevronLeft size={18} className="sm:w-5 sm:h-5" />
                   {currentStep === 5 ? 'Edit' : 'Back'}
                 </button>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col items-end gap-2 min-w-0">
                   <button onClick={handleNext} disabled={loading || codingChecking}
-                    className={`px-8 py-3 rounded-full font-medium transition flex items-center gap-2 ${
+                    className={`px-4 sm:px-8 py-2.5 sm:py-3 rounded-full font-medium transition flex items-center gap-1 sm:gap-2 text-sm sm:text-base ${
                       (canProceed() && !codingChecking) ? 'bg-arl-cta text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
                     {currentStep === 5
                       ? (loading ? 'Submitting…' : 'Confirm Booking')
                       : codingChecking
                       ? 'Checking coding…'
                       : 'Next'}
-                    {currentStep < 5 && !codingChecking && <ChevronRight size={20} />}
+                    {currentStep < 5 && !codingChecking && <ChevronRight size={18} className="sm:w-5 sm:h-5" />}
                   </button>
                   {!canProceed() && !loading && !codingChecking && (
-                    <p className="text-xs text-gray-500 text-right max-w-xs">{getIncompleteReason()}</p>
+                    <p className="text-xs text-gray-500 text-right max-w-[180px] sm:max-w-xs">{getIncompleteReason()}</p>
                   )}
                 </div>
               </div>
@@ -1763,7 +1763,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
           {/* ── Sidebar ── */}
           <div className="lg:col-span-1">
-            <div className="bg-arl-light rounded-2xl border-2 border-arl-secondary p-6 shadow-soft sticky top-4">
+            <div className="bg-arl-light rounded-2xl border-2 border-arl-secondary p-4 sm:p-6 shadow-soft lg:sticky lg:top-4">
               <h3 className="text-arl-cta text-xl font-bold mb-4">BOOKING SUMMARY</h3>
               {selectedCar?.imageURL && (
                 <img src={selectedCar.imageURL} alt={selectedCar.name}
