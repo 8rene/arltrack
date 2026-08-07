@@ -125,11 +125,11 @@ const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
 // Section wrapper
 const Section = ({ title, icon, children }) => (
   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-    <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50">
+    <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50">
       <span className="text-xl">{icon}</span>
       <h3 className="font-bold text-arl-primary text-base">{title}</h3>
     </div>
-    <div className="p-6">{children}</div>
+    <div className="p-4 sm:p-6">{children}</div>
   </div>
 );
 
@@ -680,20 +680,20 @@ const ProfilePage = ({ user }) => {
 
                 {/* ── Profile Photo ── */}
                 <Section title="Profile Photo" icon="📷">
-                  <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4 sm:gap-6">
                     {/* Avatar */}
                     <div className="relative flex-shrink-0">
-                      <div className="w-24 h-24 rounded-full overflow-hidden bg-arl-primary/10 border-4 border-white shadow-md flex items-center justify-center">
+                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-arl-primary/10 border-4 border-white shadow-md flex items-center justify-center">
                         {avatarURL
                           ? <img src={avatarURL} alt="Profile" className="w-full h-full object-cover" onError={() => setAvatarURL("")} />
-                          : <span className="text-2xl font-black text-arl-primary">{initials}</span>
+                          : <span className="text-xl sm:text-2xl font-black text-arl-primary">{initials}</span>
                         }
                       </div>
                       {/* Icon overlay — click to change photo */}
                       <button
                         onClick={() => fileRef.current?.click()}
                         disabled={uploading}
-                        className="absolute bottom-0 right-0 w-7 h-7 bg-arl-primary text-white rounded-full flex items-center justify-center shadow hover:bg-arl-secondary transition disabled:opacity-60"
+                        className="absolute bottom-0 right-0 w-6 h-6 sm:w-7 sm:h-7 bg-arl-primary text-white rounded-full flex items-center justify-center shadow hover:bg-arl-secondary transition disabled:opacity-60"
                         title="Change photo">
                         {uploading
                           ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -706,9 +706,9 @@ const ProfilePage = ({ user }) => {
                       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                     </div>
                     {/* Info */}
-                    <div>
-                      <p className="font-bold text-gray-700">{firstName} {lastName}</p>
-                      <p className="text-sm text-gray-400 mt-0.5">{email}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-gray-700 truncate">{firstName} {lastName}</p>
+                      <p className="text-sm text-gray-400 mt-0.5 truncate">{email}</p>
                       {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
                       <p className="text-xs text-gray-400 mt-1">JPG, PNG or WEBP · Max 5MB</p>
                     </div>
