@@ -309,22 +309,22 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
       }`}>
 
         {/* ── Main row ── */}
-        <div className="flex gap-4 p-5">
+        <div className="flex gap-3 sm:gap-4 p-4 sm:p-5">
           {/* Car image */}
-          <div className="flex-shrink-0 w-28 h-20 rounded-xl overflow-hidden bg-gray-100">
+          <div className="flex-shrink-0 w-20 h-16 sm:w-28 sm:h-20 rounded-xl overflow-hidden bg-gray-100">
             {carImage
               ? <img src={carImage} alt={carName} className="w-full h-full object-cover"
                   onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
               : null}
-            <div className="w-full h-full items-center justify-center text-3xl text-gray-300"
+            <div className="w-full h-full items-center justify-center text-2xl sm:text-3xl text-gray-300"
               style={{ display: carImage ? "none" : "flex" }}>🚗</div>
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 flex-wrap mb-1">
-              <div>
-                <h4 className="font-black text-arl-primary text-lg leading-tight">{carName}</h4>
+              <div className="min-w-0">
+                <h4 className="font-black text-arl-primary text-base sm:text-lg leading-tight break-words">{carName}</h4>
                 {carBodyType && <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{carBodyType}</p>}
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -361,9 +361,9 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
               <p className="text-xs text-red-500 mb-2">⚠️ {refundError}</p>
             )}
 
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex flex-col gap-2.5">
               <div className="flex items-center gap-3">
-                <span className="text-xl font-black text-arl-cta">{peso(p.amount || totalFee)}</span>
+                <span className="text-lg sm:text-xl font-black text-arl-cta">{peso(p.amount || totalFee)}</span>
                 <span className="text-xs text-gray-400">{totalDays} day(s)</span>
               </div>
 
@@ -416,7 +416,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
           <div className="border-t border-gray-100">
             <div className="px-5 py-4 bg-gray-50">
               <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🚗 Booking Details</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                 <DR label="Booking ID"  value={bookingID} mono />
                 <DR label="Booked On"   value={fmtDT(createdAt)} />
                 <DR label="Start"       value={fmtDT(startDateTime)} />
@@ -433,7 +433,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
             {payment ? (
               <div className="px-5 py-4 bg-blue-50/50 border-t border-blue-100">
                 <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">💳 Payment Details</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
                   <DR label="Payment ID"        value={p.paymentID} mono />
                   <DR label="Total Amount"      value={peso(p.amount)} />
                   <DR label="Deposit Paid"      value={peso(p.depositFee)} />
@@ -579,12 +579,14 @@ const MyBookings = ({ user }) => {
             { key: "history",  label: "History",  count: history.length,  icon: "📜" },
           ].map(({ key, label, count, icon }) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
+              className={`flex-1 min-w-0 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-2.5 sm:py-3 px-1 rounded-xl text-[11px] sm:text-sm font-bold transition-all ${
                 activeTab === key ? "bg-arl-primary text-white shadow" : "text-gray-500 hover:text-arl-primary hover:bg-gray-50"
               }`}>
-              <span>{icon}</span>
-              <span>{label}</span>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-black ${
+              <span className="flex items-center gap-1 min-w-0">
+                <span>{icon}</span>
+                <span className="truncate">{label}</span>
+              </span>
+              <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black ${
                 activeTab === key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
               }`}>
                 {loading ? "…" : count}
