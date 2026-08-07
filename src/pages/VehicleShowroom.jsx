@@ -5,18 +5,18 @@ import { ViewDetailsModal } from "../components/shared/VehicleCard";
 // ── Skeleton card ─────────────────────────────────────────────
 const SkeletonCard = () => (
   <div className="rounded-3xl bg-white border border-gray-100 shadow-md overflow-hidden animate-pulse">
-    <div className="w-full h-52 bg-gray-200" />
-    <div className="p-6 space-y-3">
-      <div className="h-5 bg-gray-200 rounded w-1/2" />
-      <div className="h-3 bg-gray-100 rounded w-1/3" />
-      <div className="h-3 bg-gray-100 rounded w-full" />
+    <div className="w-full h-32 sm:h-52 bg-gray-200" />
+    <div className="p-3 sm:p-6 space-y-2 sm:space-y-3">
+      <div className="h-4 sm:h-5 bg-gray-200 rounded w-1/2" />
+      <div className="h-2.5 sm:h-3 bg-gray-100 rounded w-1/3" />
+      <div className="hidden sm:block h-3 bg-gray-100 rounded w-full" />
       <div className="flex gap-2 mt-2">
-        <div className="h-6 bg-gray-100 rounded-full w-20" />
-        <div className="h-6 bg-gray-100 rounded-full w-24" />
+        <div className="h-5 sm:h-6 bg-gray-100 rounded-full w-16 sm:w-20" />
+        <div className="h-5 sm:h-6 bg-gray-100 rounded-full w-20 sm:w-24" />
       </div>
-      <div className="flex justify-between items-center pt-3 border-t border-gray-100">
-        <div className="h-5 bg-gray-100 rounded w-24" />
-        <div className="h-8 bg-gray-200 rounded-full w-20" />
+      <div className="flex justify-between items-center pt-2 sm:pt-3 border-t border-gray-100">
+        <div className="h-4 sm:h-5 bg-gray-100 rounded w-20 sm:w-24" />
+        <div className="h-7 sm:h-8 bg-gray-200 rounded-full w-16 sm:w-20" />
       </div>
     </div>
   </div>
@@ -65,7 +65,7 @@ const CarCard = ({ car, heroState }) => {
           <img
             src={imageURL}
             alt={name}
-            className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-700"
+            className="w-full h-32 sm:h-52 object-cover group-hover:scale-105 transition-transform duration-700"
             onError={(e) => {
               e.target.style.display = "none";
               e.target.nextSibling.style.display = "flex";
@@ -73,7 +73,7 @@ const CarCard = ({ car, heroState }) => {
           />
         ) : null}
         <div
-          className="w-full h-52 bg-gray-100 items-center justify-center text-5xl text-gray-300"
+          className="w-full h-32 sm:h-52 bg-gray-100 items-center justify-center text-3xl sm:text-5xl text-gray-300"
           style={{ display: imageURL ? "none" : "flex" }}
         >
           🚗
@@ -83,32 +83,32 @@ const CarCard = ({ car, heroState }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
         {/* Status badge */}
-        <span className={`absolute top-3 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow ${
+        <span className={`absolute top-2 left-2 sm:top-3 sm:left-3 text-white text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shadow ${
           isAvailable ? "bg-green-500" : "bg-gray-500"
         }`}>
           {status || "Available"}
         </span>
 
         {/* Brand watermark */}
-        <span className="absolute bottom-3 right-4 text-white/70 text-xs font-black tracking-widest uppercase">
+        <span className="absolute bottom-2 right-3 sm:bottom-3 sm:right-4 text-white/70 text-[10px] sm:text-xs font-black tracking-widest uppercase">
           {brandName}
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-6 flex flex-col flex-1">
-        <h3 className="text-2xl font-black text-arl-primary tracking-tight">{name}</h3>
-        <p className="text-xs text-arl-secondary font-semibold mt-1 uppercase tracking-wide">{bodyType}</p>
+      <div className="p-3 sm:p-6 flex flex-col flex-1">
+        <h3 className="text-base sm:text-2xl font-black text-arl-primary tracking-tight">{name}</h3>
+        <p className="text-[10px] sm:text-xs text-arl-secondary font-semibold mt-0.5 sm:mt-1 uppercase tracking-wide">{bodyType}</p>
 
         {shortDescription && (
-          <p className="text-sm text-gray-500 mt-3 leading-relaxed">{shortDescription}</p>
+          <p className="hidden sm:block text-sm text-gray-500 mt-3 leading-relaxed">{shortDescription}</p>
         )}
 
         {/* Tags */}
-        <div className="mt-4 flex gap-2 flex-wrap">
+        <div className="mt-2 sm:mt-4 flex gap-1.5 sm:gap-2 flex-wrap">
           {tags.map((tag, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-arl-secondary inline-block" />
+            <span key={i} className="inline-flex items-center gap-1 sm:gap-1.5 bg-gray-100 text-gray-600 text-[10px] sm:text-xs font-semibold px-2 sm:px-3 py-1 sm:py-1.5 rounded-full">
+              <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-arl-secondary inline-block" />
               {tag}
             </span>
           ))}
@@ -116,28 +116,28 @@ const CarCard = ({ car, heroState }) => {
 
         {/* Pricing */}
         {pricing.length > 0 && (
-          <div className="mt-4 border-t border-gray-100 pt-4 flex gap-4 flex-wrap">
+          <div className="mt-2 sm:mt-4 border-t border-gray-100 pt-2 sm:pt-4 flex gap-3 sm:gap-4 flex-wrap">
             {pricing.map((p, i) => (
               <div key={i}>
-                <p className="text-xs text-gray-400 font-medium">{p.durationType}</p>
-                <p className="font-black text-arl-dark">₱{Number(p.price).toLocaleString()}</p>
+                <p className="text-[10px] sm:text-xs text-gray-400 font-medium">{p.durationType}</p>
+                <p className="text-sm sm:text-base font-black text-arl-dark">₱{Number(p.price).toLocaleString()}</p>
               </div>
             ))}
           </div>
         )}
 
         {/* Book + View Details buttons */}
-        <div className="mt-auto pt-5 flex gap-2">
+        <div className="mt-auto pt-3 sm:pt-5 flex gap-1.5 sm:gap-2">
           <Link
             to="/booking"
             state={{ vehicleName: name, carID, ...(heroState || {}) }}
-            className="flex-1 text-center bg-arl-cta text-white px-5 py-2.5 rounded-full text-sm font-bold hover:bg-arl-primary transition-all duration-300 shadow-md hover:shadow-lg"
+            className="flex-1 text-center bg-arl-cta text-white px-2 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-arl-primary transition-all duration-300 shadow-md hover:shadow-lg"
           >
             Book →
           </Link>
           <button
             onClick={() => setShowModal(true)}
-            className="flex-1 text-center bg-white border border-gray-200 text-arl-primary px-5 py-2.5 rounded-full text-sm font-bold hover:border-arl-primary hover:bg-gray-50 transition-all duration-300"
+            className="flex-1 text-center bg-white border border-gray-200 text-arl-primary px-2 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:border-arl-primary hover:bg-gray-50 transition-all duration-300"
           >
             View Details
           </button>
@@ -356,7 +356,7 @@ const VehicleShowroom = () => {
         )}
 
         {/* ── Grid ── */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
           {loading
             ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
             : displayed.length > 0
