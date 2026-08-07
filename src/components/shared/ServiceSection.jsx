@@ -50,33 +50,33 @@ const ServiceSection = () => {
   return (
     <section
       id="services"
-      className="relative py-16 bg-gradient-to-b from-white via-arl-light to-white overflow-hidden"
+      className="relative py-10 sm:py-16 bg-gradient-to-b from-white via-arl-light to-white overflow-hidden"
     >
       {/* Glow */}
       <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-arl-secondary/10 blur-3xl rounded-full" />
 
-      <div className="relative max-w-7xl mx-auto px-6">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
         {/* Label */}
-        <p className="text-center text-sm font-semibold uppercase tracking-[0.3em] text-arl-cta mb-4">
+        <p className="text-center text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-arl-cta mb-2 sm:mb-4">
           What We Offer
         </p>
 
         {/* Heading */}
-        <h2 className="font-display text-center text-5xl md:text-6xl font-bold text-arl-primary leading-tight tracking-tight">
+        <h2 className="font-display text-center text-3xl sm:text-5xl md:text-6xl font-bold text-arl-primary leading-tight tracking-tight">
           Services Built for <br />
           <span className="font-display text-arl-cta">Every Journey</span>
         </h2>
 
         {/* Subtext */}
-        <p className="mt-5 text-center text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-3 sm:mt-5 text-center text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
           Whether it's airport transfers, family outings, business rides, or
           special occasions — we've got the perfect ride for you.
         </p>
 
         {/* States */}
         {loading && (
-          <div className="mt-16 flex justify-center">
-            <div className="flex items-center gap-3 text-gray-400">
+          <div className="mt-8 sm:mt-16 flex justify-center">
+            <div className="flex items-center gap-3 text-gray-400 text-sm">
               <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
@@ -87,12 +87,12 @@ const ServiceSection = () => {
         )}
 
         {error && !loading && (
-          <p className="mt-16 text-center text-red-500 text-sm">{error}</p>
+          <p className="mt-8 sm:mt-16 text-center text-red-500 text-sm">{error}</p>
         )}
 
         {/* Cards */}
         {!loading && !error && services.length > 0 && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-16">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mt-8 sm:mt-16">
             {services.map((service) => (
               <ServiceCard
                 key={service.serviceID}
@@ -106,7 +106,7 @@ const ServiceSection = () => {
         )}
 
         {!loading && !error && services.length === 0 && (
-          <p className="mt-16 text-center text-gray-400">No services available.</p>
+          <p className="mt-8 sm:mt-16 text-center text-gray-400">No services available.</p>
         )}
       </div>
     </section>
