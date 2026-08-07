@@ -320,7 +320,7 @@ const VehicleCard = ({ car, badge }) => {
         <div className="absolute inset-0 bg-gradient-to-br from-arl-secondary/10 via-transparent to-arl-primary/10 opacity-0 group-hover:opacity-100 transition duration-500 pointer-events-none" />
 
         {badge && (
-          <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-xs font-bold bg-arl-cta text-white shadow-md">
+          <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold bg-arl-cta text-white shadow-md">
             {badge}
           </div>
         )}
@@ -330,30 +330,30 @@ const VehicleCard = ({ car, badge }) => {
             <img
               src={imageURL}
               alt={name}
-              className="w-full h-52 object-cover transition-transform duration-700 group-hover:scale-110"
+              className="w-full h-32 sm:h-52 object-cover transition-transform duration-700 group-hover:scale-110"
               onError={(e) => { e.target.style.display = "none"; }}
             />
           ) : (
-            <div className="w-full h-52 flex items-center justify-center bg-gray-100 text-gray-300 text-4xl">🚗</div>
+            <div className="w-full h-32 sm:h-52 flex items-center justify-center bg-gray-100 text-gray-300 text-3xl sm:text-4xl">🚗</div>
           )}
         </div>
 
-        <div className="relative p-5">
-          <h3 className="text-xl font-bold text-arl-primary tracking-tight mb-3">{name}</h3>
+        <div className="relative p-3 sm:p-5">
+          <h3 className="text-base sm:text-xl font-bold text-arl-primary tracking-tight mb-2 sm:mb-3">{name}</h3>
 
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-4">
             {tags.map((tag, i) => (
-              <span key={i} className="px-3 py-1 text-xs font-medium rounded-full bg-arl-secondary/10 text-arl-primary border border-arl-secondary/20">
+              <span key={i} className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full bg-arl-secondary/10 text-arl-primary border border-arl-secondary/20">
                 {tag}
               </span>
             ))}
           </div>
 
           {shortDescription && (
-            <p className="text-sm text-gray-600 leading-relaxed mb-3">{shortDescription}</p>
+            <p className="hidden sm:block text-sm text-gray-600 leading-relaxed mb-3">{shortDescription}</p>
           )}
 
-          <div className="flex items-center justify-between text-xs text-gray-400 mb-4">
+          <div className="flex items-center justify-between text-[10px] sm:text-xs text-gray-400 mb-2 sm:mb-4">
             {reviewCount > 0 && (
               <span className="flex items-center gap-1">⭐ {reviewCount} review{reviewCount !== 1 ? "s" : ""}</span>
             )}
@@ -363,14 +363,14 @@ const VehicleCard = ({ car, badge }) => {
           </div>
 
           {startingPrice !== null && (
-            <p className="text-sm font-semibold text-arl-cta mb-4">
+            <p className="text-xs sm:text-sm font-semibold text-arl-cta mb-2 sm:mb-4">
               Starts at ₱{startingPrice.toLocaleString()}{durationType ? ` / ${durationType}` : ""}
             </p>
           )}
 
           <button
             onClick={() => setShowModal(true)}
-            className="w-full rounded-xl bg-arl-secondary hover:bg-arl-primary text-white py-2.5 font-medium shadow-lg hover:shadow-2xl transition"
+            className="w-full rounded-xl bg-arl-secondary hover:bg-arl-primary text-white py-2 sm:py-2.5 text-sm font-medium shadow-lg hover:shadow-2xl transition"
           >
             View Details
           </button>
