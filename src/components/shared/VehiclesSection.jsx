@@ -5,16 +5,16 @@ import VehicleCard from "./VehicleCard";
 // Skeleton card while loading
 const SkeletonCard = () => (
   <div className="rounded-3xl border border-gray-100 bg-white shadow-md overflow-hidden animate-pulse">
-    <div className="w-full h-52 bg-gray-200" />
-    <div className="p-5 space-y-3">
-      <div className="h-5 bg-gray-200 rounded w-2/3" />
-      <div className="flex gap-2">
-        <div className="h-4 bg-gray-100 rounded-full w-16" />
-        <div className="h-4 bg-gray-100 rounded-full w-20" />
-        <div className="h-4 bg-gray-100 rounded-full w-14" />
+    <div className="w-full h-32 sm:h-52 bg-gray-200" />
+    <div className="p-3 sm:p-5 space-y-2 sm:space-y-3">
+      <div className="h-4 sm:h-5 bg-gray-200 rounded w-2/3" />
+      <div className="flex gap-1.5 sm:gap-2">
+        <div className="h-3 sm:h-4 bg-gray-100 rounded-full w-12 sm:w-16" />
+        <div className="h-3 sm:h-4 bg-gray-100 rounded-full w-16 sm:w-20" />
+        <div className="h-3 sm:h-4 bg-gray-100 rounded-full w-10 sm:w-14" />
       </div>
-      <div className="h-4 bg-gray-100 rounded w-full" />
-      <div className="h-10 bg-gray-200 rounded-xl w-full mt-2" />
+      <div className="hidden sm:block h-4 bg-gray-100 rounded w-full" />
+      <div className="h-9 sm:h-10 bg-gray-200 rounded-xl w-full mt-2" />
     </div>
   </div>
 );
@@ -23,11 +23,11 @@ const SkeletonCard = () => (
 const CarSubSection = ({ title, subtitle, badge, cars, loading, error }) => (
   <div>
     {/* Sub-heading */}
-    <div className="mb-10 text-center">
-      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-arl-cta mb-2">
+    <div className="mb-5 sm:mb-10 text-center">
+      <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-arl-cta mb-1.5 sm:mb-2">
         {subtitle}
       </p>
-      <h3 className="font-display text-3xl md:text-4xl font-bold text-arl-primary tracking-tight">
+      <h3 className="font-display text-xl sm:text-3xl md:text-4xl font-bold text-arl-primary tracking-tight">
         {title}
       </h3>
     </div>
@@ -36,7 +36,7 @@ const CarSubSection = ({ title, subtitle, badge, cars, loading, error }) => (
     {error ? (
       <p className="text-center text-red-400 text-sm">{error}</p>
     ) : (
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-8">
         {loading
           ? [0, 1, 2].map((i) => <SkeletonCard key={i} />)
           : cars.map((car) => (
