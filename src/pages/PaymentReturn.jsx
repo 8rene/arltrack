@@ -25,14 +25,11 @@ export default function PaymentReturn() {
       return;
     }
 
-    let attempts   = 0;
-    const MAX      = 20;
-    const DELAY    = 3000; // 3 seconds between polls (20 * 3s = 60s, plus the initial 3s delay below)
-    let cancelled  = false;   // flips true on unmount so the recursive poll() stops rescheduling itself
-    let pendingTimer = null;  // whichever setTimeout is currently in flight (initial delay, poll, or the redirect)
+    let attempts = 0;
+    const MAX    = 20;
+    const DELAY  = 3000; // 3 seconds between polls (20 * 3s = 60s, plus the initial 3s delay below)
 
     const poll = async () => {
-      if (cancelled) return;
       try {
         const token = localStorage.getItem("arl_token");
         const res   = await fetch(
@@ -41,12 +38,10 @@ export default function PaymentReturn() {
         );
         const data = await res.json();
 
-        if (cancelled) return; // component unmounted while the fetch was in flight
-
         if (data.status === "paid") {
           setStatus("paid");
           setMessage("Payment confirmed! Redirecting to your bookings…");
-          pendingTimer = setTimeout(() => { if (!cancelled) navigate("/my-bookings"); }, 2500);
+          setTimeout(() => navigate("/my-bookings"), 2500);
           return;
         }
 
@@ -59,18 +54,17 @@ export default function PaymentReturn() {
         // Still pending — keep polling
         attempts++;
         if (attempts < MAX) {
-          pendingTimer = setTimeout(poll, DELAY);
+          setTimeout(poll, DELAY);
         } else {
           // Timed out — still might process via webhook
           setStatus("pending");
           setMessage("Payment is still being processed. Check your bookings page in a few minutes.");
         }
       } catch (err) {
-        if (cancelled) return;
         console.error("Payment status check error:", err);
         attempts++;
         if (attempts < MAX) {
-          pendingTimer = setTimeout(poll, DELAY);
+          setTimeout(poll, DELAY);
         } else {
           setStatus("failed");
           setMessage("Could not verify payment. Please check your bookings page.");
@@ -79,11 +73,8 @@ export default function PaymentReturn() {
     };
 
     // Give the webhook ~3 seconds to fire before first poll
-    pendingTimer = setTimeout(poll, 3000);
-    return () => {
-      cancelled = true;
-      clearTimeout(pendingTimer);
-    };
+    const timer = setTimeout(poll, 3000);
+    return () => clearTimeout(timer);
   }, [paymentID, navigate]);
 
   const icons = {
