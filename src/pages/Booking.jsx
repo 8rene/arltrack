@@ -1424,8 +1424,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               {/* ══ STEP 3 — PERSONAL DETAILS ═══════════════════════ */}
               {currentStep === 3 && (
                 <div>
-                  <h3 className="text-2xl font-bold text-arl-dark mb-2">Your Information</h3>
-                  <p className="text-gray-600 mb-6">We'll use this to confirm your booking.</p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">Your Information</h3>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">We'll use this to confirm your booking.</p>
 
                   {/* Name fields — always locked; must be set/updated via Profile */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -1689,14 +1689,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               {/* ══ STEP 5 — REVIEW ═════════════════════════════════ */}
               {currentStep === 5 && (
                 <div>
-                  <h3 className="text-2xl font-bold text-arl-dark mb-2">Review & Confirm</h3>
-                  <p className="text-gray-600 mb-6">Check everything before submitting.</p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">Review & Confirm</h3>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Check everything before submitting.</p>
                   {/* Screenshot preview in review */}
                   {screenshotPreview && (
-                    <div className="mb-6">
+                    <div className="mb-4 sm:mb-6">
                       <p className="text-sm font-semibold text-gray-700 mb-2">Payment Screenshot</p>
                       <img src={screenshotPreview} alt="Payment proof"
-                        className="w-full max-h-48 object-contain rounded-xl border border-gray-200 bg-gray-50" />
+                        className="w-full max-h-36 sm:max-h-48 object-contain rounded-xl border border-gray-200 bg-gray-50" />
                     </div>
                   )}
                   <div className="space-y-0">
@@ -1726,9 +1726,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Ref. Number',   gcashReference || '-'],
                       ['Balance',       `₱${getBalance().toLocaleString()} on pickup`],
                     ].map(([label, value]) => (
-                      <div key={label} className="grid grid-cols-2 py-3 border-b border-gray-100">
-                        <div className="font-medium text-arl-dark">{label}</div>
-                        <div className="text-gray-700">{value || '-'}</div>
+                      <div key={label} className="grid grid-cols-1 sm:grid-cols-2 gap-0.5 sm:gap-0 py-2 sm:py-3 border-b border-gray-100">
+                        <div className="text-xs sm:text-base font-medium text-arl-dark">{label}</div>
+                        <div className="text-xs sm:text-base text-gray-700 break-words">{value || '-'}</div>
                       </div>
                     ))}
                   </div>
@@ -1763,14 +1763,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
           {/* ── Sidebar ── */}
           <div className="lg:col-span-1">
-            <div className="bg-arl-light rounded-2xl border-2 border-arl-secondary p-4 sm:p-6 shadow-soft lg:sticky lg:top-4">
-              <h3 className="text-arl-cta text-xl font-bold mb-4">BOOKING SUMMARY</h3>
+            <div className="bg-arl-light rounded-2xl border-2 border-arl-secondary p-3 sm:p-6 shadow-soft lg:sticky lg:top-4">
+              <h3 className="text-arl-cta text-base sm:text-xl font-bold mb-2.5 sm:mb-4">BOOKING SUMMARY</h3>
               {selectedCar?.imageURL && (
                 <img src={selectedCar.imageURL} alt={selectedCar.name}
-                  className="w-full h-32 object-cover rounded-xl mb-4"
+                  className="w-full h-20 sm:h-32 object-cover rounded-xl mb-2.5 sm:mb-4"
                   onError={e => e.target.style.display='none'} />
               )}
-              <div className="space-y-3 text-sm">
+              <div className="space-y-1.5 sm:space-y-3 text-xs sm:text-sm">
                 {[
                   ['Vehicle',    selectedCar?.name || '-'],
                   ['Service',    serviceType || '-'],
@@ -1783,17 +1783,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   ['Passenger',  firstName && lastName ? `${firstName} ${lastName}` : '-'],
                   ['Payment',    `${paymentAmount} — ${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
                 ].map(([label, value]) => (
-                  <div key={label} className="flex justify-between">
-                    <span className="font-medium text-arl-dark">{label}</span>
-                    <span className="text-gray-700 text-right max-w-[60%] text-xs">{value}</span>
+                  <div key={label} className="flex justify-between gap-2">
+                    <span className="font-medium text-arl-dark flex-shrink-0">{label}</span>
+                    <span className="text-gray-700 text-right max-w-[60%] text-[11px] sm:text-xs break-words">{value}</span>
                   </div>
                 ))}
               </div>
-              <div className="border-t-2 border-arl-primary my-4" />
-              <div className="text-arl-cta text-3xl font-black mb-1">
-                {quoteLoading ? <span className="text-lg text-gray-400 font-medium">Computing…</span> : `₱${grandTotal.toLocaleString()}`}
+              <div className="border-t-2 border-arl-primary my-2.5 sm:my-4" />
+              <div className="text-arl-cta text-xl sm:text-3xl font-black mb-1">
+                {quoteLoading ? <span className="text-base sm:text-lg text-gray-400 font-medium">Computing…</span> : `₱${grandTotal.toLocaleString()}`}
               </div>
-              <div className="text-sm text-arl-dark">Pay now: <span className="font-bold">₱{getPayNow().toLocaleString()}</span></div>
+              <div className="text-xs sm:text-sm text-arl-dark">Pay now: <span className="font-bold">₱{getPayNow().toLocaleString()}</span></div>
             </div>
           </div>
         </div>
