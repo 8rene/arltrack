@@ -24,7 +24,6 @@ import {
   fetchProvinces,
   fetchMunicipalities,
   fetchBarangays,
-  fetchPostalCode,
 } from "../../utils/firestoreLocation";
 import TandC from "../shared/TandC";
 
@@ -421,14 +420,14 @@ const OTPStep = ({ email, onVerify, onRestart, loading }) => {
           : `${MAX_ATTEMPTS - attempts} attempt${MAX_ATTEMPTS - attempts === 1 ? "" : "s"} remaining`}
       </p>
 
-      <div className="flex gap-2 mb-4" onPaste={handlePaste}>
+      <div className="flex gap-1.5 sm:gap-2 mb-4" onPaste={handlePaste}>
         {digits.map((d, idx) => (
           <input key={idx} type="text" inputMode="numeric" maxLength="1" value={d}
             ref={(el) => (inputs.current[idx] = el)}
             onChange={(e) => handleChange(e.target.value, idx)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
             autoComplete="off"
-            className="w-11 h-14 border-2 border-gray-200 rounded-xl text-center text-xl font-bold text-arl-primary bg-gray-50 outline-none focus:border-arl-secondary focus:ring-2 focus:ring-arl-secondary/20 focus:bg-white transition-all caret-transparent"
+            className="w-9 h-12 sm:w-11 sm:h-14 border-2 border-gray-200 rounded-xl text-center text-lg sm:text-xl font-bold text-arl-primary bg-gray-50 outline-none focus:border-arl-secondary focus:ring-2 focus:ring-arl-secondary/20 focus:bg-white transition-all caret-transparent"
           />
         ))}
       </div>
@@ -542,8 +541,6 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
   const [selMun,     setSelMun]     = useState(null);
   const [selBar,     setSelBar]     = useState(null);
   const [street,     setStreet]     = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [postalCodeTouched, setPostalCodeTouched] = useState(false); // true once user edits it manually
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms,     setShowTerms]     = useState(false);
   const [addrErr,       setAddrErr]       = useState("");
@@ -573,19 +570,6 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
     setBarangays([]); setSelBar(null);
     fetchBarangays(selMun.municipalityID).then(setBarangays).catch(console.error).finally(() => setLoadingBar(false));
   }, [selMun]);
-
-  // Best-effort postal code suggestion once a Barangay is picked (some
-  // barangays/districts — especially in NCR — have their own postal code
-  // distinct from the rest of the city). Falls back to the municipality-level
-  // code on the backend if the barangay itself has no match.
-  // Never overrides a value the user already typed themselves.
-  useEffect(() => {
-    if (!selBar || !selMun) return;
-    if (postalCodeTouched) return;
-    fetchPostalCode(selMun.municipalityName, selBar.barangayName)
-      .then((res) => { if (res?.found && !postalCodeTouched) setPostalCode(res.postalCode); })
-      .catch(() => {}); // silent — postal code stays optional/manual on failure
-  }, [selBar, selMun, postalCodeTouched]);
 
   const handleRegion = useCallback((e) => setSelRegion(regions.find((r) => r.regionID === e.target.value) || null), [regions]);
   const handleProv   = useCallback((e) => setSelProv(provinces.find((p) => p.provinceID === e.target.value) || null), [provinces]);
@@ -655,7 +639,6 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
           municipality: selMun?.municipalityName || "",
           barangay:     selBar?.barangayName     || "",
           street:       street.trim(),
-          postalCode:   postalCode.trim(),
         },
         // Step 3 — documents (base64 images — backend uploads to Storage)
         documentType:         s3.govIdType,
@@ -1024,20 +1007,6 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     <option value="">{loadingBar ? "Loading…" : selMun ? "— Select Barangay —" : "— Select a municipality first —"}</option>
                     {barangays.map((b) => <option key={b.barangayID} value={b.barangayID}>{b.barangayName}</option>)}
                   </select>
-                </div>
-
-                <div>
-                  <label className={labelCls}>Postal Code</label>
-                  <input type="text" inputMode="numeric" maxLength={4} className={inputCls} placeholder="e.g. 3018"
-                    value={postalCode}
-                    disabled={!postalCodeTouched && !!postalCode}
-                    onChange={(e) => {
-                      setPostalCodeTouched(true);
-                      setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 4));
-                    }} />
-                  {!postalCodeTouched && postalCode && (
-                    <p className="text-xs text-gray-400 mt-1">🔒 Auto-filled based on your barangay/municipality.</p>
-                  )}
                 </div>
 
                 <div>
