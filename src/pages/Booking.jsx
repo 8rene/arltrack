@@ -1370,24 +1370,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                       {/* Auto-end banner */}
                       {duration === '12 Hours' && startDate && startTime && endDate && endTime && (
-                        <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center gap-4">
-                          <span className="text-2xl">🏁</span>
+                        <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+                          <span className="text-lg sm:text-2xl">🏁</span>
                           <div>
-                            <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (12 hrs)</p>
-                            <p className="text-base font-black text-green-700">{fmt(endDate)}</p>
-                            <p className="text-sm text-green-600">{(() => { const [h,m]=endTime.split(':').map(Number); const ampm=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ampm}`; })()}</p>
-                            <p className="text-xs text-green-500 mt-1">{days} day(s) · ₱{total.toLocaleString()}</p>
+                            <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (12 hrs)</p>
+                            <p className="text-sm sm:text-base font-black text-green-700">{fmt(endDate)}</p>
+                            <p className="text-xs sm:text-sm text-green-600">{(() => { const [h,m]=endTime.split(':').map(Number); const ampm=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ampm}`; })()}</p>
+                            <p className="text-[10px] sm:text-xs text-green-500 mt-1">{days} day(s) · ₱{total.toLocaleString()}</p>
                           </div>
                         </div>
                       )}
                       {duration === '22 Hours' && startDate && startTime && endDate && endTime && (
-                        <div className="mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-4 flex items-center gap-4">
-                          <span className="text-2xl">🏁</span>
+                        <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+                          <span className="text-lg sm:text-2xl">🏁</span>
                           <div>
-                            <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (22 hrs)</p>
-                            <p className="text-xs text-green-500">{fmt(startDate)} →</p>
-                            <p className="text-base font-black text-green-700">{fmt(endDate)} {(() => { const [h,m]=endTime.split(':').map(Number); const ampm=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ampm}`; })()}</p>
-                            <p className="text-xs text-green-500 mt-1">{diffHrs > 0 ? `${diffHrs.toFixed(0)}h · ${days} day(s) · ₱${total.toLocaleString()}` : ''}</p>
+                            <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (22 hrs)</p>
+                            <p className="text-[10px] sm:text-xs text-green-500">{fmt(startDate)} →</p>
+                            <p className="text-sm sm:text-base font-black text-green-700">{fmt(endDate)} {(() => { const [h,m]=endTime.split(':').map(Number); const ampm=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ampm}`; })()}</p>
+                            <p className="text-[10px] sm:text-xs text-green-500 mt-1">{diffHrs > 0 ? `${diffHrs.toFixed(0)}h · ${days} day(s) · ₱${total.toLocaleString()}` : ''}</p>
                           </div>
                         </div>
                       )}
