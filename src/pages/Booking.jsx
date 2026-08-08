@@ -1555,32 +1555,32 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               {/* ══ STEP 4 — PAYMENT ════════════════════════════════ */}
               {currentStep === 4 && (
                 <div>
-                  <h3 className="text-2xl font-bold text-arl-dark mb-2">Payment</h3>
-                  <p className="text-gray-600 mb-6">Choose how much to pay now.</p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">Payment</h3>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose how much to pay now.</p>
 
                   {/* Amount options */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                     {[
                       { key:'partial', label:'Partial (50%)', amount: Math.floor(grandTotal*0.5), note: `Balance ₱${Math.ceil(grandTotal*0.5).toLocaleString()} on pickup.` },
                       { key:'full',    label:'Full Payment',  amount: grandTotal,                 note: 'No balance on pickup.' },
                     ].map(({ key, label, amount, note }) => (
                       <button key={key} type="button"
                         onClick={() => setPaymentAmount(key)}
-                        className={`p-4 rounded-xl border-2 text-left transition-colors ${paymentAmount === key ? 'border-arl-secondary bg-blue-50' : 'border-gray-300 hover:border-arl-primary'}`}>
-                        <div className="text-sm font-medium mb-1">{label}</div>
-                        <div className="text-arl-cta text-xl font-black">₱{Number(amount).toLocaleString()}</div>
-                        <div className="text-xs text-gray-500 mt-1">{note}</div>
+                        className={`p-3 sm:p-4 rounded-xl border-2 text-left transition-colors ${paymentAmount === key ? 'border-arl-secondary bg-blue-50' : 'border-gray-300 hover:border-arl-primary'}`}>
+                        <div className="text-xs sm:text-sm font-medium mb-1">{label}</div>
+                        <div className="text-arl-cta text-lg sm:text-xl font-black">₱{Number(amount).toLocaleString()}</div>
+                        <div className="text-[11px] sm:text-xs text-gray-500 mt-1">{note}</div>
                       </button>
                     ))}
                   </div>
 
-                  <div className="bg-blue-50 text-sm text-arl-primary p-3 rounded-lg mb-6">
+                  <div className="bg-blue-50 text-xs sm:text-sm text-arl-primary p-2.5 sm:p-3 rounded-lg mb-4 sm:mb-6">
                     Remaining balance on pickup: <strong>₱{getBalance().toLocaleString()}</strong>
                   </div>
 
                   {/* Payment method — GCash, Maya, and PayMongo */}
-                  <label className="block text-sm font-semibold text-arl-dark mb-3">Payment Method</label>
-                  <div className="grid grid-cols-3 gap-4 mb-6">
+                  <label className="block text-xs sm:text-sm font-semibold text-arl-dark mb-2 sm:mb-3">Payment Method</label>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
                     {[
                       { key: 'gcash',    label: 'GCash', img: gcashLogo  },
                       { key: 'maya',     label: 'Maya',  img: mayaLogo   },
@@ -1588,27 +1588,27 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     ].map((item) => (
                       <button key={item.key} type="button"
                         onClick={() => { setPaymentMethod(item.key); setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); }}
-                        className={`flex flex-col items-center justify-center gap-2 px-4 py-4 rounded-xl border-2 font-bold transition-all ${
+                        className={`flex flex-col items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-4 rounded-xl border-2 font-bold transition-all ${
                           paymentMethod === item.key
                             ? 'border-arl-secondary bg-blue-50 text-arl-primary shadow-md'
                             : 'border-gray-200 text-gray-600 hover:border-arl-primary'
                         }`}>
-                        <img src={item.img} alt={item.label} className="w-12 h-10 object-contain rounded-md" />
-                        <span className="text-sm font-bold">{item.label}</span>
+                        <img src={item.img} alt={item.label} className="w-9 h-7 sm:w-12 sm:h-10 object-contain rounded-md" />
+                        <span className="text-xs sm:text-sm font-bold">{item.label}</span>
                       </button>
                     ))}
                   </div>
 
                   {/* Manual ref + screenshot — only shown for non-PayMongo methods */}
                   {!isPaymongoMethod(paymentMethod) && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 space-y-4">
-                    <p className="text-sm text-gray-600">
+                  <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 sm:p-5 space-y-3 sm:space-y-4">
+                    <p className="text-xs sm:text-sm text-gray-600">
                       Send <strong>₱{getPayNow().toLocaleString()}</strong> to our {paymentMethod === 'gcash' ? 'GCash' : 'Maya'} number first, then fill in the details below.
                     </p>
 
                     {/* Reference number */}
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                         Reference Number <span className="text-arl-cta">*</span>
                       </label>
                       <input
@@ -1616,26 +1616,26 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         value={gcashReference}
                         onChange={e => setGcashReference(e.target.value)}
                         placeholder={paymentMethod === 'gcash' ? 'e.g. 1234567890123' : 'e.g. PY1234567890'}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm font-mono"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-xs sm:text-sm font-mono"
                       />
                       {errors.gcashReference && (
-                        <p className="text-arl-cta text-xs mt-1">⛔ {errors.gcashReference}</p>
+                        <p className="text-arl-cta text-[11px] sm:text-xs mt-1">⛔ {errors.gcashReference}</p>
                       )}
                     </div>
 
                     {/* Screenshot upload */}
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                         Payment Screenshot <span className="text-arl-cta">*</span>
                       </label>
 
                       {!screenshotPreview ? (
-                        <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-arl-primary hover:bg-arl-primary/5 transition-all group">
-                          <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">📸</div>
-                          <p className="text-sm font-semibold text-gray-500 group-hover:text-arl-primary">
+                        <label className="flex flex-col items-center justify-center w-full h-28 sm:h-36 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-arl-primary hover:bg-arl-primary/5 transition-all group">
+                          <div className="text-2xl sm:text-4xl mb-1 sm:mb-2 group-hover:scale-110 transition-transform">📸</div>
+                          <p className="text-xs sm:text-sm font-semibold text-gray-500 group-hover:text-arl-primary">
                             Click to upload screenshot
                           </p>
-                          <p className="text-xs text-gray-400 mt-1">PNG, JPG, JPEG (max 5MB)</p>
+                          <p className="text-[10px] sm:text-xs text-gray-400 mt-1">PNG, JPG, JPEG (max 5MB)</p>
                           <input
                             type="file"
                             accept="image/png,image/jpg,image/jpeg"
