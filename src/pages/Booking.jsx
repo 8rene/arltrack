@@ -683,11 +683,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             const sameDayEndInvalid = idx === 1 && duration === '22 Hours' && isStart;
             const interactionDisabled = isBlocked || endCalendarLocked || sameDayEndInvalid;
 
-            let cls = `text-center text-sm py-2 rounded-xl transition-all font-medium relative `;
+            let cls = `text-center text-xs sm:text-sm py-1 sm:py-2 rounded-lg sm:rounded-xl transition-all font-medium relative `;
             if (isPast) {
               cls += 'text-gray-300 cursor-not-allowed ';
             } else if (isBlocked) {
-              cls += `${style.bg} ${style.text} cursor-not-allowed text-xs `;
+              cls += `${style.bg} ${style.text} cursor-not-allowed text-[10px] sm:text-xs `;
             } else if (sameDayEndInvalid) {
               cls += 'bg-gray-100 text-gray-300 cursor-not-allowed ';
             } else if (idx === 1 ? isEnd : isStart) {
@@ -727,11 +727,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           })}
         </div>
         {/* Legend */}
-        <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-gray-100">
+        <div className="flex flex-wrap gap-2 sm:gap-3 mt-2.5 sm:mt-4 pt-2.5 sm:pt-3 border-t border-gray-100">
           {Object.entries(DATE_STYLES).map(([k, v]) => (
-            <div key={k} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded-md ${v.bg || 'bg-gray-200 border border-gray-300'}`} />
-              <span className="text-xs text-gray-500 capitalize">{v.label}</span>
+            <div key={k} className="flex items-center gap-1 sm:gap-1.5">
+              <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-md ${v.bg || 'bg-gray-200 border border-gray-300'}`} />
+              <span className="text-[10px] sm:text-xs text-gray-500 capitalize">{v.label}</span>
             </div>
           ))}
         </div>
