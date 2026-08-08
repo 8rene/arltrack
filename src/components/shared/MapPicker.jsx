@@ -259,32 +259,32 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-lg font-black text-arl-primary">📍 Pick Location</h3>
+            <h3 className="text-sm sm:text-lg font-black text-arl-primary">📍 Pick Location</h3>
             {readOnly ? (
-              <p className="text-xs text-gray-400 mt-0.5">Fixed pickup location — uncheck "Pick up in-store" to choose elsewhere</p>
+              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Fixed pickup location — uncheck "Pick up in-store" to choose elsewhere</p>
             ) : restrictToServiceArea && (
-              <p className="text-xs text-gray-400 mt-0.5">Available in {SERVICE_AREA_LABEL}</p>
+              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Available in {SERVICE_AREA_LABEL}</p>
             )}
           </div>
           <button onClick={onClose}
-            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-sm transition">
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-sm transition flex-shrink-0">
             ✕
           </button>
         </div>
 
         {/* Search bar — hidden in read-only mode, since there's nothing to search for */}
         {!readOnly && (
-        <div className="px-6 py-3 border-b border-gray-100">
-          <div className="flex gap-2">
+        <div className="px-4 py-2.5 sm:px-6 sm:py-3 border-b border-gray-100">
+          <div className="flex gap-1.5 sm:gap-2">
             <input
               type="text"
-              className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm"
+              className="flex-1 min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-xs sm:text-sm"
               placeholder="Search address in Philippines…"
               value={searchQuery}
               onChange={(e) => {
@@ -298,7 +298,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             <button
               onClick={handleSearch}
               disabled={searching}
-              className="px-4 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-semibold hover:bg-arl-secondary transition disabled:opacity-50"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-arl-primary text-white text-xs sm:text-sm font-semibold hover:bg-arl-secondary transition disabled:opacity-50 flex-shrink-0"
             >
               {searching ? '…' : 'Search'}
             </button>
@@ -306,7 +306,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
 
           {/* Search results */}
           {searchResults.length > 0 && (
-            <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden shadow-lg max-h-60 overflow-y-auto">
+            <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden shadow-lg max-h-48 sm:max-h-60 overflow-y-auto">
               {searchResults.map((r, i) => {
                 const a = r.address || {};
                 const parts = [
@@ -318,10 +318,10 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
                 return (
                   <button key={i}
                     onClick={() => handleSearchSelect(r)}
-                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-arl-primary/5 border-b border-gray-100 last:border-0 transition">
+                    className="w-full text-left px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-gray-700 hover:bg-arl-primary/5 border-b border-gray-100 last:border-0 transition">
                     <span className="font-semibold text-arl-primary">{parts[0]}</span>
                     {parts.length > 1 && (
-                      <span className="text-gray-400 text-xs block">{parts.slice(1).join(', ')}</span>
+                      <span className="text-gray-400 text-[10px] sm:text-xs block">{parts.slice(1).join(', ')}</span>
                     )}
                   </button>
                 );
@@ -329,23 +329,23 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             </div>
           )}
           {searchError && !searching && (
-            <p className="text-xs text-red-500 mt-2 px-1">⚠ {searchError}</p>
+            <p className="text-[10px] sm:text-xs text-red-500 mt-2 px-1">⚠ {searchError}</p>
           )}
           {!searchError && hasSearched && searchResults.length === 0 && !searching && (
-            <p className="text-xs text-gray-400 mt-2 px-1">No results. Try a different keyword.</p>
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-2 px-1">No results. Try a different keyword.</p>
           )}
         </div>
         )}
 
         {/* Map */}
-        <div className="flex-1 relative" style={{ minHeight: '350px' }}>
+        <div className="flex-1 relative" style={{ minHeight: '240px' }}>
           <MapContainer
             center={DEFAULT_COORDS}
             zoom={15}
             minZoom={5}
             maxBounds={PH_BOUNDS}
             maxBoundsViscosity={1.0}
-            style={{ height: '100%', width: '100%', minHeight: '350px' }}
+            style={{ height: '100%', width: '100%', minHeight: '240px' }}
             scrollWheelZoom
           >
             <TileLayer
@@ -361,34 +361,34 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
 
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[500]">
-              <div className="text-sm text-arl-primary font-semibold animate-pulse">Getting address…</div>
+              <div className="text-xs sm:text-sm text-arl-primary font-semibold animate-pulse">Getting address…</div>
             </div>
           )}
         </div>
 
         {/* Selected address + confirm */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
-          <p className="text-xs text-gray-400 mb-1">Selected location:</p>
-          <p className={`text-sm font-semibold mb-3 line-clamp-2 ${hasSelected ? 'text-arl-dark' : 'text-gray-400 italic'}`}>
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-gray-100 bg-gray-50">
+          <p className="text-[10px] sm:text-xs text-gray-400 mb-1">Selected location:</p>
+          <p className={`text-xs sm:text-sm font-semibold mb-2.5 sm:mb-3 line-clamp-2 ${hasSelected ? 'text-arl-dark' : 'text-gray-400 italic'}`}>
             {loading ? 'Getting address…' : (hasSelected ? address : 'Tap the map, drag the pin, or search to choose a location')}
           </p>
           {pickError && (
-            <p className="text-xs text-red-500 mb-3">⚠ {pickError}</p>
+            <p className="text-[10px] sm:text-xs text-red-500 mb-2.5 sm:mb-3">⚠ {pickError}</p>
           )}
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             {readOnly ? (
               <button onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-semibold hover:bg-arl-secondary transition">
+                className="flex-1 py-2 sm:py-2.5 rounded-xl bg-arl-primary text-white text-xs sm:text-sm font-semibold hover:bg-arl-secondary transition">
                 Close
               </button>
             ) : (
               <>
                 <button onClick={onClose}
-                  className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-500 text-sm font-semibold hover:border-gray-300 transition">
+                  className="flex-1 py-2 sm:py-2.5 rounded-xl border-2 border-gray-200 text-gray-500 text-xs sm:text-sm font-semibold hover:border-gray-300 transition">
                   Cancel
                 </button>
                 <button onClick={handleConfirm} disabled={loading || !hasSelected}
-                  className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-semibold hover:bg-arl-secondary transition disabled:opacity-50">
+                  className="flex-1 py-2 sm:py-2.5 rounded-xl bg-arl-primary text-white text-xs sm:text-sm font-semibold hover:bg-arl-secondary transition disabled:opacity-50">
                   ✓ Use this location
                 </button>
               </>
