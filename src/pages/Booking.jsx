@@ -1428,44 +1428,44 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">We'll use this to confirm your booking.</p>
 
                   {/* Name fields — always locked; must be set/updated via Profile */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-2">First Name</label>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-600 mb-1.5 sm:mb-2">First Name</label>
                       <input
                         type="text"
                         value={firstName}
                         readOnly
                         placeholder="Not set"
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 text-sm sm:text-base cursor-not-allowed"
                       />
                       {errors.firstName ? (
-                        <p className="text-arl-cta text-xs mt-1">
+                        <p className="text-arl-cta text-[11px] sm:text-xs mt-1">
                           {errors.firstName}{' '}
                           <a href="/profile" className="underline">Add it in your profile</a>.
                         </p>
                       ) : (
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
                           From your account —{' '}
                           <a href="/profile" className="underline">update it in your profile</a>.
                         </p>
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-2">Last Name</label>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-600 mb-1.5 sm:mb-2">Last Name</label>
                       <input
                         type="text"
                         value={lastName}
                         readOnly
                         placeholder="Not set"
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
+                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 text-sm sm:text-base cursor-not-allowed"
                       />
                       {errors.lastName ? (
-                        <p className="text-arl-cta text-xs mt-1">
+                        <p className="text-arl-cta text-[11px] sm:text-xs mt-1">
                           {errors.lastName}{' '}
                           <a href="/profile" className="underline">Add it in your profile</a>.
                         </p>
                       ) : (
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
                           From your account —{' '}
                           <a href="/profile" className="underline">update it in your profile</a>.
                         </p>
@@ -1476,24 +1476,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
 
                   {/* Contact — read-only if logged in */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-2">Contact Number</label>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-600 mb-1.5 sm:mb-2">Contact Number</label>
                       {user ? (
                         <div>
                           <input
                             type="tel"
                             value={contact}
                             readOnly
-                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 text-sm sm:text-base cursor-not-allowed"
                           />
                           {errors.contact ? (
-                            <p className="text-arl-cta text-xs mt-1">
+                            <p className="text-arl-cta text-[11px] sm:text-xs mt-1">
                               {errors.contact}{' '}
                               <a href="/profile" className="underline">Update it in your profile</a>.
                             </p>
                           ) : (
-                            <p className="text-xs text-gray-400 mt-1">From your account</p>
+                            <p className="text-[11px] sm:text-xs text-gray-400 mt-1">From your account</p>
                           )}
                         </div>
                       ) : (
@@ -1503,31 +1503,31 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             value={contact}
                             onChange={(e) => setContact(e.target.value)}
                             placeholder="09XXXXXXXXX or +639XXXXXXXXX"
-                            className="w-full px-4 py-3 border-2 border-arl-primary rounded-xl focus:border-arl-secondary focus:outline-none"
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-arl-primary rounded-xl focus:border-arl-secondary focus:outline-none text-sm sm:text-base"
                           />
-                          {errors.contact && <p className="text-arl-cta text-xs mt-1">{errors.contact}</p>}
+                          {errors.contact && <p className="text-arl-cta text-[11px] sm:text-xs mt-1">{errors.contact}</p>}
                         </div>
                       )}
                     </div>
 
                     {/* Email — read-only if logged in */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-600 mb-2">Email</label>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-600 mb-1.5 sm:mb-2">Email</label>
                       {user ? (
                         <div>
                           <input
                             type="email"
                             value={email}
                             readOnly
-                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 text-sm sm:text-base cursor-not-allowed"
                           />
                           {errors.email ? (
-                            <p className="text-arl-cta text-xs mt-1">
+                            <p className="text-arl-cta text-[11px] sm:text-xs mt-1">
                               {errors.email}{' '}
                               <a href="/profile" className="underline">Update it in your profile</a>.
                             </p>
                           ) : (
-                            <p className="text-xs text-gray-400 mt-1">From your account</p>
+                            <p className="text-[11px] sm:text-xs text-gray-400 mt-1">From your account</p>
                           )}
                         </div>
                       ) : (
@@ -1536,18 +1536,18 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-arl-primary rounded-xl focus:border-arl-secondary focus:outline-none"
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-arl-primary rounded-xl focus:border-arl-secondary focus:outline-none text-sm sm:text-base"
                           />
-                          {errors.email && <p className="text-arl-cta text-xs mt-1">{errors.email}</p>}
+                          {errors.email && <p className="text-arl-cta text-[11px] sm:text-xs mt-1">{errors.email}</p>}
                         </div>
                       )}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-2">Special Notes</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-600 mb-1.5 sm:mb-2">Special Notes</label>
                     <textarea value={specialNotes} rows="4" onChange={e => setSpecialNotes(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-arl-primary rounded-xl focus:border-arl-secondary focus:outline-none resize-none" />
+                      className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-arl-primary rounded-xl focus:border-arl-secondary focus:outline-none resize-none text-sm sm:text-base" />
                   </div>
                 </div>
               )}
