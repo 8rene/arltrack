@@ -125,11 +125,11 @@ const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
 // Section wrapper
 const Section = ({ title, icon, children }) => (
   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-    <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50">
+    <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50">
       <span className="text-xl">{icon}</span>
       <h3 className="font-bold text-arl-primary text-base">{title}</h3>
     </div>
-    <div className="p-4 sm:p-6">{children}</div>
+    <div className="p-6">{children}</div>
   </div>
 );
 
@@ -187,8 +187,8 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="flex items-center gap-4 p-6 border-b border-gray-100 bg-gray-50">
           <div className="w-14 h-11 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
-            {booking.imageURL
-              ? <img src={booking.imageURL} alt={booking.carName} className="w-full h-full object-cover" />
+            {booking.carImage
+              ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-xl">🚗</div>}
           </div>
           <div className="flex-1 min-w-0">
@@ -315,8 +315,8 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved, onCancelled }) => {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition overflow-hidden">
         <div className="flex gap-4 p-5">
           <div className="w-28 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-            {booking.imageURL
-              ? <img src={booking.imageURL} alt={booking.carName} className="w-full h-full object-cover" />
+            {booking.carImage
+              ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">🚗</div>}
           </div>
           <div className="flex-1 min-w-0">
@@ -511,6 +511,7 @@ const ReviewsTab = ({ user, navigate }) => {
 const ProfilePage = ({ user }) => {
   const navigate   = useNavigate();
   const fileRef    = useRef(null);
+  const [activeTab, setActiveTab] = useState("profile");
 
   const [profile,      setProfile]      = useState(null);
   const [loading,      setLoading]      = useState(true);
@@ -643,6 +644,11 @@ const ProfilePage = ({ user }) => {
 
   if (!user?.userID) return null;
 
+  const TABS = [
+    { key: "profile", label: "My Profile", icon: "👤" },
+    { key: "reviews", label: "My Reviews",  icon: "⭐" },
+  ];
+
   // Initials fallback for avatar
   const initials = `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "?";
 
@@ -652,16 +658,34 @@ const ProfilePage = ({ user }) => {
 
         {/* Page header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-black text-arl-primary tracking-tight">My Profile</h1>
-          <p className="text-gray-500 text-sm mt-1">View and update your personal information</p>
+          <h1 className="text-3xl font-black text-arl-primary tracking-tight">
+            {activeTab === "profile" ? "My Profile" : "My Reviews"}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {activeTab === "profile" ? "View and update your personal information" : "Rate and review the vehicles you've booked"}
+          </p>
         </div>
 
-        {error && (
+        {/* Tab bar */}
+        <div className="flex gap-1 mb-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 w-fit">
+          {TABS.map(({ key, label, icon }) => (
+            <button key={key} onClick={() => setActiveTab(key)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === key
+                  ? "bg-arl-primary text-white shadow"
+                  : "text-gray-500 hover:text-arl-primary hover:bg-gray-50"
+              }`}>
+              <span>{icon}</span> {label}
+            </button>
+          ))}
+        </div>
+
+        {error && activeTab === "profile" && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">⛔ {error}</div>
         )}
 
-        {/* ── PROFILE ── */}
-        {(
+        {/* ── PROFILE TAB ── */}
+        {activeTab === "profile" && (
           <>
             {loading ? (
               <div className="space-y-6">
@@ -680,20 +704,20 @@ const ProfilePage = ({ user }) => {
 
                 {/* ── Profile Photo ── */}
                 <Section title="Profile Photo" icon="📷">
-                  <div className="flex items-center gap-4 sm:gap-6">
+                  <div className="flex items-center gap-6">
                     {/* Avatar */}
                     <div className="relative flex-shrink-0">
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-arl-primary/10 border-4 border-white shadow-md flex items-center justify-center">
+                      <div className="w-24 h-24 rounded-full overflow-hidden bg-arl-primary/10 border-4 border-white shadow-md flex items-center justify-center">
                         {avatarURL
                           ? <img src={avatarURL} alt="Profile" className="w-full h-full object-cover" onError={() => setAvatarURL("")} />
-                          : <span className="text-xl sm:text-2xl font-black text-arl-primary">{initials}</span>
+                          : <span className="text-2xl font-black text-arl-primary">{initials}</span>
                         }
                       </div>
-                      {/* Icon overlay — click to change photo */}
+                      {/* Upload button overlay */}
                       <button
                         onClick={() => fileRef.current?.click()}
                         disabled={uploading}
-                        className="absolute bottom-0 right-0 w-6 h-6 sm:w-7 sm:h-7 bg-arl-primary text-white rounded-full flex items-center justify-center shadow hover:bg-arl-secondary transition disabled:opacity-60"
+                        className="absolute bottom-0 right-0 w-7 h-7 bg-arl-primary text-white rounded-full flex items-center justify-center shadow hover:bg-arl-secondary transition disabled:opacity-60"
                         title="Change photo">
                         {uploading
                           ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -706,9 +730,15 @@ const ProfilePage = ({ user }) => {
                       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                     </div>
                     {/* Info */}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-gray-700 truncate">{firstName} {lastName}</p>
-                      <p className="text-sm text-gray-400 mt-0.5 truncate">{email}</p>
+                    <div>
+                      <p className="font-bold text-gray-700">{firstName} {lastName}</p>
+                      <p className="text-sm text-gray-400 mt-0.5">{email}</p>
+                      <button
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                        className="mt-3 px-4 py-2 bg-arl-primary/10 text-arl-primary text-xs font-bold rounded-full hover:bg-arl-primary/20 transition disabled:opacity-60">
+                        {uploading ? "Uploading…" : "Upload new photo"}
+                      </button>
                       {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
                       <p className="text-xs text-gray-400 mt-1">JPG, PNG or WEBP · Max 5MB</p>
                     </div>
@@ -793,6 +823,11 @@ const ProfilePage = ({ user }) => {
               </div>
             )}
           </>
+        )}
+
+        {/* ── REVIEWS TAB ── */}
+        {activeTab === "reviews" && (
+          <ReviewsTab user={user} navigate={navigate} />
         )}
 
       </div>
