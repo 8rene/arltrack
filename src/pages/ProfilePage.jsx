@@ -136,12 +136,15 @@ const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
 // cascading dropdowns sourced from the same Firestore-backed location API
 // (Region → Province → Municipality → Barangay) used during registration
 // in SignUpModal.jsx, via utils/firestoreLocation.js.
+// NOTE: Document Type / Document Number are deliberately NOT included here.
+// The admin review screen (Users.jsx → EditRequestsTab → applyProfileChanges)
+// only knows how to apply changes bucketed into "user" / "userDetails" /
+// "userAddress" — bundling a document-collection field would break the
+// admin's Approve button. Document corrections still go through support.
 const SIMPLE_FIELDS = [
-  { key: "email",          label: "Email" },
-  { key: "phone",          label: "Phone" },
-  { key: "birthDate",      label: "Birth Date", type: "date" },
-  { key: "documentType",   label: "Document Type" },
-  { key: "documentNumber", label: "Document Number" },
+  { key: "email",     label: "Email" },
+  { key: "phone",     label: "Phone" },
+  { key: "birthDate", label: "Birth Date", type: "date" },
 ];
 
 const selectCls =
@@ -1017,7 +1020,7 @@ const ProfilePage = ({ user }) => {
         {/* Request Edit modal */}
         {showEditModal && (
           <RequestEditModal
-            currentValues={{ email, phone, birthDate, region, province, municipality: municipality || city, barangay, documentType: profile?.documentType || "", documentNumber: profile?.documentNumber || "" }}
+            currentValues={{ email, phone, birthDate, region, province, municipality: municipality || city, barangay }}
             pendingRequest={pendingEditRequest}
             onClose={() => setShowEditModal(false)}
             onSubmit={submitEditRequest}
