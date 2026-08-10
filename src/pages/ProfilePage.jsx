@@ -2,6 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { storage } from "../firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import {
+  fetchRegions,
+  fetchProvinces,
+  fetchMunicipalities,
+  fetchBarangays,
+} from "../utils/firestoreLocation";
 
 // ─────────────────────────────────────────────────────────────
 // HELPERS
@@ -125,28 +131,144 @@ const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
 // ── Request Edit modal — bundles ALL locked fields into one request ──
 // If a pending bundle already exists, shows the Current vs Requested
 // comparison instead (matches the admin's own EditProfileModal UX).
-const LOCKED_FIELDS = [
+//
+// Province / Municipality / Barangay are no longer free-text — they're
+// cascading dropdowns sourced from the same Firestore-backed location API
+// (Region → Province → Municipality → Barangay) used during registration
+// in SignUpModal.jsx, via utils/firestoreLocation.js.
+const SIMPLE_FIELDS = [
   { key: "email",          label: "Email" },
   { key: "phone",          label: "Phone" },
   { key: "birthDate",      label: "Birth Date", type: "date" },
-  { key: "province",       label: "Province" },
-  { key: "municipality",   label: "Municipality / City" },
-  { key: "barangay",       label: "Barangay" },
   { key: "documentType",   label: "Document Type" },
   { key: "documentNumber", label: "Document Number" },
 ];
 
+const selectCls =
+  "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30 bg-white disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed";
+
 const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, onCancelRequest, submitting, cancelling }) => {
   const [form, setForm] = useState(() =>
-    Object.fromEntries(LOCKED_FIELDS.map(f => [f.key, currentValues[f.key] || ""]))
+    Object.fromEntries(SIMPLE_FIELDS.map(f => [f.key, currentValues[f.key] || ""]))
   );
   const [reason, setReason] = useState("");
   const [error, setError]   = useState("");
 
+  // ── Location cascade (Region → Province → Municipality → Barangay) ──
+  const [regions,        setRegions]        = useState([]);
+  const [provinces,      setProvinces]      = useState([]);
+  const [municipalities, setMunicipalities] = useState([]);
+  const [barangays,      setBarangays]      = useState([]);
+  const [loadingReg,  setLoadingReg]  = useState(false);
+  const [loadingProv, setLoadingProv] = useState(false);
+  const [loadingMun,  setLoadingMun]  = useState(false);
+  const [loadingBar,  setLoadingBar]  = useState(false);
+  const [selRegion, setSelRegion] = useState(null);
+  const [selProv,   setSelProv]   = useState(null);
+  const [selMun,    setSelMun]    = useState(null);
+  const [selBar,    setSelBar]    = useState(null);
+
+  // On open: load regions, then walk the cascade down and pre-select
+  // whichever level matches the user's current saved address.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingReg(true);
+        const regs = await fetchRegions();
+        if (cancelled) return;
+        setRegions(regs);
+        const r = regs.find(x => (x.regionName || "").toLowerCase() === (currentValues.region || "").toLowerCase());
+        if (!r) return;
+        setSelRegion(r);
+
+        setLoadingProv(true);
+        const provs = await fetchProvinces(r.regionID);
+        if (cancelled) return;
+        setProvinces(provs);
+        const p = provs.find(x => (x.provinceName || "").toLowerCase() === (currentValues.province || "").toLowerCase());
+        if (!p) return;
+        setSelProv(p);
+
+        setLoadingMun(true);
+        const muns = await fetchMunicipalities(p.provinceID);
+        if (cancelled) return;
+        setMunicipalities(muns);
+        const m = muns.find(x => (x.municipalityName || "").toLowerCase() === (currentValues.municipality || "").toLowerCase());
+        if (!m) return;
+        setSelMun(m);
+
+        setLoadingBar(true);
+        const bars = await fetchBarangays(m.municipalityID);
+        if (cancelled) return;
+        setBarangays(bars);
+        const b = bars.find(x => (x.barangayName || "").toLowerCase() === (currentValues.barangay || "").toLowerCase());
+        if (b) setSelBar(b);
+      } catch (e) {
+        console.error("Failed to load location data:", e);
+      } finally {
+        if (!cancelled) { setLoadingReg(false); setLoadingProv(false); setLoadingMun(false); setLoadingBar(false); }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleRegion = async (e) => {
+    const r = regions.find(x => x.regionID === e.target.value) || null;
+    setSelRegion(r); setSelProv(null); setSelMun(null); setSelBar(null);
+    setProvinces([]); setMunicipalities([]); setBarangays([]);
+    if (!r) return;
+    setLoadingProv(true);
+    try { setProvinces(await fetchProvinces(r.regionID)); }
+    catch (e) { console.error(e); }
+    finally { setLoadingProv(false); }
+  };
+
+  const handleProv = async (e) => {
+    const p = provinces.find(x => x.provinceID === e.target.value) || null;
+    setSelProv(p); setSelMun(null); setSelBar(null);
+    setMunicipalities([]); setBarangays([]);
+    if (!p) return;
+    setLoadingMun(true);
+    try { setMunicipalities(await fetchMunicipalities(p.provinceID)); }
+    catch (e) { console.error(e); }
+    finally { setLoadingMun(false); }
+  };
+
+  const handleMun = async (e) => {
+    const m = municipalities.find(x => x.municipalityID === e.target.value) || null;
+    setSelMun(m); setSelBar(null);
+    setBarangays([]);
+    if (!m) return;
+    setLoadingBar(true);
+    try { setBarangays(await fetchBarangays(m.municipalityID)); }
+    catch (e) { console.error(e); }
+    finally { setLoadingBar(false); }
+  };
+
+  const handleBar = (e) => {
+    setSelBar(barangays.find(x => x.barangayID === e.target.value) || null);
+  };
+
   const handleSubmit = () => {
-    const changes = LOCKED_FIELDS
+    const changes = SIMPLE_FIELDS
       .filter(f => (form[f.key] || "").trim() !== (currentValues[f.key] || "").trim())
       .map(f => ({ field: f.key, requestedValue: form[f.key].trim() }));
+
+    const newProvince     = (selProv?.provinceName    || "").trim();
+    const newMunicipality = (selMun?.municipalityName || "").trim();
+    const newBarangay     = (selBar?.barangayName      || "").trim();
+
+    if (newProvince && newProvince !== (currentValues.province || "").trim()) {
+      changes.push({ field: "province", requestedValue: newProvince });
+    }
+    if (newMunicipality && newMunicipality !== (currentValues.municipality || "").trim()) {
+      changes.push({ field: "municipality", requestedValue: newMunicipality });
+    }
+    if (newBarangay && newBarangay !== (currentValues.barangay || "").trim()) {
+      changes.push({ field: "barangay", requestedValue: newBarangay });
+    }
 
     if (changes.length === 0) {
       setError("You haven't changed anything yet.");
@@ -206,7 +328,7 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {LOCKED_FIELDS.map((f) => (
+              {SIMPLE_FIELDS.map((f) => (
                 <div key={f.key}>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{f.label}</label>
                   <input
@@ -217,6 +339,45 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
                   />
                 </div>
               ))}
+            </div>
+
+            {/* Location — same Region → Province → Municipality → Barangay
+                cascade sourced from the database as registration uses. */}
+            <div className="pt-1 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4 mb-2">Location</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Region</label>
+                  <select className={selectCls} value={selRegion?.regionID || ""} onChange={handleRegion} disabled={loadingReg}>
+                    <option value="">{loadingReg ? "Loading…" : "— Select Region —"}</option>
+                    {regions.map((r) => <option key={r.regionID} value={r.regionID}>{r.regionName}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Province</label>
+                  <select className={selectCls} value={selProv?.provinceID || ""} onChange={handleProv} disabled={!selRegion || loadingProv}>
+                    <option value="">{loadingProv ? "Loading…" : selRegion ? "— Select Province —" : "— Select a region first —"}</option>
+                    {provinces.map((p) => <option key={p.provinceID} value={p.provinceID}>{p.provinceName}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Municipality / City</label>
+                  <select className={selectCls} value={selMun?.municipalityID || ""} onChange={handleMun} disabled={!selProv || loadingMun}>
+                    <option value="">{loadingMun ? "Loading…" : selProv ? "— Select Municipality —" : "— Select a province first —"}</option>
+                    {municipalities.map((m) => <option key={m.municipalityID} value={m.municipalityID}>{m.municipalityName}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Barangay</label>
+                  <select className={selectCls} value={selBar?.barangayID || ""} onChange={handleBar} disabled={!selMun || loadingBar}>
+                    <option value="">{loadingBar ? "Loading…" : selMun ? "— Select Barangay —" : "— Select a municipality first —"}</option>
+                    {barangays.map((b) => <option key={b.barangayID} value={b.barangayID}>{b.barangayName}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -654,6 +815,7 @@ const ProfilePage = ({ user }) => {
   const [username,     setUsername]     = useState("");
   const [email,        setEmail]        = useState("");
   const [phone,        setPhone]        = useState("");
+  const [region,       setRegion]       = useState("");
   const [province,     setProvince]     = useState("");
   const [city,         setCity]         = useState("");
   const [municipality, setMunicipality] = useState("");
@@ -753,6 +915,7 @@ const ProfilePage = ({ user }) => {
       setUsername(data.username        || "");
       setEmail(data.email              || "");
       setPhone(data.phone              || "");
+      setRegion(data.region            || "");
       setProvince(data.province        || "");
       setCity(data.city                || "");
       setMunicipality(data.municipality|| "");
@@ -854,7 +1017,7 @@ const ProfilePage = ({ user }) => {
         {/* Request Edit modal */}
         {showEditModal && (
           <RequestEditModal
-            currentValues={{ email, phone, birthDate, province, municipality: municipality || city, barangay, documentType: profile?.documentType || "", documentNumber: profile?.documentNumber || "" }}
+            currentValues={{ email, phone, birthDate, region, province, municipality: municipality || city, barangay, documentType: profile?.documentType || "", documentNumber: profile?.documentNumber || "" }}
             pendingRequest={pendingEditRequest}
             onClose={() => setShowEditModal(false)}
             onSubmit={submitEditRequest}
