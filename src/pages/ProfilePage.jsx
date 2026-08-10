@@ -122,6 +122,133 @@ const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
   </div>
 );
 
+// ── Request Edit modal — bundles ALL locked fields into one request ──
+// If a pending bundle already exists, shows the Current vs Requested
+// comparison instead (matches the admin's own EditProfileModal UX).
+const LOCKED_FIELDS = [
+  { key: "email",          label: "Email" },
+  { key: "phone",          label: "Phone" },
+  { key: "birthDate",      label: "Birth Date", type: "date" },
+  { key: "province",       label: "Province" },
+  { key: "municipality",   label: "Municipality / City" },
+  { key: "barangay",       label: "Barangay" },
+  { key: "documentType",   label: "Document Type" },
+  { key: "documentNumber", label: "Document Number" },
+];
+
+const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, onCancelRequest, submitting, cancelling }) => {
+  const [form, setForm] = useState(() =>
+    Object.fromEntries(LOCKED_FIELDS.map(f => [f.key, currentValues[f.key] || ""]))
+  );
+  const [reason, setReason] = useState("");
+  const [error, setError]   = useState("");
+
+  const handleSubmit = () => {
+    const changes = LOCKED_FIELDS
+      .filter(f => (form[f.key] || "").trim() !== (currentValues[f.key] || "").trim())
+      .map(f => ({ field: f.key, requestedValue: form[f.key].trim() }));
+
+    if (changes.length === 0) {
+      setError("You haven't changed anything yet.");
+      return;
+    }
+    setError("");
+    onSubmit(changes, reason);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center p-5 border-b sticky top-0 bg-white z-10">
+          <h2 className="font-black text-lg text-gray-800">
+            {pendingRequest ? "Pending Edit Request" : "Request Profile Edit"}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+
+        {pendingRequest ? (
+          <div className="p-5 space-y-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+              You already have a pending edit request. Cancel it below if you want to submit different changes instead.
+            </div>
+
+            <div className="border rounded-xl overflow-hidden">
+              <div className="grid grid-cols-2 text-xs font-semibold text-gray-400 uppercase bg-gray-50 px-4 py-2">
+                <span>Current</span>
+                <span>Requested</span>
+              </div>
+              {(pendingRequest.changes || []).map((c, i) => (
+                <div key={i} className="border-t">
+                  <p className="px-4 pt-2 text-xs font-semibold text-gray-500">{c.label}</p>
+                  <div className="grid grid-cols-2 px-4 pb-2.5 pt-1 text-sm bg-orange-50/60">
+                    <div className="text-gray-500">{c.oldValue || "—"}</div>
+                    <div className="text-arl-primary font-semibold">{c.newValue || "—"}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+                Close
+              </button>
+              <button onClick={onCancelRequest} disabled={cancelling}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition disabled:opacity-60">
+                {cancelling ? "Cancelling…" : "Cancel Request"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 space-y-4">
+            <p className="text-xs text-gray-400">
+              Change any of the fields below. An admin will review your request before it takes effect.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {LOCKED_FIELDS.map((f) => (
+                <div key={f.key}>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{f.label}</label>
+                  <input
+                    type={f.type || "text"}
+                    value={form[f.key]}
+                    onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Reason (optional)</label>
+              <textarea
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Why does this need to change?"
+                className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
+              />
+            </div>
+
+            {error && <p className="text-xs text-red-500">⛔ {error}</p>}
+
+            <div className="flex gap-3">
+              <button onClick={onClose} disabled={submitting}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+                Cancel
+              </button>
+              <button onClick={handleSubmit} disabled={submitting}
+                className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-bold hover:bg-arl-secondary transition disabled:opacity-60">
+                {submitting ? "Sending…" : "Send Request"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Section wrapper
 const Section = ({ title, icon, children }) => (
   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -538,9 +665,76 @@ const ProfilePage = ({ user }) => {
   const [birthDate,    setBirthDate]    = useState("");
   const [userAddressID, setUserAddressID] = useState("");
 
+  // Locked-field edit requests (bundled — one modal covers all locked fields)
+  const [editRequests, setEditRequests]     = useState([]);
+  const [showEditModal, setShowEditModal]   = useState(false);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+  const [cancellingEdit, setCancellingEdit] = useState(false);
+  const [editToast, setEditToast]           = useState(null);
+
+  const pendingEditRequest = editRequests.find((r) => r.status === "pending");
+
+  const fetchEditRequests = async () => {
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/user/edit-requests/mine`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) setEditRequests(data.data || []);
+    } catch {
+      // non-critical — pending banner just won't show
+    }
+  };
+
+  const submitEditRequest = async (changes, reason) => {
+    setSubmittingEdit(true);
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/user/edit-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ changes, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send request.");
+      setEditToast({ type: "success", msg: data.message || "Edit request sent." });
+      setShowEditModal(false);
+      fetchEditRequests();
+    } catch (err) {
+      setEditToast({ type: "error", msg: err.message });
+    } finally {
+      setSubmittingEdit(false);
+      setTimeout(() => setEditToast(null), 3500);
+    }
+  };
+
+  const cancelEditRequest = async () => {
+    if (!pendingEditRequest) return;
+    setCancellingEdit(true);
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/user/edit-requests/${pendingEditRequest.id}/cancel`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to cancel request.");
+      setEditToast({ type: "success", msg: "Request cancelled." });
+      setShowEditModal(false);
+      fetchEditRequests();
+    } catch (err) {
+      setEditToast({ type: "error", msg: err.message });
+    } finally {
+      setCancellingEdit(false);
+      setTimeout(() => setEditToast(null), 3500);
+    }
+  };
+
   useEffect(() => {
     if (!user?.userID) { navigate("/"); return; }
     fetchProfile();
+    fetchEditRequests();
   }, [user]);
 
   const fetchProfile = async () => {
@@ -656,14 +850,48 @@ const ProfilePage = ({ user }) => {
     <div className="min-h-screen bg-gray-50 pt-24 pb-16">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
 
+        {/* Toast */}
+        {editToast && (
+          <div className={`fixed top-24 right-5 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${
+            editToast.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+          }`}>{editToast.msg}</div>
+        )}
+
+        {/* Request Edit modal */}
+        {showEditModal && (
+          <RequestEditModal
+            currentValues={{ email, phone, birthDate, province, municipality: municipality || city, barangay, documentType: profile?.documentType || "", documentNumber: profile?.documentNumber || "" }}
+            pendingRequest={pendingEditRequest}
+            onClose={() => setShowEditModal(false)}
+            onSubmit={submitEditRequest}
+            onCancelRequest={cancelEditRequest}
+            submitting={submittingEdit}
+            cancelling={cancellingEdit}
+          />
+        )}
+
         {/* Page header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-black text-arl-primary tracking-tight">
-            {activeTab === "profile" ? "My Profile" : "My Reviews"}
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {activeTab === "profile" ? "View and update your personal information" : "Rate and review the vehicles you've booked"}
-          </p>
+        <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-3xl font-black text-arl-primary tracking-tight">
+              {activeTab === "profile" ? "My Profile" : "My Reviews"}
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              {activeTab === "profile" ? "View and update your personal information" : "Rate and review the vehicles you've booked"}
+            </p>
+          </div>
+          {activeTab === "profile" && (
+            <button
+              onClick={() => setShowEditModal(true)}
+              className={`text-sm font-bold rounded-xl px-4 py-2.5 transition ${
+                pendingEditRequest
+                  ? "bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100"
+                  : "bg-arl-primary text-white hover:bg-arl-secondary"
+              }`}
+            >
+              {pendingEditRequest ? "⏳ Pending Edit Request" : "Request Profile Edit"}
+            </button>
+          )}
         </div>
 
         {/* Tab bar */}
