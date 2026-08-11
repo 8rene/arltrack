@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import "../../styles/loginModal.css";
 import { auth }                        from "../../firebase";
 import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import ForgotPasswordModal from "./ForgotPasswordModal";
 
 const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email,         setEmail]        = useState("");
   const [password,      setPassword]     = useState("");
   const [showPassword,  setShowPassword] = useState(false);
@@ -112,6 +114,15 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
     }
   };
 
+  if (showForgotPassword) {
+    return (
+      <ForgotPasswordModal
+        onClose={onClose}
+        onBackToLogin={() => setShowForgotPassword(false)}
+      />
+    );
+  }
+
   return (
     <div
       className="login-overlay"
@@ -194,7 +205,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
               />
               Remember me
             </label>
-            <button type="button" className="login-forgot">
+            <button type="button" className="login-forgot" onClick={() => setShowForgotPassword(true)}>
               Forgot password?
             </button>
           </div>
