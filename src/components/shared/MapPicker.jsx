@@ -133,6 +133,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   const [markerPos,    setMarkerPos]    = useState(DEFAULT_COORDS);
   const [address,      setAddress]      = useState(initialLabel);
   const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
+  const [resolvedProvince, setResolvedProvince] = useState(''); // structured province/state name
   const [searchQuery,  setSearchQuery]  = useState('');
   const [searchResults,setSearchResults]= useState([]);
   const [searching,    setSearching]    = useState(false);
@@ -156,6 +157,11 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   // city, not a fuzzy substring search across the whole display address.
   const pickCity = (addr) => addr?.city || addr?.town || addr?.municipality || addr?.village || '';
 
+  // Same idea, one level up — province/state. Used for base-area fee
+  // matching (e.g. "Bulacan" is a province covering many municipalities,
+  // not a single city — see pricing.js isBaseArea).
+  const pickProvince = (addr) => addr?.province || addr?.state || '';
+
   // When modal opens, reset to initial or default
   useEffect(() => {
     if (isOpen) {
@@ -164,6 +170,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
       setAddress(initialLabel);
       setHasSelected(!!initialLabel);
       setResolvedCity('');
+      setResolvedProvince('');
       setSearchQuery('');
       setSearchResults([]);
       setSearchError('');
@@ -214,6 +221,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setMarkerPos([lat, lng]);
     setAddress(label);
     setResolvedCity(pickCity(address));
+    setResolvedProvince(pickProvince(address));
     setHasSelected(true);
     setLoading(false);
   }, [restrictToServiceArea, readOnly]);
@@ -243,6 +251,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setFlyTarget([lat, lng]);
     setAddress(result.display_name);
     setResolvedCity(pickCity(result.address));
+    setResolvedProvince(pickProvince(result.address));
     setHasSelected(true);
     setSearchResults([]);
     setSearchQuery('');
@@ -253,7 +262,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     // pick, but never let a confirm through without one regardless of how
     // it was triggered.
     if (!hasSelected) return;
-    onConfirm({ address, lat: markerPos[0], lng: markerPos[1], city: resolvedCity });
+    onConfirm({ address, lat: markerPos[0], lng: markerPos[1], city: resolvedCity, province: resolvedProvince });
   };
 
   if (!isOpen) return null;

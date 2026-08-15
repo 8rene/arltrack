@@ -214,9 +214,9 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
         <MapPicker
           isOpen={mapOpen}
           onClose={() => setMapOpen(false)}
-          onConfirm={({ address: addr, lat, lng, city }) => {
+          onConfirm={({ address: addr, lat, lng, city, province }) => {
             onValueChange(addr);
-            onCoordsChange?.({ lat, lng, city });
+            onCoordsChange?.({ lat, lng, city, province });
             setMapOpen(false);
           }}
           initialLabel={value}
@@ -524,6 +524,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           body: JSON.stringify({
             carID: selectedCar.carID, duration, startDate, startTime, endDate, endTime,
             destination, driveType, paymentAmount,
+            // Structured, when we have one — backend prefers an exact match
+            // against these over fuzzy substring-matching the address text
+            // for the base-area fee (see pricing.js isBaseArea).
+            destinationCity:     destinationCoords?.city     || "",
+            destinationProvince: destinationCoords?.province || "",
           }),
         });
         const data = await res.json();
@@ -984,6 +989,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           // fuzzy substring-matching the address string for coding rules.
           pickupCity:      pickupCoords?.city      || "",
           destinationCity: destinationCoords?.city || "",
+          // Same reasoning as destinationCity — exact match preferred over
+          // substring-matching the raw address for the base-area fee.
+          destinationProvince: destinationCoords?.province || "",
           // Additional stop pins beyond the primary destination — only sent
           // for entries that actually have coordinates (map-picked, not just
           // typed text with no pin).
