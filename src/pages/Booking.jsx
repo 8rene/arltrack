@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
+import { useToast } from '../context/ToastContext';
 import gcashLogo  from '../assets/images/GCash_Logo.png';
 import mayaLogo   from '../assets/images/PayMayaLogo.jpg';
 import qrphLogo   from '../assets/images/qr-ph-logo-6f76723590.webp';
@@ -246,6 +247,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const stepTopRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
 
   // ── Cars ────────────────────────────────────────────────────
@@ -908,7 +910,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       // Redirect to PayMongo checkout — paymentID in return URL so we can poll status
       window.location.href = data.checkoutUrl + `?paymentID=${paymentID}`;
     } catch (err) {
-      alert(err.message || "Could not connect to PayMongo. Please try again.");
+      showToast(err.message || "Could not connect to PayMongo. Please try again.");
     } finally {
       setPaymongoLoading(false);
     }
@@ -1014,7 +1016,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.message || "Booking failed. Please try again.");
+        showToast(data.message || "Booking failed. Please try again.");
         return;
       }
 
@@ -1036,7 +1038,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
     } catch (err) {
       console.error("Booking error:", err);
-      alert("Could not connect to server. Please try again.");
+      showToast("Could not connect to server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -1652,7 +1654,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                               const file = e.target.files[0];
                               if (!file) return;
                               if (file.size > 5 * 1024 * 1024) {
-                                alert('File too large. Max 5MB.'); return;
+                                showToast('File too large. Max 5MB.'); return;
                               }
                               setPaymentScreenshot(file);
                               const reader = new FileReader();

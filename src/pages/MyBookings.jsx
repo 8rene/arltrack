@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "../context/ToastContext";
 
 // ── Date formatter — handles Firestore Timestamps, JS Dates, ISO strings ──
 const fmtDT = (val) => {
@@ -218,11 +219,10 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
   const [expanded,        setExpanded]        = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling,      setCancelling]      = useState(false);
-  const [cancelError,     setCancelError]     = useState("");
 
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refunding,       setRefunding]       = useState(false);
-  const [refundError,     setRefundError]     = useState("");
+  const { showToast } = useToast();
 
   const {
     bookingID, carName, carImage, carBodyType,
@@ -237,7 +237,6 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
 
   const handleCancel = async (reason) => {
     setCancelling(true);
-    setCancelError("");
     try {
       const token = localStorage.getItem("arl_token");
       const res   = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${bookingID}/cancel`, {
@@ -252,7 +251,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
       setShowCancelModal(false);
       onCancelled(bookingID, reason || "Cancelled by user.");
     } catch (err) {
-      setCancelError(err.message);
+      showToast(err.message);
     } finally {
       setCancelling(false);
     }
@@ -265,7 +264,6 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
   const handleRefundRequest = async (reason, notes) => {
     if (!p.paymentID) return;
     setRefunding(true);
-    setRefundError("");
     try {
       const token = localStorage.getItem("arl_token");
       const res   = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/refunds`, {
@@ -278,7 +276,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
       setShowRefundModal(false);
       onRefundRequested(); // re-fetch refund requests in the parent
     } catch (err) {
-      setRefundError(err.message);
+      showToast(err.message);
     } finally {
       setRefunding(false);
     }
@@ -290,7 +288,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
         <CancelModal
           booking={booking}
           onConfirm={handleCancel}
-          onClose={() => { setShowCancelModal(false); setCancelError(""); }}
+          onClose={() => setShowCancelModal(false)}
           loading={cancelling}
         />
       )}
@@ -299,7 +297,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
         <RefundModal
           booking={booking}
           onConfirm={handleRefundRequest}
-          onClose={() => { setShowRefundModal(false); setRefundError(""); }}
+          onClose={() => setShowRefundModal(false)}
           loading={refunding}
         />
       )}
@@ -352,14 +350,6 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
                 </p>
               )}
             </div>
-
-            {cancelError && (
-              <p className="text-xs text-red-500 mb-2">⚠️ {cancelError}</p>
-            )}
-
-            {showRefundUI && refundError && (
-              <p className="text-xs text-red-500 mb-2">⚠️ {refundError}</p>
-            )}
 
             <div className="flex flex-col gap-2.5">
               <div className="flex items-center gap-3">

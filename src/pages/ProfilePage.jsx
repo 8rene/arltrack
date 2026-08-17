@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "../context/ToastContext";
 import { storage } from "../firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import {
@@ -834,7 +835,7 @@ const ProfilePage = ({ user }) => {
   const [showEditModal, setShowEditModal]   = useState(false);
   const [submittingEdit, setSubmittingEdit] = useState(false);
   const [cancellingEdit, setCancellingEdit] = useState(false);
-  const [editToast, setEditToast]           = useState(null);
+  const { showToast } = useToast();
 
   const pendingEditRequest = editRequests.find((r) => r.status === "pending");
 
@@ -862,14 +863,13 @@ const ProfilePage = ({ user }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to send request.");
-      setEditToast({ type: "success", msg: data.message || "Edit request sent." });
+      showToast(data.message || "Edit request sent.", "success");
       setShowEditModal(false);
       fetchEditRequests();
     } catch (err) {
-      setEditToast({ type: "error", msg: err.message });
+      showToast(err.message, "error");
     } finally {
       setSubmittingEdit(false);
-      setTimeout(() => setEditToast(null), 3500);
     }
   };
 
@@ -884,14 +884,13 @@ const ProfilePage = ({ user }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to cancel request.");
-      setEditToast({ type: "success", msg: "Request cancelled." });
+      showToast("Request cancelled.", "success");
       setShowEditModal(false);
       fetchEditRequests();
     } catch (err) {
-      setEditToast({ type: "error", msg: err.message });
+      showToast(err.message, "error");
     } finally {
       setCancellingEdit(false);
-      setTimeout(() => setEditToast(null), 3500);
     }
   };
 
@@ -1009,13 +1008,6 @@ const ProfilePage = ({ user }) => {
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-16">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-
-        {/* Toast */}
-        {editToast && (
-          <div className={`fixed top-24 right-5 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${
-            editToast.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
-          }`}>{editToast.msg}</div>
-        )}
 
         {/* Request Edit modal */}
         {showEditModal && (

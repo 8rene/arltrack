@@ -3,6 +3,7 @@ import "../../styles/loginModal.css";
 import { auth }                        from "../../firebase";
 import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import ForgotPasswordModal from "./ForgotPasswordModal";
+import { useToast } from "../../context/ToastContext";
 
 const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -10,9 +11,9 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   const [password,      setPassword]     = useState("");
   const [showPassword,  setShowPassword] = useState(false);
   const [remember,      setRemember]     = useState(false);
-  const [error,         setError]        = useState("");
   const [loading,       setLoading]      = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const { showToast } = useToast();
 
   const emailRef    = useRef(null);
   const passwordRef = useRef(null);
@@ -28,7 +29,6 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     // Remember me
@@ -48,7 +48,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Invalid email or password.");
+        showToast(data.message || "Invalid email or password.");
         return;
       }
 
@@ -61,14 +61,13 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
 
     } catch (err) {
       console.error("Login error:", err);
-      setError("Could not connect to server. Please try again.");
+      showToast("Could not connect to server. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    setError("");
     setGoogleLoading(true);
 
     try {
@@ -91,7 +90,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
       if (!response.ok) {
         // Sign out from Firebase so provider doesn't get linked to the account
         await signOut(auth);
-        setError(data.message || "Google login failed. Please try again.");
+        showToast(data.message || "Google login failed. Please try again.");
         return;
       }
 
@@ -108,7 +107,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
       // Sign out on unexpected errors too
       await signOut(auth).catch(() => {});
       console.error("Google login error:", err);
-      setError("Google login failed. Please try again.");
+      showToast("Google login failed. Please try again.");
     } finally {
       setGoogleLoading(false);
     }
@@ -187,13 +186,6 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
               </div>
             </div>
           </div>
-
-          {/* Error message */}
-          {error && (
-            <p className="login-error" style={{ marginBottom: "0.75rem" }}>
-              ⛔ {error}
-            </p>
-          )}
 
           {/* Options row */}
           <div className="login-options">

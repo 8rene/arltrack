@@ -88,7 +88,11 @@ function App() {
     const msUntilExpiry = decoded.exp * 1000 - Date.now() - 2000;
     if (msUntilExpiry <= 0) return; // already expired — handled elsewhere
 
-    // setTimeout has a ~24.8 day max delay; our tokens are 7d so this is fine.
+    // setTimeout has a ~24.8 day max delay; our tokens are issued with a 1d
+    // expiry (see login.controller.js / google.controller.js), so this is
+    // fine. (msUntilExpiry is derived from decoded.exp on the real token,
+    // not a hardcoded lifetime, so this comment is just documentation —
+    // not something the logic depends on.)
     autoLogoutTimer.current = setTimeout(() => {
       handleLogout(true);
     }, msUntilExpiry);
@@ -194,3 +198,4 @@ function App() {
 }
 
 export default App;
+
