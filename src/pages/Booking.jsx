@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
+import { fetchStoreLocation } from '../utils/storeLocation';
 import { useToast } from '../context/ToastContext';
 import gcashLogo  from '../assets/images/GCash_Logo.png';
 import mayaLogo   from '../assets/images/PayMayaLogo.jpg';
@@ -230,12 +231,6 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
   );
 };
 
-// ── In-store pickup: fixed location configured via env ─────────
-const STORE_LABEL = process.env.REACT_APP_STORE_LABEL || '';
-const STORE_LAT   = parseFloat(process.env.REACT_APP_STORE_LAT);
-const STORE_LNG   = parseFloat(process.env.REACT_APP_STORE_LNG);
-const STORE_CONFIGURED = !!STORE_LABEL && !Number.isNaN(STORE_LAT) && !Number.isNaN(STORE_LNG);
-
 // ══════════════════════════════════════════════════════════════
 // MAIN BOOKING PAGE
 // ══════════════════════════════════════════════════════════════
@@ -303,6 +298,16 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [endTime,           setEndTime]            = useState(inboundStartDateIsPast ? '' : initVal('endTime',   'endTime'));
   const [pickupLocation,    setPickupLocation]     = useState(initValNoDraft('pickupLocation'));
   const [pickupInStore,     setPickupInStore]      = useState(false);
+  // Fetched from the admin-managed store location (utils/storeLocation.js)
+  // instead of the old build-time env vars — changes on the admin side
+  // now show up here without a redeploy.
+  const [storeInfo, setStoreInfo] = useState({ storeName: '', storeLat: null, storeLng: null, configured: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchStoreLocation().then((info) => { if (!cancelled) setStoreInfo(info); });
+    return () => { cancelled = true; };
+  }, []);
   // What pickupLocation/pickupCoords were right before checking "in-store" —
   // restored if the customer unchecks it, so they don't lose typed/mapped
   // work just from toggling the box on and off.
@@ -325,8 +330,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const handleTogglePickupInStore = (checked) => {
     if (checked) {
       preLockPickup.current = { location: pickupLocation, coords: pickupCoords };
-      setPickupLocation(STORE_LABEL);
-      setPickupCoords({ lat: STORE_LAT, lng: STORE_LNG, city: '' });
+      setPickupLocation(storeInfo.storeName);
+      setPickupCoords({ lat: storeInfo.storeLat, lng: storeInfo.storeLng, city: '' });
       setPickupInStore(true);
     } else {
       setPickupLocation(preLockPickup.current.location);
@@ -1250,7 +1255,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                   {/* ── LOCATIONS — always visible ── */}
                   <div className="space-y-4 mb-6">
-                    {STORE_CONFIGURED && (
+                    {storeInfo.configured && (
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -1260,7 +1265,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           className="w-4 h-4 accent-arl-primary rounded"
                         />
                         <label htmlFor="pickupInStore" className="text-xs font-semibold text-gray-600">
-                          🏬 Pick up in-store — {STORE_LABEL}
+                          🏬 Pick up in-store — {storeInfo.storeName}
                         </label>
                       </div>
                     )}
