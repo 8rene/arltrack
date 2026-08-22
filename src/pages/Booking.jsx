@@ -289,6 +289,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const inboundStartDateIsPast = !!inboundStartDate && inboundStartDate < todayStrInit;
 
   const [currentStep,       setCurrentStep]       = useState(1);
+  const [serviceType,       setServiceType]        = useState('');
+  // FK into the serviceType collection, sent alongside the label so admin
+  // can resolve/display it (see admin-backend's resolveServiceType()).
+  // Stays null for "Others" — that's free text with no matching doc.
+  const [serviceTypeID,     setServiceTypeID]      = useState(null);
+  const [otherServiceNote,  setOtherServiceNote]   = useState('');
 
 
   const [otherServiceNote,  setOtherServiceNote]   = useState('');
