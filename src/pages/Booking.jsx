@@ -295,9 +295,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // Stays null for "Others" — that's free text with no matching doc.
   const [serviceTypeID,     setServiceTypeID]      = useState(null);
   const [otherServiceNote,  setOtherServiceNote]   = useState('');
-
-
-  const [otherServiceNote,  setOtherServiceNote]   = useState('');
   const [duration,          setDuration]           = useState(initVal('duration',        'duration'));
   const [startDate,         setStartDate]          = useState(inboundStartDateIsPast ? '' : inboundStartDate);
   const [startTime,         setStartTime]          = useState(inboundStartDateIsPast ? '' : initVal('startTime', 'startTime'));
