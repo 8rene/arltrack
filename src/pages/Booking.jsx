@@ -289,11 +289,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const inboundStartDateIsPast = !!inboundStartDate && inboundStartDate < todayStrInit;
 
   const [currentStep,       setCurrentStep]       = useState(1);
-  const [serviceType,       setServiceType]        = useState('');
-  // FK into the serviceType collection, sent alongside the label so admin
-  // can resolve/display it (see admin-backend's resolveServiceType()).
-  // Stays null for "Others" — that's free text with no matching doc.
-  const [serviceTypeID,     setServiceTypeID]      = useState(null);
+
+
   const [otherServiceNote,  setOtherServiceNote]   = useState('');
   const [duration,          setDuration]           = useState(initVal('duration',        'duration'));
   const [startDate,         setStartDate]          = useState(inboundStartDateIsPast ? '' : inboundStartDate);
@@ -363,7 +360,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const removeExtraDestination = (id) => {
     setExtraDestinations(prev => prev.filter(d => d.id !== id));
   };
-  const [driveType,         setDriveType]          = useState('chauffeur');
+  const [driveType,         setDriveType]          = useState(initValNoDraft('driveType', 'chauffeur'));
   const [firstName,         setFirstName]          = useState(() => {
     return userDetails?.firstName || "";
   });
@@ -372,7 +369,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   });
   const [contact,           setContact]            = useState(userDetails?.phone || user?.phone || "");
   const [email,             setEmail]              = useState(userDetails?.email || user?.email || "");
-  const [specialNotes,      setSpecialNotes]       = useState('');
+  const [specialNotes,      setSpecialNotes]       = useState(initValNoDraft('specialNotes'));
   const [paymentAmount,     setPaymentAmount]      = useState('partial');
   const [paymentMethod,     setPaymentMethod]      = useState('gcash');
   const [gcashReference,    setGcashReference]     = useState('');

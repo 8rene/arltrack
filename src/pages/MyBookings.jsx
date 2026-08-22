@@ -258,7 +258,17 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
   };
 
   const handleRebook = () => {
-    navigate(`/booking${carID ? `?carID=${carID}` : ""}`);
+    navigate('/booking', {
+      state: {
+        carID,
+        serviceType,
+        duration,
+        destination,
+        driveType: modeOfDriving === 'With Chauffeur' ? 'chauffeur' : 'self-drive',
+        // Start/End date & time are intentionally left out — those should
+        // always be freshly chosen, not copied from the old booking.
+      },
+    });
   };
 
   const handleRefundRequest = async (reason, notes) => {

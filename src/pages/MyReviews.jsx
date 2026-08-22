@@ -63,11 +63,12 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to save review.");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to save review.");
       onSaved({ rating, comment, reviewID: existingReview?.reviewID || `new-${Date.now()}` });
       onClose();
     } catch (err) {
-      setError("Could not save review. Please try again.");
+      setError(err.message || "Could not save review. Please try again.");
     } finally {
       setSaving(false);
     }

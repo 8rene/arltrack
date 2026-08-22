@@ -463,11 +463,12 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ userID, carID: booking.carID, bookingID: booking.bookingID, rating, comment }),
       });
-      if (!res.ok) throw new Error();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Could not save review.");
       onSaved({ rating, comment, reviewID: existingReview?.reviewID || `new-${Date.now()}` });
       onClose();
-    } catch {
-      setError("Could not save review. Please try again.");
+    } catch (err) {
+      setError(err.message || "Could not save review. Please try again.");
     } finally {
       setSaving(false);
     }
