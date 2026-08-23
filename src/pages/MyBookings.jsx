@@ -375,8 +375,11 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, hasActiveRefu
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Cancel — only upcoming bookings can be cancelled (matches backend rule) */}
-                { status === "upcoming" && (
+                {/* Cancel — only upcoming bookings can be cancelled (matches
+                    backend rule), and only if there's no refund already in
+                    motion — cancelling after a refund's been requested,
+                    approved, or paid out doesn't mean anything anymore. */}
+                { status === "upcoming" && !hasActiveRefund && (
                   <button
                     onClick={() => setShowCancelModal(true)}
                     className="text-xs font-bold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition">
