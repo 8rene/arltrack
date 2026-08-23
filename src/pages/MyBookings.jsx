@@ -338,8 +338,13 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, hasActiveRefu
                 {carBodyType && <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{carBodyType}</p>}
               </div>
               <div className="flex flex-col items-end gap-1">
-                <PaymentStatusBadge payment={payment} />
-                {existingRefund && <RefundStatusBadge status={existingRefund.status} />}
+                {/* When there's a refund request on file, its own badge
+                    (Pending/Approved/Refunded/Rejected/Failed) is more
+                    specific than the payment badge, so it takes over instead
+                    of showing two badges that both just say "Refunded". */}
+                {existingRefund
+                  ? <RefundStatusBadge status={existingRefund.status} />
+                  : <PaymentStatusBadge payment={payment} />}
               </div>
             </div>
 
