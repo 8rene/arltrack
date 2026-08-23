@@ -264,9 +264,14 @@ const MyReviews = ({ user }) => {
         // reviews endpoint may not exist yet — that's fine
       }
 
-      // 3. Merge — only completed bookings can be reviewed
+      // 3. Merge — completed bookings, plus anything refunded (a refund can
+      // land on a cancelled booking too, but the customer still rode/used
+      // the car and should be able to leave a review either way).
       const merged = allBookings
-        .filter((b) => (b.status || "").toLowerCase() === "completed")
+        .filter((b) =>
+          (b.status || "").toLowerCase() === "completed" ||
+          (b.payment?.status || "").toLowerCase() === "refunded"
+        )
         .map((b) => ({
           ...b,
           myReview: reviewsByBooking[b.bookingID] || null,
@@ -306,7 +311,7 @@ const MyReviews = ({ user }) => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-black text-arl-primary tracking-tight">My Reviews</h1>
-          <p className="text-gray-500 text-sm mt-1">Rate and review vehicles from your completed bookings</p>
+          <p className="text-gray-500 text-sm mt-1">Rate and review vehicles from your completed or refunded bookings</p>
         </div>
 
         {/* Stats */}
@@ -374,14 +379,14 @@ const MyReviews = ({ user }) => {
           <div className="text-center py-16">
             <p className="text-5xl mb-4">{filter === "reviewed" ? "⭐" : filter === "pending" ? "✍️" : "📅"}</p>
             <p className="text-gray-600 font-semibold text-lg">
-              {filter === "reviewed" ? "No reviews yet" : filter === "pending" ? "All bookings reviewed!" : "No completed bookings found"}
+              {filter === "reviewed" ? "No reviews yet" : filter === "pending" ? "All bookings reviewed!" : "No reviewable bookings found"}
             </p>
             <p className="text-gray-400 text-sm mt-1">
               {filter === "reviewed"
                 ? "Book a vehicle and share your experience!"
                 : filter === "pending"
                 ? "Thank you for reviewing all your bookings."
-                : "You have no completed bookings to review yet."}
+                : "You have no completed or refunded bookings to review yet."}
             </p>
             {filter === "all" && (
               <button
