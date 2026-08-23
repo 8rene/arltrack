@@ -19,6 +19,7 @@ const PAYMENT_STATUS_CONFIG = {
   due:       { label: "Payment Due",       bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
   partial:   { label: "Partial",           bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300", icon: "🟠" },
   paid:      { label: "Fully Paid",        bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
+  refunded:  { label: "Refunded",          bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300",   icon: "↩️" },
   failed:    { label: "Payment Failed",    bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
   cancelled: { label: "Payment Cancelled", bg: "bg-gray-100",   text: "text-gray-500",   border: "border-gray-300",   icon: "🚫" },
 };
@@ -33,6 +34,7 @@ const getPaymentInfo = (payment) => {
   const method     = (payment.methodOfPayment || "").toLowerCase();
   const status     = (payment.status || "").toLowerCase();
 
+  if (status === "refunded") return { key: "refunded", extra: "", amountPaid: 0 };
   if (status === "failed" || status === "rejected") return { key: "failed", extra: "", amountPaid: 0 };
   if (status === "cancelled") return { key: "cancelled", extra: "", amountPaid: 0 };
 
@@ -560,7 +562,10 @@ const MyBookings = ({ user }) => {
     );
   };
 
-  const upcoming  = bookings.filter(b => b.status === "upcoming");
+  // A refunded booking shouldn't linger in Upcoming — once the payment's
+  // been refunded there's no trip to expect anymore, regardless of what
+  // the booking's own status field still says.
+  const upcoming  = bookings.filter(b => b.status === "upcoming" && (b.payment?.status || "").toLowerCase() !== "refunded");
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   // Refunds tab: only bookings that already have a refund request on file
   // (any status). Paid bookings that are still eligible but haven't been
@@ -655,6 +660,5 @@ const MyBookings = ({ user }) => {
     </div>
   );
 };
-
 
 export default MyBookings;
