@@ -97,6 +97,12 @@ export default function BookingDetailsPage() {
   }
 
   const { booking, pickupLocation, dropoffLocation, payment } = data;
+  // pickupLocation/dropoffLocation come back as { address, lat, lng } objects
+  // (or null) — never plain strings, so we must pull .address out here
+  // rather than handing the whole object to <DR>, which would crash trying
+  // to render an object as a React child.
+  const pickupAddress  = pickupLocation?.address  || null;
+  const dropoffAddress = dropoffLocation?.address || null;
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-16">
@@ -142,8 +148,8 @@ export default function BookingDetailsPage() {
             <DR label="Days"           value={`${booking.totalDays} day(s)`} />
             <DR label="Service"        value={booking.serviceType} />
             <DR label="Drive Mode"     value={booking.modeOfDriving} />
-            <DR label="Pickup"         value={pickupLocation} />
-            <DR label="Drop-off"       value={dropoffLocation} />
+            <DR label="Pickup"         value={pickupAddress} />
+            <DR label="Drop-off"       value={dropoffAddress} />
           </div>
         </div>
 
