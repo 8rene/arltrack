@@ -377,12 +377,10 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, hasActiveRefu
                   </button>
                 )}
 
-                {/* Request Refund — only for completed/cancelled bookings (not
-                    Upcoming/Ongoing, where Cancel is the right action instead),
-                    and only when fully paid with no active refund request. A
-                    past Rejected/Failed request doesn't block this — the
-                    customer can try again. */}
-                { ["completed", "cancelled"].includes(status) && p.status === "paid" && !hasActiveRefund && (
+                {/* Request Refund — only for upcoming bookings that are fully
+                    paid, with no active refund request. A past Rejected/Failed
+                    request doesn't block this — the customer can try again. */}
+                { status === "upcoming" && p.status === "paid" && !hasActiveRefund && (
                   <button
                     onClick={() => setShowRefundModal(true)}
                     className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">
