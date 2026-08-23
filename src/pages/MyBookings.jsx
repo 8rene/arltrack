@@ -214,7 +214,7 @@ const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundRequested, showRefundUI = false }) => {
+const BookingCard = ({ booking, user, onCancelled, existingRefund, hasActiveRefund = false, onRefundRequested }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -303,7 +303,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
         />
       )}
 
-      {showRefundUI && showRefundModal && (
+      {showRefundModal && (
         <RefundModal
           booking={booking}
           onConfirm={handleRefundRequest}
@@ -337,7 +337,7 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
               </div>
               <div className="flex flex-col items-end gap-1">
                 <PaymentStatusBadge payment={payment} />
-                {showRefundUI && existingRefund && <RefundStatusBadge status={existingRefund.status} />}
+                {existingRefund && <RefundStatusBadge status={existingRefund.status} />}
               </div>
             </div>
 
@@ -377,8 +377,12 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, onRefundReque
                   </button>
                 )}
 
-                {/* Request Refund — only in the Refunds tab, when fully paid and no active refund request yet */}
-                { showRefundUI && p.status === "paid" && !existingRefund && (
+                {/* Request Refund — only for completed/cancelled bookings (not
+                    Upcoming/Ongoing, where Cancel is the right action instead),
+                    and only when fully paid with no active refund request. A
+                    past Rejected/Failed request doesn't block this — the
+                    customer can try again. */}
+                { ["completed", "cancelled"].includes(status) && p.status === "paid" && !hasActiveRefund && (
                   <button
                     onClick={() => setShowRefundModal(true)}
                     className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">
@@ -540,6 +544,13 @@ const MyBookings = ({ user }) => {
   const findActiveRefund = (paymentID) =>
     refundRequests.find((r) => r.paymentID === paymentID && ["Pending", "Approved", "Refunded"].includes(r.status));
 
+  // Any refund request at all, regardless of status — used for the Refunds
+  // tab (a true history/tracking view) and for the status badge, which
+  // should still show e.g. "Rejected" even though that status doesn't
+  // block a retry.
+  const findAnyRefund = (paymentID) =>
+    refundRequests.find((r) => r.paymentID === paymentID);
+
   // Optimistically update cancelled booking in local state
   const handleCancelled = (bookingID, reason) => {
     setBookings((prev) =>
@@ -553,8 +564,12 @@ const MyBookings = ({ user }) => {
 
   const upcoming  = bookings.filter(b => b.status === "upcoming");
   const ongoing   = bookings.filter(b => b.status === "ongoing");
-  // Refunds tab: any paid booking (can request) plus anything with an existing request (so past/rejected ones stay visible too)
-  const refunded  = bookings.filter(b => b.payment?.status === "paid" || (b.payment?.paymentID && findActiveRefund(b.payment.paymentID)));
+  // Refunds tab: only bookings that already have a refund request on file
+  // (any status). Paid bookings that are still eligible but haven't been
+  // requested yet stay in their normal tab (Upcoming/Ongoing/History) —
+  // the "Request Refund" button lives there instead, so this tab is purely
+  // a history/tracking view of requests that were actually made.
+  const refunded  = bookings.filter(b => b.payment?.paymentID && findAnyRefund(b.payment.paymentID));
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
   const displayed =
     activeTab === "upcoming" ? upcoming :
@@ -621,9 +636,9 @@ const MyBookings = ({ user }) => {
                   booking={b}
                   user={user}
                   onCancelled={handleCancelled}
-                  existingRefund={b.payment?.paymentID ? findActiveRefund(b.payment.paymentID) : null}
+                  existingRefund={b.payment?.paymentID ? findAnyRefund(b.payment.paymentID) : null}
+                  hasActiveRefund={!!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
-                  showRefundUI={activeTab === "refunds"}
                 />
               ))
             : <EmptyState tab={activeTab} />
