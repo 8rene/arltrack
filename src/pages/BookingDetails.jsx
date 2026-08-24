@@ -28,6 +28,24 @@ const PAYMENT_STYLE = {
   refunded:  "bg-blue-100 text-blue-700 border-blue-200",
 };
 
+// Same statuses/labels as MyBookings.jsx's RefundStatusBadge, so a booking
+// reads consistently whether the customer is looking at the list or this
+// details page.
+const REFUND_STYLE = {
+  Pending:  "bg-yellow-100 text-yellow-700 border-yellow-300",
+  Approved: "bg-blue-100 text-blue-700 border-blue-300",
+  Refunded: "bg-green-100 text-green-700 border-green-300",
+  Rejected: "bg-red-100 text-red-600 border-red-300",
+  Failed:   "bg-red-100 text-red-600 border-red-300",
+};
+const REFUND_LABEL = {
+  Pending:  "⏳ Refund: Pending",
+  Approved: "🔵 Refund: Approved",
+  Refunded: "✅ Refund: Refunded",
+  Rejected: "❌ Refund: Rejected",
+  Failed:   "❌ Refund: Failed",
+};
+
 const Badge = ({ text, styleMap }) => (
   <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold capitalize border ${styleMap[(text || "").toLowerCase()] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
     {text || "—"}
@@ -49,6 +67,10 @@ export default function BookingDetailsPage() {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
+  // Whichever refund request (any status) exists for this booking's
+  // payment — same source/shape as MyBookings.jsx uses, fetched separately
+  // since /bookings/:bookingID/details doesn't include refund info.
+  const [refund, setRefund]   = useState(null);
 
   useEffect(() => { fetchDetails(); }, [bookingID]);
 
@@ -62,6 +84,23 @@ export default function BookingDetailsPage() {
       if (!res.ok) throw new Error("Failed to load booking details.");
       const json = await res.json();
       setData(json);
+
+      if (json.payment?.paymentID) {
+        try {
+          const rRes = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/refunds/mine`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (rRes.ok) {
+            const refunds = await rRes.json();
+            const match = (Array.isArray(refunds) ? refunds : []).find(
+              (r) => r.paymentID === json.payment.paymentID
+            );
+            setRefund(match || null);
+          }
+        } catch {
+          // Non-fatal — the page still works without the refund badge.
+        }
+      }
     } catch (err) {
       setError(err.message || "Could not load this booking.");
     } finally {
@@ -127,7 +166,15 @@ export default function BookingDetailsPage() {
                   <h1 className="font-black text-lg sm:text-xl text-arl-primary">{booking.carName || "Unknown Vehicle"}</h1>
                   <p className="text-xs text-gray-400 font-mono mt-0.5">{booking.bookingID}</p>
                 </div>
-                <Badge text={booking.status} styleMap={STATUS_STYLE} />
+                {/* When there's a refund request on file, its status is more
+                    specific/current than the raw booking status (which stays
+                    "upcoming" even after a refund — see backend note), so it
+                    takes over the header badge here too, matching MyBookings.jsx. */}
+                {refund
+                  ? <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${REFUND_STYLE[refund.status] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                      {REFUND_LABEL[refund.status] || `Refund: ${refund.status}`}
+                    </span>
+                  : <Badge text={booking.status} styleMap={STATUS_STYLE} />}
               </div>
               <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
                 {booking.serviceType && <span>{booking.serviceType}</span>}
