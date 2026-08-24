@@ -572,10 +572,11 @@ const MyBookings = ({ user }) => {
     );
   };
 
-  // A refunded booking shouldn't linger in Upcoming — once the payment's
-  // been refunded there's no trip to expect anymore, regardless of what
-  // the booking's own status field still says.
-  const upcoming  = bookings.filter(b => b.status === "upcoming" && (b.payment?.status || "").toLowerCase() !== "refunded");
+  // A booking with any refund request on file — even a Rejected one —
+  // shouldn't linger in Upcoming. Once a refund's been requested, it belongs
+  // in the Refunds tab (that's where Cancel is hidden and Request Refund
+  // lives too), not mixed in with bookings nothing has happened to yet.
+  const upcoming  = bookings.filter(b => b.status === "upcoming" && !(b.payment?.paymentID && findAnyRefund(b.payment.paymentID)));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   // Refunds tab: only bookings that already have a refund request on file
   // (any status). Paid bookings that are still eligible but haven't been
