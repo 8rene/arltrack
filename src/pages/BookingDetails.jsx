@@ -166,14 +166,18 @@ export default function BookingDetailsPage() {
                   <h1 className="font-black text-lg sm:text-xl text-arl-primary">{booking.carName || "Unknown Vehicle"}</h1>
                   <p className="text-xs text-gray-400 font-mono mt-0.5">{booking.bookingID}</p>
                 </div>
-                {/* When there's a refund request on file, its status is more
-                    specific/current than the raw booking status (which stays
-                    "upcoming" even after a refund — see backend note), so it
-                    takes over the header badge here too, matching MyBookings.jsx. */}
+                {/* Header badge priority: a matched refund request's own
+                    status (most specific) → the payment's own "refunded"
+                    state (covers refunds that didn't go through the
+                    customer refund-request flow) → the raw booking status
+                    as a last resort, which otherwise stays stuck on
+                    "upcoming" forever once refunded. */}
                 {refund
                   ? <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${REFUND_STYLE[refund.status] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
                       {REFUND_LABEL[refund.status] || `Refund: ${refund.status}`}
                     </span>
+                  : (payment?.status || "").toLowerCase() === "refunded"
+                  ? <Badge text="Refunded" styleMap={PAYMENT_STYLE} />
                   : <Badge text={booking.status} styleMap={STATUS_STYLE} />}
               </div>
               <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
