@@ -41,10 +41,18 @@ const getPaymentInfo = (payment) => {
   let amountPaid;
   if (method.includes("full")) {
     amountPaid = amount;
-  } else if (method.includes("down")) {
-    amountPaid = Math.round(amount / 2);
-  } else if (method.includes("deposit") || method.includes("partial")) {
-    amountPaid = depositFee;
+  } else if (method.includes("partial") || method.includes("down")) {
+    // "Partial" is what computePaymentSplit() (customer backend) actually
+    // produces, and it charges 50% of the grand total via PayMongo
+    // (payNow = Math.floor(total * 0.5)) — NOT the flat depositFee. This
+    // used to show a flat ₱1,000 as "paid" (and inflate Balance Due by
+    // however much more than ₱1,000 was actually charged), and separately
+    // used Math.round here vs Math.floor at charge time, which disagree by
+    // ₱1 on odd totals — both are fixed by matching computePaymentSplit
+    // exactly.
+    amountPaid = Math.floor(amount / 2);
+  } else if (method.includes("deposit")) {
+    amountPaid = depositFee; // true deposit-only flow, if ever used
   } else if (status === "paid" || status === "approved") {
     amountPaid = amount;
   } else {
