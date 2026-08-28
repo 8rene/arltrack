@@ -180,6 +180,14 @@ export default function BookingDetailsPage() {
                   ? <Badge text="Refunded" styleMap={PAYMENT_STYLE} />
                   : <Badge text={booking.status} styleMap={STATUS_STYLE} />}
               </div>
+              {/* Admin's reason for rejecting the refund — already captured
+                  and saved on the refundRequests doc (rejectReason), just
+                  never displayed anywhere in the customer app before. */}
+              {refund?.status === "Rejected" && refund?.rejectReason && (
+                <p className="text-xs text-red-500 mt-1">
+                  <span className="font-semibold">Reason:</span> {refund.rejectReason}
+                </p>
+              )}
               <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
                 {booking.serviceType && <span>{booking.serviceType}</span>}
                 <span>{booking.totalDays} day(s)</span>

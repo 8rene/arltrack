@@ -282,6 +282,15 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 {existingRefund
                   ? <RefundStatusBadge status={existingRefund.status} />
                   : <PaymentStatusBadge payment={payment} />}
+                {/* Admin's reason for rejecting/failing the refund — was
+                    already being captured and saved (rejectReason on the
+                    refundRequests doc, set via the admin Reject action) but
+                    never surfaced anywhere in the customer app before. */}
+                {existingRefund?.status === "Rejected" && existingRefund?.rejectReason && (
+                  <p className="text-[11px] text-red-500 text-right max-w-[220px] leading-snug">
+                    {existingRefund.rejectReason}
+                  </p>
+                )}
               </div>
             </div>
 
