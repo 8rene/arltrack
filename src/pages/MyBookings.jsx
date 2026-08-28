@@ -176,51 +176,10 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
   );
 };
 
-// ── Cancel modal ──
-const CancelModal = ({ booking, onConfirm, onClose, loading }) => {
-  const [reason, setReason] = useState("");
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-        <h3 className="text-lg font-black text-gray-800 mb-1">Cancel Booking</h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Are you sure you want to cancel booking <span className="font-mono font-bold text-arl-primary">{booking.bookingID}</span>?
-        </p>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-          Reason (optional)
-        </label>
-        <textarea
-          className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
-          rows={3}
-          placeholder="E.g. Change of plans..."
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-        <div className="flex gap-3 mt-4">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
-            Keep Booking
-          </button>
-          <button
-            onClick={() => onConfirm(reason)}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition disabled:opacity-60">
-            {loading ? "Cancelling…" : "Yes, Cancel"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ── Booking card ──
-const BookingCard = ({ booking, user, onCancelled, existingRefund, hasActiveRefund = false, onRefundRequested }) => {
+const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelling,      setCancelling]      = useState(false);
 
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refunding,       setRefunding]       = useState(false);
@@ -237,27 +196,6 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, hasActiveRefu
 
   const p = payment || {};
 
-  const handleCancel = async (reason) => {
-    setCancelling(true);
-    try {
-      const token = localStorage.getItem("arl_token");
-      const res   = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${bookingID}/cancel`, {
-        method:  "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ reason: reason || "Cancelled by user." }), // userID from JWT on backend
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Cancel failed.");
-      }
-      setShowCancelModal(false);
-      onCancelled(bookingID, reason || "Cancelled by user.");
-    } catch (err) {
-      showToast(err.message);
-    } finally {
-      setCancelling(false);
-    }
-  };
 
   const handleRebook = () => {
     navigate('/booking', {
@@ -296,15 +234,6 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, hasActiveRefu
 
   return (
     <>
-      {showCancelModal && (
-        <CancelModal
-          booking={booking}
-          onConfirm={handleCancel}
-          onClose={() => setShowCancelModal(false)}
-          loading={cancelling}
-        />
-      )}
-
       {showRefundModal && (
         <RefundModal
           booking={booking}
@@ -375,23 +304,16 @@ const BookingCard = ({ booking, user, onCancelled, existingRefund, hasActiveRefu
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Cancel — only upcoming bookings can be cancelled (matches
-                    backend rule), and only if no refund request has ever
-                    been filed on this booking — once a refund's been
-                    requested (even a Rejected one), Cancel is off the table;
-                    the customer would need to go through Request Refund
-                    again instead. */}
-                { status === "upcoming" && !existingRefund && (
-                  <button
-                    onClick={() => setShowCancelModal(true)}
-                    className="text-xs font-bold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition">
-                    ✕ Cancel
-                  </button>
-                )}
+                {/* Cancel button removed — Request Refund is now the only
+                    way to back out of an upcoming booking. Cancelling
+                    directly used to skip the admin review a refund goes
+                    through, which didn't make sense once refunds became
+                    the standard path. */}
 
                 {/* Request Refund — only for upcoming bookings that are fully
                     paid, with no active refund request. A past Rejected/Failed
-                    request doesn't block this — the customer can try again. */}
+                    request doesn't block this — the trip is still on, and the
+                    customer can simply try requesting again. */}
                 { status === "upcoming" && p.status === "paid" && !hasActiveRefund && (
                   <button
                     onClick={() => setShowRefundModal(true)}
@@ -561,29 +483,26 @@ const MyBookings = ({ user }) => {
   const findAnyRefund = (paymentID) =>
     refundRequests.find((r) => r.paymentID === paymentID);
 
-  // Optimistically update cancelled booking in local state
-  const handleCancelled = (bookingID, reason) => {
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.bookingID === bookingID
-          ? { ...b, status: "cancelled", cancellationReason: reason }
-          : b
-      )
-    );
-  };
-
-  // A booking with any refund request on file — even a Rejected one —
-  // shouldn't linger in Upcoming. Once a refund's been requested, it belongs
-  // in the Refunds tab (that's where Cancel is hidden and Request Refund
-  // lives too), not mixed in with bookings nothing has happened to yet.
-  const upcoming  = bookings.filter(b => b.status === "upcoming" && !(b.payment?.paymentID && findAnyRefund(b.payment.paymentID)));
+  // A booking with an active or completed refund (Pending/Approved/Refunded,
+  // or a payment already marked "refunded" outright) shouldn't linger in
+  // Upcoming — that trip isn't happening as planned anymore. A Rejected or
+  // Failed refund is different: nothing about the booking actually changed,
+  // so the trip is still on and it belongs back in Upcoming as normal —
+  // the customer can still try Request Refund again from there if needed.
+  const isBlockedFromUpcoming = (b) =>
+    (b.payment?.status || "").toLowerCase() === "refunded" ||
+    !!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID));
+  const upcoming  = bookings.filter(b => b.status === "upcoming" && !isBlockedFromUpcoming(b));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
-  // Refunds tab: only bookings that already have a refund request on file
-  // (any status). Paid bookings that are still eligible but haven't been
-  // requested yet stay in their normal tab (Upcoming/Ongoing/History) —
-  // the "Request Refund" button lives there instead, so this tab is purely
-  // a history/tracking view of requests that were actually made.
-  const refunded  = bookings.filter(b => b.payment?.paymentID && findAnyRefund(b.payment.paymentID));
+  // Refunds tab: a full history/tracking view — every booking that ever had
+  // a refund request (any status, including Rejected/Failed) or a payment
+  // refunded outright, even if that same booking also still shows up back
+  // in Upcoming (e.g. after a Rejected refund) — the two tabs answer
+  // different questions and aren't mutually exclusive.
+  const refunded  = bookings.filter(b =>
+    (b.payment?.status || "").toLowerCase() === "refunded" ||
+    !!(b.payment?.paymentID && findAnyRefund(b.payment.paymentID))
+  );
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
   const displayed =
     activeTab === "upcoming" ? upcoming :
@@ -649,7 +568,6 @@ const MyBookings = ({ user }) => {
                   key={b.bookingID}
                   booking={b}
                   user={user}
-                  onCancelled={handleCancelled}
                   existingRefund={b.payment?.paymentID ? findAnyRefund(b.payment.paymentID) : null}
                   hasActiveRefund={!!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
