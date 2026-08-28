@@ -282,15 +282,6 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 {existingRefund
                   ? <RefundStatusBadge status={existingRefund.status} />
                   : <PaymentStatusBadge payment={payment} />}
-                {/* Admin's reason for rejecting/failing the refund — was
-                    already being captured and saved (rejectReason on the
-                    refundRequests doc, set via the admin Reject action) but
-                    never surfaced anywhere in the customer app before. */}
-                {existingRefund?.status === "Rejected" && existingRefund?.rejectReason && (
-                  <p className="text-[11px] text-red-500 text-right max-w-[220px] leading-snug">
-                    {existingRefund.rejectReason}
-                  </p>
-                )}
               </div>
             </div>
 
@@ -311,6 +302,20 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 <p className="text-xs text-red-500 font-medium mt-1">
                   Reason: {cancellationReason}
                 </p>
+              )}
+              {/* Admin's reason for rejecting/failing the refund — was
+                  already being captured and saved (rejectReason on the
+                  refundRequests doc, set via the admin Reject action) but
+                  never surfaced anywhere in the customer app before. Styled
+                  as a small callout instead of loose text so it reads as a
+                  distinct note rather than crowding the badge above. */}
+              {existingRefund?.status === "Rejected" && existingRefund?.rejectReason && (
+                <div className="mt-1.5 flex items-start gap-1.5 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">
+                  <span className="text-red-400 text-xs leading-none mt-0.5">✕</span>
+                  <p className="text-xs text-red-600 leading-snug">
+                    <span className="font-semibold">Refund rejected:</span> {existingRefund.rejectReason}
+                  </p>
+                </div>
               )}
             </div>
 

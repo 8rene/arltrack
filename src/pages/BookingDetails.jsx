@@ -184,9 +184,12 @@ export default function BookingDetailsPage() {
                   and saved on the refundRequests doc (rejectReason), just
                   never displayed anywhere in the customer app before. */}
               {refund?.status === "Rejected" && refund?.rejectReason && (
-                <p className="text-xs text-red-500 mt-1">
-                  <span className="font-semibold">Reason:</span> {refund.rejectReason}
-                </p>
+                <div className="mt-2 flex items-start gap-1.5 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                  <span className="text-red-400 text-xs leading-none mt-0.5">✕</span>
+                  <p className="text-xs text-red-600 leading-snug">
+                    <span className="font-semibold">Refund rejected:</span> {refund.rejectReason}
+                  </p>
+                </div>
               )}
               <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
                 {booking.serviceType && <span>{booking.serviceType}</span>}
