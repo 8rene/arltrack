@@ -505,26 +505,24 @@ const MyBookings = ({ user }) => {
   const findAnyRefund = (paymentID) =>
     refundRequests.find((r) => r.paymentID === paymentID);
 
-  // A booking with an active or completed refund (Pending/Approved/Refunded,
-  // or a payment already marked "refunded" outright) shouldn't linger in
-  // Upcoming — that trip isn't happening as planned anymore. A Rejected or
-  // Failed refund is different: nothing about the booking actually changed,
-  // so the trip is still on and it belongs back in Upcoming as normal —
-  // the customer can still try Request Refund again from there if needed.
-  const isBlockedFromUpcoming = (b) =>
+  // Whether a booking has an active or completed refund story right now
+  // (Pending/Approved/Refunded, or a payment already marked "refunded"
+  // outright). This is the single source of truth for both tabs below —
+  // Upcoming and Refunds are meant to be mutually exclusive:
+  //   - true  → belongs in Refunds, not Upcoming (something's actually
+  //             in motion or done; that trip isn't happening as planned).
+  //   - false → belongs in Upcoming, not Refunds. This also covers a
+  //             booking whose ONLY refund history is Rejected/Failed —
+  //             nothing about the booking actually changed, so it goes
+  //             back to being a normal upcoming trip and drops out of
+  //             Refunds entirely, until/unless a new request is filed
+  //             (which flips this back to true and moves it over again).
+  const hasActiveRefundStory = (b) =>
     (b.payment?.status || "").toLowerCase() === "refunded" ||
     !!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID));
-  const upcoming  = bookings.filter(b => b.status === "upcoming" && !isBlockedFromUpcoming(b));
+  const upcoming  = bookings.filter(b => b.status === "upcoming" && !hasActiveRefundStory(b));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
-  // Refunds tab: a full history/tracking view — every booking that ever had
-  // a refund request (any status, including Rejected/Failed) or a payment
-  // refunded outright, even if that same booking also still shows up back
-  // in Upcoming (e.g. after a Rejected refund) — the two tabs answer
-  // different questions and aren't mutually exclusive.
-  const refunded  = bookings.filter(b =>
-    (b.payment?.status || "").toLowerCase() === "refunded" ||
-    !!(b.payment?.paymentID && findAnyRefund(b.payment.paymentID))
-  );
+  const refunded  = bookings.filter(hasActiveRefundStory);
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
   const displayed =
     activeTab === "upcoming" ? upcoming :
