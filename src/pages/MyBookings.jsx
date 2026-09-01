@@ -428,6 +428,27 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
 };
 
 // ── Empty state ──
+// A live calendar icon for the "upcoming" empty state — replaces the 📅
+// emoji, which renders with a hard-coded, platform-specific date baked
+// into the glyph itself (fixed at "17" on this Android build, something
+// else elsewhere) rather than the actual current date, which read as a
+// stuck/wrong date on-screen.
+const LiveCalendarIcon = () => {
+  const now   = new Date();
+  const month = now.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+  const day   = now.getDate();
+  return (
+    <div className="inline-flex flex-col w-16 rounded-lg overflow-hidden border border-gray-200 shadow-sm mx-auto">
+      <div className="bg-red-500 text-white text-[10px] font-bold tracking-wide text-center py-0.5">
+        {month}
+      </div>
+      <div className="bg-white text-gray-800 text-2xl font-black text-center py-1.5">
+        {day}
+      </div>
+    </div>
+  );
+};
+
 const EMPTY_STATE_COPY = {
   upcoming: { icon: "📅", title: "No upcoming bookings",  body: "Book a ride to see it here." },
   ongoing:  { icon: "🚗", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
@@ -439,7 +460,9 @@ const EmptyState = ({ tab }) => {
   const { icon, title, body } = EMPTY_STATE_COPY[tab] || EMPTY_STATE_COPY.upcoming;
   return (
     <div className="text-center py-20">
-      <p className="text-5xl mb-4">{icon}</p>
+      <div className="mb-4">
+        {tab === "upcoming" ? <LiveCalendarIcon /> : <p className="text-5xl">{icon}</p>}
+      </div>
       <p className="text-gray-500 font-bold text-lg">{title}</p>
       <p className="text-gray-400 text-sm mt-1">{body}</p>
     </div>
