@@ -151,6 +151,157 @@ const SIMPLE_FIELDS = [
 const selectCls =
   "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30 bg-white disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed";
 
+// ─────────────────────────────────────────────────────────────
+// ID RESUBMIT MODAL — upload a new license or government-ID photo.
+// Goes into the SAME idResubmitRequests collection admin-backend already
+// reviews for staff (see profileRequests.service.js) — nothing new on
+// the admin side needed, same approve/reject flow, including the
+// required-expiry-on-approve rule for license.
+// documentType/documentNumber (document kind only) are typed here at
+// submission by the customer, same as the original signup flow.
+// ─────────────────────────────────────────────────────────────
+const ResubmitIdModal = ({ userID, documentKind, currentUrl, onClose, onSubmitted }) => {
+  const [file, setFile]         = useState(null);
+  const [preview, setPreview]   = useState(null);
+  const [docType, setDocType]     = useState("");
+  const [docNumber, setDocNumber] = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState("");
+  const { showToast } = useToast();
+
+  const isLicense = documentKind === "license";
+
+  const handleFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { setError("Please select an image file."); return; }
+    if (f.size > 5 * 1024 * 1024)    { setError("Image must be under 5MB.");       return; }
+    setError("");
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const handleSubmit = async () => {
+    if (!file) { setError(`Please choose a photo of your ${isLicense ? "license" : "document"} first.`); return; }
+    if (!isLicense && (!docType.trim() || !docNumber.trim())) {
+      setError("Please fill in the document type and number shown on the card.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("arl_token");
+
+      // 1. Convert file to base64, upload directly to Storage — same
+      // pattern as handleAvatarChange above.
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const path = `${isLicense ? "driverLicenseResubmit" : "documentResubmit"}/${userID}_${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, path);
+      await uploadString(storageRef, base64, "base64", { contentType: file.type });
+      const newUrl = await getDownloadURL(storageRef);
+
+      // 2. Send the URL (and, for document, the typed fields) to the backend.
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/user/id-resubmit-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          documentKind,
+          currentUrl: currentUrl || "",
+          newUrl,
+          ...(isLicense ? {} : { documentType: docType.trim(), documentNumber: docNumber.trim() }),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to submit resubmission.");
+      showToast(data.message || "Resubmission sent for review.", "success");
+      onSubmitted();
+    } catch (err) {
+      setError(err.message || "Upload failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex justify-between items-center p-5 border-b">
+          <h2 className="font-black text-lg text-gray-800">Resubmit {isLicense ? "Driver's License" : "Government ID"}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-gray-400">
+            Upload a clear photo of your updated {isLicense ? "(renewed) driver's license" : "government ID"}.
+            An admin will review it{isLicense ? " and confirm the new expiry date" : ""} before it's applied to your account.
+          </p>
+
+          {currentUrl && (
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Current on file</p>
+              <img src={currentUrl} alt={`Current ${isLicense ? "license" : "document"}`} className="w-full h-32 object-cover rounded-xl border" />
+            </div>
+          )}
+
+          <label className="block border-2 border-dashed rounded-xl p-4 text-center cursor-pointer hover:bg-gray-50">
+            <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
+            {preview ? (
+              <img src={preview} alt="New photo preview" className="w-full h-32 object-cover rounded-lg mx-auto" />
+            ) : (
+              <span className="text-sm text-gray-400">Tap to choose a photo</span>
+            )}
+          </label>
+
+          {!isLicense && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Document Type <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value)}
+                  placeholder="e.g. Passport"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Document Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={docNumber}
+                  onChange={(e) => setDocNumber(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
+                />
+              </div>
+            </div>
+          )}
+
+          {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+
+          <div className="flex gap-3">
+            <button onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
+              Cancel
+            </button>
+            <button onClick={handleSubmit} disabled={saving}
+              className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-bold hover:opacity-90 transition disabled:opacity-60">
+              {saving ? "Uploading…" : "Submit for Review"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, onCancelRequest, submitting, cancelling }) => {
   const [form, setForm] = useState(() =>
     Object.fromEntries(SIMPLE_FIELDS.map(f => [f.key, currentValues[f.key] || ""]))
@@ -836,6 +987,7 @@ const ProfilePage = ({ user }) => {
   const [showEditModal, setShowEditModal]   = useState(false);
   const [submittingEdit, setSubmittingEdit] = useState(false);
   const [cancellingEdit, setCancellingEdit] = useState(false);
+  const [showResubmit, setShowResubmit]     = useState(null); // "license" | "document" | null
   const { showToast } = useToast();
 
   const pendingEditRequest = editRequests.find((r) => r.status === "pending");
@@ -1160,8 +1312,8 @@ const ProfilePage = ({ user }) => {
 
                 {/* ── Verification Documents ── */}
                 <Section title="Verification Documents" icon="🪪">
-                  <p className="text-xs text-gray-400 mb-4">Document information is managed by administrators. Contact us to update your documents.</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <p className="text-xs text-gray-400 mb-4">Document information is managed by administrators. Resubmit a new photo below if it needs updating, or contact us for anything else.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <ReadOnlyField label="Document Type"   value={profile?.documentType   || ""} lockNote="Managed by admin" />
                     <ReadOnlyField label="Document Number" value={profile?.documentNumber || ""} lockNote="Managed by admin" />
                     <div>
@@ -1173,11 +1325,52 @@ const ProfilePage = ({ user }) => {
                       </div>
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="border rounded-xl p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Driver's License</p>
+                      {profile?.driverLicenseUrl ? (
+                        <img src={profile.driverLicenseUrl} alt="Driver's License" className="w-full h-32 object-cover rounded-lg border mb-2" />
+                      ) : (
+                        <p className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3 text-center mb-2">No photo on file yet.</p>
+                      )}
+                      <button
+                        onClick={() => setShowResubmit("license")}
+                        className="w-full py-2 rounded-lg border border-arl-primary text-arl-primary text-xs font-bold hover:bg-arl-primary/5 transition"
+                      >
+                        Resubmit
+                      </button>
+                    </div>
+                    <div className="border rounded-xl p-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Government ID</p>
+                      {profile?.documentImageUrl ? (
+                        <img src={profile.documentImageUrl} alt="Government ID" className="w-full h-32 object-cover rounded-lg border mb-2" />
+                      ) : (
+                        <p className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3 text-center mb-2">No photo on file yet.</p>
+                      )}
+                      <button
+                        onClick={() => setShowResubmit("document")}
+                        className="w-full py-2 rounded-lg border border-arl-primary text-arl-primary text-xs font-bold hover:bg-arl-primary/5 transition"
+                      >
+                        Resubmit
+                      </button>
+                    </div>
+                  </div>
                 </Section>
 
               </div>
             )}
           </>
+        )}
+
+        {showResubmit && (
+          <ResubmitIdModal
+            userID={user.userID}
+            documentKind={showResubmit}
+            currentUrl={showResubmit === "license" ? profile?.driverLicenseUrl : profile?.documentImageUrl}
+            onClose={() => setShowResubmit(null)}
+            onSubmitted={() => { setShowResubmit(null); fetchProfile(); }}
+          />
         )}
 
       </div>
