@@ -303,6 +303,20 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   Reason: {cancellationReason}
                 </p>
               )}
+              {/* Admin's reason for rejecting/failing the refund — was
+                  already being captured and saved (rejectReason on the
+                  refundRequests doc, set via the admin Reject action) but
+                  never surfaced anywhere in the customer app before. Styled
+                  as a small callout instead of loose text so it reads as a
+                  distinct note rather than crowding the badge above. */}
+              {existingRefund?.status === "Rejected" && existingRefund?.rejectReason && (
+                <div className="mt-1.5 flex items-start gap-1.5 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">
+                  <span className="text-red-400 text-xs leading-none mt-0.5">✕</span>
+                  <p className="text-xs text-red-600 leading-snug">
+                    <span className="font-semibold">Refund rejected:</span> {existingRefund.rejectReason}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-2.5">
@@ -414,6 +428,27 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
 };
 
 // ── Empty state ──
+// A live calendar icon for the "upcoming" empty state — replaces the 📅
+// emoji, which renders with a hard-coded, platform-specific date baked
+// into the glyph itself (fixed at "17" on this Android build, something
+// else elsewhere) rather than the actual current date, which read as a
+// stuck/wrong date on-screen.
+const LiveCalendarIcon = () => {
+  const now   = new Date();
+  const month = now.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+  const day   = now.getDate();
+  return (
+    <div className="inline-flex flex-col w-16 rounded-lg overflow-hidden border border-gray-200 shadow-sm mx-auto">
+      <div className="bg-red-500 text-white text-[10px] font-bold tracking-wide text-center py-0.5">
+        {month}
+      </div>
+      <div className="bg-white text-gray-800 text-2xl font-black text-center py-1.5">
+        {day}
+      </div>
+    </div>
+  );
+};
+
 const EMPTY_STATE_COPY = {
   upcoming: { icon: "📅", title: "No upcoming bookings",  body: "Book a ride to see it here." },
   ongoing:  { icon: "🚗", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
@@ -425,7 +460,9 @@ const EmptyState = ({ tab }) => {
   const { icon, title, body } = EMPTY_STATE_COPY[tab] || EMPTY_STATE_COPY.upcoming;
   return (
     <div className="text-center py-20">
-      <p className="text-5xl mb-4">{icon}</p>
+      <div className="mb-4">
+        {tab === "upcoming" ? <LiveCalendarIcon /> : <p className="text-5xl">{icon}</p>}
+      </div>
       <p className="text-gray-500 font-bold text-lg">{title}</p>
       <p className="text-gray-400 text-sm mt-1">{body}</p>
     </div>
@@ -491,26 +528,24 @@ const MyBookings = ({ user }) => {
   const findAnyRefund = (paymentID) =>
     refundRequests.find((r) => r.paymentID === paymentID);
 
-  // A booking with an active or completed refund (Pending/Approved/Refunded,
-  // or a payment already marked "refunded" outright) shouldn't linger in
-  // Upcoming — that trip isn't happening as planned anymore. A Rejected or
-  // Failed refund is different: nothing about the booking actually changed,
-  // so the trip is still on and it belongs back in Upcoming as normal —
-  // the customer can still try Request Refund again from there if needed.
-  const isBlockedFromUpcoming = (b) =>
+  // Whether a booking has an active or completed refund story right now
+  // (Pending/Approved/Refunded, or a payment already marked "refunded"
+  // outright). This is the single source of truth for both tabs below —
+  // Upcoming and Refunds are meant to be mutually exclusive:
+  //   - true  → belongs in Refunds, not Upcoming (something's actually
+  //             in motion or done; that trip isn't happening as planned).
+  //   - false → belongs in Upcoming, not Refunds. This also covers a
+  //             booking whose ONLY refund history is Rejected/Failed —
+  //             nothing about the booking actually changed, so it goes
+  //             back to being a normal upcoming trip and drops out of
+  //             Refunds entirely, until/unless a new request is filed
+  //             (which flips this back to true and moves it over again).
+  const hasActiveRefundStory = (b) =>
     (b.payment?.status || "").toLowerCase() === "refunded" ||
     !!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID));
-  const upcoming  = bookings.filter(b => b.status === "upcoming" && !isBlockedFromUpcoming(b));
+  const upcoming  = bookings.filter(b => b.status === "upcoming" && !hasActiveRefundStory(b));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
-  // Refunds tab: a full history/tracking view — every booking that ever had
-  // a refund request (any status, including Rejected/Failed) or a payment
-  // refunded outright, even if that same booking also still shows up back
-  // in Upcoming (e.g. after a Rejected refund) — the two tabs answer
-  // different questions and aren't mutually exclusive.
-  const refunded  = bookings.filter(b =>
-    (b.payment?.status || "").toLowerCase() === "refunded" ||
-    !!(b.payment?.paymentID && findAnyRefund(b.payment.paymentID))
-  );
+  const refunded  = bookings.filter(hasActiveRefundStory);
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
   const displayed =
     activeTab === "upcoming" ? upcoming :
