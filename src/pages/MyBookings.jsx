@@ -185,12 +185,13 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested }) => {
+const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested, onCancelToPay }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
 
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refunding,       setRefunding]       = useState(false);
+  const [payingNow,       setPayingNow]       = useState(false);
   const { showToast } = useToast();
 
   const {
@@ -240,6 +241,34 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
     }
   };
 
+  // "Pay Now" — for "to pay" bookings only. Same call Booking.jsx's own
+  // handlePaymongoCheckout makes right after creating the booking; this is
+  // just the version reachable later from My Bookings, for a booking whose
+  // checkout got abandoned/closed the first time around.
+  const handlePayNow = async () => {
+    if (!p.paymentID) return;
+    setPayingNow(true);
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res   = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/create-link`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({
+          bookingID,
+          paymentID:     p.paymentID,
+          description:   `ARL Track Booking #${bookingID}`,
+          paymentMethod: p.paymentMethod,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to create payment link.");
+      window.location.href = data.checkoutUrl + `?paymentID=${p.paymentID}`;
+    } catch (err) {
+      showToast(err.message || "Could not connect to PayMongo. Please try again.");
+      setPayingNow(false);
+    }
+  };
+
   return (
     <>
       {showRefundModal && (
@@ -252,7 +281,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
       )}
 
       <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 ${
-        status === "cancelled" ? "border-red-100" : status === "completed" ? "border-blue-100" : status === "ongoing" ? "border-purple-100" : "border-gray-100"
+        status === "cancelled" ? "border-red-100" : status === "completed" ? "border-blue-100" : status === "ongoing" ? "border-purple-100" : status === "to pay" ? "border-yellow-200" : "border-gray-100"
       }`}>
 
         {/* ── Main row ── */}
@@ -326,6 +355,31 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Pay Now — the primary action for an unpaid "to pay"
+                    booking. Re-opens PayMongo checkout for it (same call
+                    Booking.jsx makes right after creating it), for when
+                    the customer closed/abandoned the first checkout tab. */}
+                {status === "to pay" && (
+                  <button
+                    onClick={handlePayNow}
+                    disabled={payingNow}
+                    className="text-xs font-bold text-white bg-arl-cta hover:bg-opacity-90 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
+                    {payingNow ? "Redirecting…" : "💳 Pay Now"}
+                  </button>
+                )}
+
+                {/* Cancel — only for "to pay" bookings, since nothing has
+                    been charged yet. An already-paid ("upcoming") booking
+                    goes through Request Refund instead (see below), which
+                    gets admin review since real money already moved. */}
+                {status === "to pay" && (
+                  <button
+                    onClick={() => onCancelToPay(bookingID)}
+                    className="text-xs font-bold text-gray-500 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition">
+                    ✕ Cancel
+                  </button>
+                )}
+
                 {/* Cancel button removed — Request Refund is now the only
                     way to back out of an upcoming booking. Cancelling
                     directly used to skip the admin review a refund goes
@@ -450,6 +504,7 @@ const LiveCalendarIcon = () => {
 };
 
 const EMPTY_STATE_COPY = {
+  toPay:    { icon: "💳", title: "Nothing to pay",         body: "Unpaid bookings awaiting payment will show up here." },
   upcoming: { icon: "📅", title: "No upcoming bookings",  body: "Book a ride to see it here." },
   ongoing:  { icon: "🚗", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
   refunds:  { icon: "💸", title: "No refund requests",     body: "Bookings you've requested a refund for will show up here." },
@@ -516,6 +571,26 @@ const MyBookings = ({ user }) => {
     }
   };
 
+  // Cancel a still-unpaid "to pay" booking. Nothing's been charged yet, so
+  // (unlike an already-paid "upcoming" booking) this goes straight through
+  // rather than via the Request Refund/admin-review flow.
+  const handleCancelToPay = async (bookingID) => {
+    if (!window.confirm("Cancel this booking? This can't be undone.")) return;
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res   = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${bookingID}/cancel`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ reason: "Cancelled by customer before payment." }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to cancel booking.");
+      fetchBookings();
+    } catch (err) {
+      setError(err.message || "Failed to cancel booking.");
+    }
+  };
+
   // Only these statuses count as "there's already an active request" —
   // Rejected/Failed lets the customer try requesting again.
   const findActiveRefund = (paymentID) =>
@@ -543,11 +618,13 @@ const MyBookings = ({ user }) => {
   const hasActiveRefundStory = (b) =>
     (b.payment?.status || "").toLowerCase() === "refunded" ||
     !!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID));
+  const toPay     = bookings.filter(b => b.status === "to pay");
   const upcoming  = bookings.filter(b => b.status === "upcoming" && !hasActiveRefundStory(b));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   const refunded  = bookings.filter(hasActiveRefundStory);
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
   const displayed =
+    activeTab === "toPay"    ? toPay    :
     activeTab === "upcoming" ? upcoming :
     activeTab === "ongoing"  ? ongoing  :
     activeTab === "refunds"  ? refunded :
@@ -564,6 +641,7 @@ const MyBookings = ({ user }) => {
 
         <div className="flex bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1">
           {[
+            { key: "toPay",    label: "To Pay",   count: toPay.length,    icon: "💳" },
             { key: "upcoming", label: "Upcoming", count: upcoming.length, icon: "📅" },
             { key: "ongoing",  label: "Ongoing",  count: ongoing.length,  icon: "🚗" },
             { key: "refunds",  label: "Refunds",  count: refunded.length, icon: "💸" },
@@ -587,7 +665,9 @@ const MyBookings = ({ user }) => {
         </div>
 
         <p className="text-xs text-gray-400 mb-4 px-1">
-          {activeTab === "upcoming"
+          {activeTab === "toPay"
+            ? "To Pay — Complete payment within 12 hours or the booking is auto-cancelled."
+            : activeTab === "upcoming"
             ? "Upcoming — You can cancel bookings before they start."
             : activeTab === "ongoing"
             ? "Your trip is currently active."
@@ -614,6 +694,7 @@ const MyBookings = ({ user }) => {
                   existingRefund={b.payment?.paymentID ? findAnyRefund(b.payment.paymentID) : null}
                   hasActiveRefund={!!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
+                  onCancelToPay={handleCancelToPay}
                 />
               ))
             : <EmptyState tab={activeTab} />
