@@ -236,10 +236,10 @@ export default function BookingDetailsPage() {
               <DR label="Payment Method"    value={payment.methodOfPayment} />
               <DR label="Reference No."     value={payment.referenceNumber} mono />
             </div>
-            {payment.checkoutUrl && payment.status === "pending" && (
+            {payment.checkoutUrl && (payment.status === "pending" || payment.balanceStatus === "pending") && (
               <a href={payment.checkoutUrl} target="_blank" rel="noopener noreferrer"
                 className="inline-block px-5 py-2.5 bg-arl-cta text-white rounded-full text-sm font-bold hover:bg-arl-secondary transition">
-                Complete Payment →
+                {payment.balanceStatus === "pending" ? "Complete Balance Payment →" : "Complete Payment →"}
               </a>
             )}
             {payment.proofUrl && (

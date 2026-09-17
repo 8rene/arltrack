@@ -25,44 +25,37 @@ const PAYMENT_STATUS_CONFIG = {
 };
 
 // Mirrors admin's computeAmounts() in payments.service.js, so the customer
-// sees the same paid/balance math the admin dashboard uses.
+// sees the same paid/balance math the admin dashboard uses. Uses the real
+// two-phase payment state (status/balanceStatus/payNow — see
+// utils/bookings/bookingStatus.util.js on the backend) rather than
+// guessing amountPaid purely from methodOfPayment, which used to claim a
+// booking was "Partial — balance due" even when the deposit itself hadn't
+// actually been paid yet (methodOfPayment is set at booking creation,
+// before any charge happens).
 const getPaymentInfo = (payment) => {
   if (!payment) return { key: "due", extra: "", amountPaid: 0 };
 
-  const amount     = Number(payment.amount) || 0;
-  const depositFee = Number(payment.depositFee) || 0;
-  const method     = (payment.methodOfPayment || "").toLowerCase();
-  const status     = (payment.status || "").toLowerCase();
+  const amount = Number(payment.amount) || 0;
+  const status = (payment.status || "").toLowerCase();
+  const method = (payment.methodOfPayment || "").toLowerCase();
 
   if (status === "refunded") return { key: "refunded", extra: "", amountPaid: 0 };
   if (status === "failed" || status === "rejected") return { key: "failed", extra: "", amountPaid: 0 };
   if (status === "cancelled") return { key: "cancelled", extra: "", amountPaid: 0 };
+  if (status !== "paid") return { key: "due", extra: "", amountPaid: 0 }; // deposit not paid yet
 
-  let amountPaid;
-  if (method.includes("full")) {
-    amountPaid = amount;
-  } else if (method.includes("partial") || method.includes("down")) {
-    // "Partial" is what computePaymentSplit() (customer backend) actually
-    // produces, and it charges 50% of the grand total via PayMongo
-    // (payNow = Math.floor(total * 0.5)) — NOT the flat depositFee. This
-    // used to show a flat ₱1,000 as "paid" (and inflate Balance Due by
-    // however much more than ₱1,000 was actually charged), and separately
-    // used Math.round here vs Math.floor at charge time, which disagree by
-    // ₱1 on odd totals — both are fixed by matching computePaymentSplit
-    // exactly.
-    amountPaid = Math.floor(amount / 2);
-  } else if (method.includes("deposit")) {
-    amountPaid = depositFee; // true deposit-only flow, if ever used
-  } else if (status === "paid" || status === "approved") {
-    amountPaid = amount;
-  } else {
-    amountPaid = depositFee;
-  }
+  if (method.includes("full")) return { key: "paid", extra: "", amountPaid: amount };
 
-  const balance = Math.max(0, amount - amountPaid);
-  if (amountPaid > 0 && balance <= 0) return { key: "paid", extra: "", amountPaid };
-  if (amountPaid > 0) return { key: "partial", extra: peso(balance), amountPaid };
-  return { key: "due", extra: "", amountPaid: 0 };
+  // Partial: deposit has cleared (status === "paid") — the only remaining
+  // question is whether the balance phase has cleared too.
+  const balanceStatus = (payment.balanceStatus || "").toLowerCase();
+  if (balanceStatus === "paid") return { key: "paid", extra: "", amountPaid: amount };
+
+  // payNow is the actual amount charged for the deposit (stored since this
+  // two-phase flow was added); Math.floor(amount/2) is only a fallback for
+  // any older payment record saved before that field existed.
+  const amountPaid = Number(payment.payNow) || Math.floor(amount / 2);
+  return { key: "partial", extra: peso(amount - amountPaid), amountPaid };
 };
 
 const PaymentStatusBadge = ({ payment }) => {
@@ -241,10 +234,18 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
     }
   };
 
-  // "Pay Now" — for "to pay" bookings only. Same call Booking.jsx's own
-  // handlePaymongoCheckout makes right after creating the booking; this is
-  // just the version reachable later from My Bookings, for a booking whose
-  // checkout got abandoned/closed the first time around.
+  // Deposit already paid, but this is a Partial booking still awaiting its
+  // balance? Then "Pay Now" needs to charge the balance instead — this is
+  // what decides which one the button below actually does.
+  const depositPaid   = p.status === "paid";
+  const isPartialPlan = String(p.methodOfPayment || "").toLowerCase() === "partial";
+  const balanceDue    = depositPaid && isPartialPlan && p.balanceStatus !== "paid";
+
+  // "Pay Now" / "Pay Balance" — for "to pay" bookings only. Same call
+  // Booking.jsx's own handlePaymongoCheckout makes right after creating the
+  // booking; this is just the version reachable later from My Bookings, for
+  // a checkout that got abandoned/closed the first time (deposit), or the
+  // separate balance step once the deposit has already cleared.
   const handlePayNow = async () => {
     if (!p.paymentID) return;
     setPayingNow(true);
@@ -256,8 +257,9 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
         body:    JSON.stringify({
           bookingID,
           paymentID:     p.paymentID,
-          description:   `ARL Track Booking #${bookingID}`,
+          description:   `ARL Track Booking #${bookingID}${balanceDue ? " (Balance)" : ""}`,
           paymentMethod: p.paymentMethod,
+          phase:         balanceDue ? "balance" : "deposit",
         }),
       });
       const data = await res.json();
@@ -355,24 +357,26 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Pay Now — the primary action for an unpaid "to pay"
-                    booking. Re-opens PayMongo checkout for it (same call
-                    Booking.jsx makes right after creating it), for when
-                    the customer closed/abandoned the first checkout tab. */}
+                {/* Pay Now / Pay Balance — the primary action for a "to
+                    pay" booking. Re-opens PayMongo checkout for whichever
+                    phase is still outstanding (deposit, or the balance for
+                    a Partial booking whose deposit already cleared) — same
+                    call Booking.jsx makes right after creating it, for
+                    when the customer closed/abandoned that checkout tab. */}
                 {status === "to pay" && (
                   <button
                     onClick={handlePayNow}
                     disabled={payingNow}
                     className="text-xs font-bold text-white bg-arl-cta hover:bg-opacity-90 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
-                    {payingNow ? "Redirecting…" : "💳 Pay Now"}
+                    {payingNow ? "Redirecting…" : balanceDue ? "💳 Pay Balance" : "💳 Pay Now"}
                   </button>
                 )}
 
-                {/* Cancel — only for "to pay" bookings, since nothing has
-                    been charged yet. An already-paid ("upcoming") booking
-                    goes through Request Refund instead (see below), which
-                    gets admin review since real money already moved. */}
-                {status === "to pay" && (
+                {/* Cancel — only while NOTHING has been charged yet. Once a
+                    Partial booking's deposit clears, it's in the same boat
+                    as an "upcoming" booking (real money on it already) —
+                    goes through Request Refund (admin review) instead. */}
+                {status === "to pay" && !depositPaid && (
                   <button
                     onClick={() => onCancelToPay(bookingID)}
                     className="text-xs font-bold text-gray-500 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition">
@@ -386,11 +390,14 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     through, which didn't make sense once refunds became
                     the standard path. */}
 
-                {/* Request Refund — only for upcoming bookings that are fully
-                    paid, with no active refund request. A past Rejected/Failed
-                    request doesn't block this — the trip is still on, and the
-                    customer can simply try requesting again. */}
-                { status === "upcoming" && p.status === "paid" && !hasActiveRefund && (
+                {/* Request Refund — for an "upcoming" booking that's fully
+                    paid, OR a "to pay" booking whose deposit already
+                    cleared (Partial, still awaiting the balance) — either
+                    way there's real money on it that a self-serve Cancel
+                    shouldn't just wipe out. No active refund request
+                    already in flight. A past Rejected/Failed request
+                    doesn't block this — the customer can simply try again. */}
+                { ((status === "upcoming" && p.status === "paid") || (status === "to pay" && depositPaid)) && !hasActiveRefund && (
                   <button
                     onClick={() => setShowRefundModal(true)}
                     className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">
