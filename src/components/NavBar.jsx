@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import SignUpModal from "./auth/SignUpModal";
 import LoginModal from "./auth/LoginModal";
+import NotificationPanel from "./NotificationPanel";
 
 export default function Navbar({ user, userDetails, onLogin, onLogout }) {
   const [scrolled,      setScrolled]      = useState(false);
@@ -70,7 +71,10 @@ export default function Navbar({ user, userDetails, onLogin, onLogout }) {
           </nav>
 
           {user ? (
-            <div className="relative">
+            <div className="flex items-center gap-3">
+              <NotificationPanel user={user} />
+
+              <div className="relative">
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
                 className="flex items-center gap-2 bg-arl-primary text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-arl-secondary transition-colors"
@@ -128,6 +132,7 @@ export default function Navbar({ user, userDetails, onLogin, onLogout }) {
                   </button>
                 </div>
               )}
+              </div>
             </div>
           ) : (
             <div className="flex items-center gap-3">

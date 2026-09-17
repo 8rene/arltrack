@@ -50,7 +50,10 @@ const CarCard = ({ car, heroState }) => {
     color,
   ].filter(Boolean);
 
-  const isAvailable = status.toLowerCase() === "active" || status.toLowerCase() === "available";
+  // Purely a display cue here (this page has no "Book Now" action of its
+  // own) — "Maintenance" only blocks specific days, not the whole car, so
+  // it shouldn't read as unavailable the same way "Inactive" does.
+  const isAvailable = status.toLowerCase() !== "inactive";
 
   return (
     <>

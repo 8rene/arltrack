@@ -55,10 +55,10 @@ const DAYS        = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const getDateStatuses = (carBookings) => {
   // Returns a map of "YYYY-MM-DD" -> status string
   const map = {};
-  carBookings.forEach(({ status, startDate, endDate }) => {
-    if (!startDate) return;
-    const start = toMidnight(new Date(startDate));
-    const end   = endDate ? toMidnight(new Date(endDate)) : start;
+  carBookings.forEach(({ status, startDateTime, endDateTime }) => {
+    if (!startDateTime) return;
+    const start = toMidnight(new Date(startDateTime));
+    const end   = endDateTime ? toMidnight(new Date(endDateTime)) : start;
     const s     = (status || 'pending').toLowerCase();
 
     let cur = new Date(start);
@@ -149,7 +149,13 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
   const { name='', brandName='', bodyType='', seatingCapacity=0, fuelType='', transmission='', shortDescription='', imageURL='', pricing=[], status='' } = car;
   const tags = [bodyType, seatingCapacity ? `${seatingCapacity} Seater` : '', transmission, fuelType].filter(Boolean);
   const lowest = pricing.length ? pricing.reduce((a,b) => a.price < b.price ? a : b, pricing[0]) : null;
-  const avail  = ['active','available'].includes(status.toLowerCase());
+  // Availability here is about whether the car can be *selected at all* —
+  // not whether every date is open. "Maintenance" (and "Rented"/"Reserved")
+  // only block specific days, which the calendar in Step 2 enforces once a
+  // car is picked; only "Inactive" (a car fully retired from the fleet)
+  // hides it from booking entirely. See getDateStatuses()/BLOCKED_STATUSES
+  // above for the actual day-level gating.
+  const avail  = status.toLowerCase() !== 'inactive';
 
   return (
     <div onClick={() => avail && onSelect(car)}
