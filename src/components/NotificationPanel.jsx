@@ -303,4 +303,5 @@ export default function NotificationPanel({ user }) {
       )}
     </div>
   );
+  
 }
