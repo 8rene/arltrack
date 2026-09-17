@@ -390,14 +390,16 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     through, which didn't make sense once refunds became
                     the standard path. */}
 
-                {/* Request Refund — for an "upcoming" booking that's fully
-                    paid, OR a "to pay" booking whose deposit already
-                    cleared (Partial, still awaiting the balance) — either
-                    way there's real money on it that a self-serve Cancel
-                    shouldn't just wipe out. No active refund request
-                    already in flight. A past Rejected/Failed request
-                    doesn't block this — the customer can simply try again. */}
-                { ((status === "upcoming" && p.status === "paid") || (status === "to pay" && depositPaid)) && !hasActiveRefund && (
+                {/* Request Refund — "upcoming" (fully paid) bookings only.
+                    A "to pay" booking never qualifies anymore, even once
+                    its deposit has cleared (Partial) — see requestRefund()
+                    in refundRequest.controller.js: a booking that isn't
+                    fully confirmed yet isn't something to refund, it's
+                    something to finish paying or to cancel outright. No
+                    active refund request already in flight. A past
+                    Rejected/Failed request doesn't block this — the
+                    customer can simply try again. */}
+                { (status === "upcoming" && p.status === "paid") && !hasActiveRefund && (
                   <button
                     onClick={() => setShowRefundModal(true)}
                     className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">

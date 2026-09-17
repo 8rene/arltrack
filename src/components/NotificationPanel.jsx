@@ -96,6 +96,26 @@ const META_BY_TYPE = {
     badge: { text: "Rescheduled", className: "bg-purple-50 text-purple-700" },
     action: "View Booking",
   },
+  refund_approved: {
+    bg: "bg-emerald-100", emoji: "💸", title: "Refund Approved",
+    badge: { text: "Refund Approved", className: "bg-emerald-50 text-emerald-700" },
+    action: "View Details",
+  },
+  refund_rejected: {
+    bg: "bg-red-100", emoji: "🚫", title: "Refund Rejected",
+    badge: { text: "Refund Rejected", className: "bg-red-50 text-red-700" },
+    action: "View Details",
+  },
+  refund_completed: {
+    bg: "bg-emerald-100", emoji: "✅", title: "Refund Completed",
+    badge: { text: "Refunded", className: "bg-emerald-50 text-emerald-700" },
+    action: "View Details",
+  },
+  refund_failed: {
+    bg: "bg-red-100", emoji: "❌", title: "Refund Failed",
+    badge: { text: "Refund Failed", className: "bg-red-50 text-red-700" },
+    action: "View Details",
+  },
 };
 
 const DEFAULT_META = {
