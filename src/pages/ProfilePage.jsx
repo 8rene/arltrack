@@ -962,6 +962,20 @@ const ProfilePage = ({ user }) => {
   const [avatarURL,    setAvatarURL]    = useState("");
   const [uploading,    setUploading]    = useState(false);
   const [uploadError,  setUploadError]  = useState("");
+  const [referralCopied, setReferralCopied] = useState(false);
+
+  const copyReferralCode = async () => {
+    if (!profile?.referralCode) return;
+    try {
+      await navigator.clipboard.writeText(profile.referralCode);
+      setReferralCopied(true);
+      setTimeout(() => setReferralCopied(false), 2000);
+    } catch {
+      // Clipboard API can fail (permissions, non-secure context) — the
+      // code is still shown as plain text so the customer can select
+      // and copy it manually either way.
+    }
+  };
 
   // Flat field state (for display/EditableField)
   const [firstName,    setFirstName]    = useState("");
@@ -1271,6 +1285,29 @@ const ProfilePage = ({ user }) => {
                         {profile?.isVerified ? "✓ Verified" : "⏳ Unverified"}
                       </div>
                     </div>
+                  </div>
+                </Section>
+
+                {/* ── Referral ── */}
+                <Section title="My Referral Code" icon="🎟">
+                  <p className="text-sm text-gray-500 mb-3">
+                    Share this code — friends who enter it when they sign up get linked to your account.
+                  </p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-mono text-lg font-black tracking-widest bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
+                      {profile?.referralCode || "…"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={copyReferralCode}
+                      disabled={!profile?.referralCode}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold bg-arl-primary text-white disabled:opacity-50"
+                    >
+                      {referralCopied ? "✓ Copied" : "Copy"}
+                    </button>
+                    <span className="text-sm text-gray-500">
+                      {profile?.referralCount || 0} friend{profile?.referralCount === 1 ? "" : "s"} referred
+                    </span>
                   </div>
                 </Section>
 

@@ -487,6 +487,37 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
   const [showPassword,  setShowPassword]  = useState(false);
   const [checkingFields, setCheckingFields] = useState(false);
 
+  // ── Live referral code check — purely informational, never blocks
+  // signup. { checking, valid: true|false|null, referrerName } — valid
+  // is null before anything's been typed / checked yet.
+  const [referralStatus, setReferralStatus] = useState({ checking: false, valid: null, referrerName: "" });
+
+  useEffect(() => {
+    const code = s0.referralCode.trim();
+    if (!code) {
+      setReferralStatus({ checking: false, valid: null, referrerName: "" });
+      return;
+    }
+    let cancelled = false;
+    setReferralStatus((p) => ({ ...p, checking: true }));
+    const timer = setTimeout(async () => {
+      try {
+        const res  = await fetch(`${API}/auth/check-referral?code=${encodeURIComponent(code)}`);
+        const data = await res.json();
+        if (cancelled) return;
+        setReferralStatus({
+          checking: false,
+          valid: !!data.valid,
+          referrerName: data.referrerName || "",
+        });
+      } catch (err) {
+        if (!cancelled) setReferralStatus({ checking: false, valid: null, referrerName: "" });
+      }
+    }, 400); // debounce — avoid a request per keystroke
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [s0.referralCode]);
+
   const phoneValid = s0.phoneDigits.length === 10 && s0.phoneDigits[0] === "9";
   const fullPhone  = s0.phoneDigits ? `+63${s0.phoneDigits}` : "";
 
@@ -874,9 +905,22 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                       maxLength={20}
                     />
                   </div>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Have a referral code from a friend? Enter it here.
-                  </p>
+                  {referralStatus.checking && (
+                    <p className="text-gray-400 text-xs mt-1">Checking code…</p>
+                  )}
+                  {!referralStatus.checking && referralStatus.valid === true && (
+                    <p className="text-green-600 text-xs mt-1">✓ Referred by {referralStatus.referrerName}</p>
+                  )}
+                  {!referralStatus.checking && referralStatus.valid === false && (
+                    <p className="text-amber-500 text-xs mt-1">
+                      We couldn't find that code — you can still continue, it just won't be linked to anyone.
+                    </p>
+                  )}
+                  {referralStatus.valid === null && !referralStatus.checking && (
+                    <p className="text-gray-400 text-xs mt-1">
+                      Have a referral code from a friend? Enter it here.
+                    </p>
+                  )}
                 </div>
               </>
             )}
