@@ -55,10 +55,10 @@ const DAYS        = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const getDateStatuses = (carBookings) => {
   // Returns a map of "YYYY-MM-DD" -> status string
   const map = {};
-  carBookings.forEach(({ status, startDateTime, endDateTime }) => {
-    if (!startDateTime) return;
-    const start = toMidnight(new Date(startDateTime));
-    const end   = endDateTime ? toMidnight(new Date(endDateTime)) : start;
+  carBookings.forEach(({ status, startDate, endDate }) => {
+    if (!startDate) return;
+    const start = toMidnight(new Date(startDate));
+    const end   = endDate ? toMidnight(new Date(endDate)) : start;
     const s     = (status || 'pending').toLowerCase();
 
     let cur = new Date(start);
@@ -149,13 +149,7 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
   const { name='', brandName='', bodyType='', seatingCapacity=0, fuelType='', transmission='', shortDescription='', imageURL='', pricing=[], status='' } = car;
   const tags = [bodyType, seatingCapacity ? `${seatingCapacity} Seater` : '', transmission, fuelType].filter(Boolean);
   const lowest = pricing.length ? pricing.reduce((a,b) => a.price < b.price ? a : b, pricing[0]) : null;
-  // Availability here is about whether the car can be *selected at all* —
-  // not whether every date is open. "Maintenance" (and "Rented"/"Reserved")
-  // only block specific days, which the calendar in Step 2 enforces once a
-  // car is picked; only "Inactive" (a car fully retired from the fleet)
-  // hides it from booking entirely. See getDateStatuses()/BLOCKED_STATUSES
-  // above for the actual day-level gating.
-  const avail  = status.toLowerCase() !== 'inactive';
+  const avail  = ['active','available'].includes(status.toLowerCase());
 
   return (
     <div onClick={() => avail && onSelect(car)}
@@ -577,6 +571,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const getPayNow  = () => quote.payNow;
   const getBalance = () => quote.balance;
 
+  // Bookings of 10 billable days or more are not allowed. `days` comes
+  // straight from the server-computed quote, so this mirrors the same
+  // MAX_BOOKING_DAYS guard enforced authoritatively in bookings.controller.js.
+  const MAX_BOOKING_DAYS = 10;
+  const maxDaysError = days >= MAX_BOOKING_DAYS
+    ? `Bookings of ${MAX_BOOKING_DAYS} days or more aren't allowed here. Please pick a shorter date range, or contact us directly for long-term rentals.`
+    : '';
+
   // GCash, Maya, and QRPH now all go through PayMongo's hosted checkout
   // (redirect flow, like the "GCash Test Payment Page" in test mode)
   // instead of the manual send-money-then-upload-screenshot flow.
@@ -770,7 +772,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   const canProceed = () => {
     if (currentStep === 1) return !!selectedCar;
-    if (currentStep === 2) return !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && dropoffLocation && destination && !codingError);
+    if (currentStep === 2) return !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && dropoffLocation && destination && !codingError && !maxDaysError);
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
     if (currentStep === 4) {
       if (isPaymongoMethod(paymentMethod)) return true;
@@ -796,6 +798,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if (!dropoffLocation)         missing.push('a drop-off location');
       if (!destination)             missing.push('a destination');
       if (codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
+      if (maxDaysError)             missing.push('a shorter rental period (under 10 days)');
     } else if (currentStep === 3) {
       if (!firstName) missing.push('your first name');
       if (!lastName)  missing.push('your last name');
@@ -831,6 +834,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if (!dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
       if (!destination)     e.destination     = 'Please enter a destination.';
       if (codingError)      e.coding          = codingError;
+      if (maxDaysError)     e.maxDays         = maxDaysError;
     }
     if (currentStep === 3) {
       if (!firstName) e.firstName = 'Required.';
@@ -1432,6 +1436,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       </label>
                     ))}
                   </div>
+
+                  {/* ── Max rental length error ── */}
+                  {maxDaysError && (
+                    <div className="mt-6 flex gap-3 items-start bg-red-50 border-2 border-red-300 rounded-2xl p-4">
+                      <span className="text-2xl flex-shrink-0">🚫</span>
+                      <div>
+                        <p className="text-sm font-black text-red-700 mb-1">Rental Period Too Long</p>
+                        <p className="text-sm text-red-600">{maxDaysError}</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* ── Number Coding error ── */}
                   {codingError && (
