@@ -1,8 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { getRedirectResult, signOut as firebaseSignOut } from "firebase/auth";
-import { auth } from "./firebase";
-import { useToast } from "./context/ToastContext";
 import Navbar from "./components/NavBar";
 import Booking from "./pages/Booking";
 import ProfilePage from "./pages/ProfilePage";
@@ -45,7 +42,6 @@ function App() {
   const [user,        setUser]        = useState(null);
   const [userDetails, setUserDetails] = useState(null);
   const autoLogoutTimer = useRef(null);
-  const { showToast } = useToast();
 
   const handleLogout = useCallback(async (auto = false) => {
     if (autoLogoutTimer.current) {
@@ -147,46 +143,6 @@ function App() {
       if (autoLogoutTimer.current) clearTimeout(autoLogoutTimer.current);
     };
   }, [scheduleAutoLogout]);
-
-  // Finishes the mobile Google sign-in flow. On mobile, LoginModal calls
-  // signInWithRedirect instead of signInWithPopup (popups are unreliable
-  // on mobile web), which fully navigates away to Google and back. When
-  // the app remounts here after that round trip, getRedirectResult()
-  // returns the signed-in Firebase user so we can finish the same
-  // backend exchange the desktop popup flow does. If the user never went
-  // through a Google redirect, this resolves to null and does nothing.
-  useEffect(() => {
-    const finishGoogleRedirectLogin = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (!result) return;
-
-        const idToken = await result.user.getIdToken();
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/google`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken }),
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-          await firebaseSignOut(auth).catch(() => {});
-          showToast(data.message || "Google login failed. Please try again.");
-          return;
-        }
-
-        localStorage.setItem("arl_token", data.token);
-        handleLogin(data.user);
-      } catch (err) {
-        console.error("Google redirect login failed:", err);
-        await firebaseSignOut(auth).catch(() => {});
-        showToast("Google login failed. Please try again.");
-      }
-    };
-
-    finishGoogleRedirectLogin();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleLogin = useCallback(async (loginData) => {
     setUser(loginData);

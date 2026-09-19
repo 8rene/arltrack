@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import "../../styles/loginModal.css";
 import { auth }                        from "../../firebase";
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import ForgotPasswordModal from "./ForgotPasswordModal";
 import { useToast } from "../../context/ToastContext";
-import { isInAppBrowser, isMobileDevice } from "../../utils/browserDetect";
+import { isInAppBrowser } from "../../utils/browserDetect";
 
 const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -90,18 +90,19 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
     try {
       const provider = new GoogleAuthProvider();
 
-      if (isMobileDevice()) {
-        // signInWithPopup is unreliable on mobile web: the popup can get
-        // killed by the OS/browser while the Google flow runs, breaking
-        // the postMessage bridge back to this page, which looks exactly
-        // like "it just loads then goes back". signInWithRedirect avoids
-        // that by navigating the whole page instead of opening a popup —
-        // the result is picked up on reload in App.jsx.
-        await signInWithRedirect(auth, provider);
-        return; // page is navigating away; nothing more to do here
-      }
-
-      // Desktop: popup is fine and gives a smoother in-place experience.
+      // NOTE: we previously used signInWithRedirect on mobile here. That
+      // approach depends on Firebase relaying the sign-in result back to
+      // this origin through a hidden iframe on the authDomain, which
+      // itself depends on third-party storage/cookie access. Safari's ITP,
+      // Brave Shields, and Chrome's rollout of third-party cookie blocking
+      // all block that by default — so the Google sign-in itself would
+      // succeed, but getRedirectResult() would come back null with no
+      // error, which showed up as "picks an account, just lands back on
+      // the homepage, not logged in." signInWithPopup instead talks back
+      // to this tab directly via postMessage, which isn't affected by
+      // that storage restriction, so we use it everywhere except inside
+      // in-app WebViews (handled above), which block Google sign-in outright
+      // regardless of popup vs redirect.
       const result  = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
