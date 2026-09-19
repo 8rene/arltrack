@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Hides the scrollbar on horizontally-scrollable strips (e.g. the My
+   Bookings tab bar on mobile) while keeping the element scrollable via
+   touch/trackpad/arrow keys. Used instead of squeezing every item into
+   the viewport width, which was cutting off labels ("Upcoming" →
+   "Upcomin") and causing count badges to overlap on narrow screens. */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera */
+}
