@@ -157,7 +157,7 @@ function NotifRow({ n, onAction, onDelete }) {
 
       <button
         onClick={(e) => { e.stopPropagation(); onDelete(n.id); }}
-        className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-1 shrink-0"
+        className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 active:text-red-500 p-1.5 -m-1 shrink-0"
         title="Dismiss"
       >
         <XIcon />
@@ -167,32 +167,59 @@ function NotifRow({ n, onAction, onDelete }) {
 }
 
 /* ── Notification Dropdown ── */
-function NotificationDropdown({ notifications, onAction, onDelete }) {
+function NotificationDropdown({ notifications, onAction, onDelete, onClose }) {
   return (
-    <div className="absolute right-0 top-full mt-2 w-96 max-w-[92vw] bg-white rounded-2xl shadow-card border border-gray-100 z-50 overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b bg-arl-light/50">
-        <span className="font-semibold text-arl-dark text-sm">Notifications</span>
-      </div>
+    <>
+      {/* Mobile-only dim backdrop so the sheet reads as a distinct layer
+          and gives an obvious, large tap target to dismiss. Hidden on
+          sm+ where the panel is a small anchored dropdown instead. */}
+      <div
+        className="fixed inset-0 z-40 bg-black/20 sm:hidden"
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-      <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
-        {notifications.length === 0 ? (
-          <div className="py-10 flex flex-col items-center gap-2 text-gray-400">
-            <BellIcon />
-            <p className="text-sm">No new notifications</p>
+      {/* Mobile: fixed sheet pinned to the viewport (with side margins)
+          so its width/position never depends on where the bell sits in
+          the header — that's what was pushing it off-screen before.
+          sm+: original small dropdown anchored under the bell. */}
+      <div
+        className="fixed left-3 right-3 top-[72px] z-50
+                   sm:absolute sm:inset-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2
+                   sm:w-96 sm:max-w-[92vw]
+                   bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-5 py-3 border-b bg-arl-light/50">
+          <span className="font-semibold text-arl-dark text-sm">Notifications</span>
+          <button
+            onClick={onClose}
+            className="sm:hidden text-gray-400 hover:text-gray-600 p-1 -m-1"
+            aria-label="Close notifications"
+          >
+            <XIcon />
+          </button>
+        </div>
+
+        <div className="max-h-[65vh] sm:max-h-96 overflow-y-auto divide-y divide-gray-50">
+          {notifications.length === 0 ? (
+            <div className="py-10 flex flex-col items-center gap-2 text-gray-400">
+              <BellIcon />
+              <p className="text-sm">No new notifications</p>
+            </div>
+          ) : (
+            notifications.map((n) => (
+              <NotifRow key={n.id} n={n} onAction={onAction} onDelete={onDelete} />
+            ))
+          )}
+        </div>
+
+        {notifications.length > 0 && (
+          <div className="px-5 py-3 border-t bg-arl-light/50 text-xs text-gray-400 text-center">
+            Bookings · Payments · Reminders
           </div>
-        ) : (
-          notifications.map((n) => (
-            <NotifRow key={n.id} n={n} onAction={onAction} onDelete={onDelete} />
-          ))
         )}
       </div>
-
-      {notifications.length > 0 && (
-        <div className="px-5 py-3 border-t bg-arl-light/50 text-xs text-gray-400 text-center">
-          Bookings · Payments · Reminders
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -299,6 +326,7 @@ export default function NotificationPanel({ user }) {
           notifications={notifications}
           onAction={handleAction}
           onDelete={handleDelete}
+          onClose={() => setNotifOpen(false)}
         />
       )}
     </div>
