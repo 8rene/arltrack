@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import "../../styles/loginModal.css";
 import { auth }                        from "../../firebase";
-import { GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import ForgotPasswordModal from "./ForgotPasswordModal";
 import { useToast } from "../../context/ToastContext";
+import { isInAppBrowser, isMobileDevice } from "../../utils/browserDetect";
 
 const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -68,17 +69,42 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   };
 
   const handleGoogleLogin = async () => {
+    // Instagram/Facebook/Messenger/TikTok/etc. open links inside their own
+    // in-app WebView. Google refuses to run its sign-in flow inside these
+    // WebViews at all (it's a Google-side security policy, not a bug we
+    // can patch here) — the popup/redirect just bounces straight back
+    // with nothing completed, which is the "it just loads then goes back"
+    // behavior. Catch this case up front with a clear, actionable message
+    // instead of letting it fail silently.
+    if (isInAppBrowser()) {
+      showToast(
+        'Google sign-in doesn\'t work inside this app\'s browser. Tap the "•••" menu and choose "Open in Chrome/Safari" first.',
+        "error",
+        6000
+      );
+      return;
+    }
+
     setGoogleLoading(true);
 
     try {
-      // 1. Open Google popup via Firebase client SDK
       const provider = new GoogleAuthProvider();
-      const result   = await signInWithPopup(auth, provider);
 
-      // 2. Get the ID token to send to our backend
+      if (isMobileDevice()) {
+        // signInWithPopup is unreliable on mobile web: the popup can get
+        // killed by the OS/browser while the Google flow runs, breaking
+        // the postMessage bridge back to this page, which looks exactly
+        // like "it just loads then goes back". signInWithRedirect avoids
+        // that by navigating the whole page instead of opening a popup —
+        // the result is picked up on reload in App.jsx.
+        await signInWithRedirect(auth, provider);
+        return; // page is navigating away; nothing more to do here
+      }
+
+      // Desktop: popup is fine and gives a smoother in-place experience.
+      const result  = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
-      // 3. Send to backend — backend verifies and returns our app JWT
       const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -94,7 +120,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
         return;
       }
 
-      // 4. Same as normal login — store JWT and pass user up
+      // Same as normal login — store JWT and pass user up
       localStorage.setItem("arl_token", data.token);
       onLogin(data.user);
       onClose();
@@ -102,6 +128,13 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
     } catch (err) {
       // User closed the popup — don't show an error
       if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+        return;
+      }
+      // Popup blocked by the browser (common with strict cookie/popup
+      // settings) — this is what typically produced the desktop
+      // "Google login failed" toast. Give a more specific message.
+      if (err.code === "auth/popup-blocked") {
+        showToast("Your browser blocked the Google sign-in popup. Please allow pop-ups for this site and try again.");
         return;
       }
       // Sign out on unexpected errors too
