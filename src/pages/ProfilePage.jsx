@@ -1306,8 +1306,35 @@ const ProfilePage = ({ user }) => {
                       {referralCopied ? "✓ Copied" : "Copy"}
                     </button>
                     <span className="text-sm text-gray-500">
-                      {profile?.referralCount || 0} friend{profile?.referralCount === 1 ? "" : "s"} referred
+                      {(profile?.invited ? profile.invited.length : (profile?.referralCount || 0))} friend{(profile?.invited ? profile.invited.length : profile?.referralCount) === 1 ? "" : "s"} referred
                     </span>
+                  </div>
+
+                  <div className="mt-5">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Referred By</label>
+                    <p className="text-sm text-gray-700">
+                      {profile?.referredBy
+                        ? (profile.referredBy.removed ? "Account no longer available" : `@${profile.referredBy.username || "—"}`)
+                        : "Nobody — you signed up without a referral code."}
+                    </p>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">People You Invited</label>
+                    {profile?.invited?.length ? (
+                      <ul className="divide-y border rounded-xl">
+                        {profile.invited.map((p, i) => (
+                          <li key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span className="text-gray-700">@{p.username || "—"}</span>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.isVerified ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
+                              {p.isVerified ? "Verified" : "Pending review"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-gray-400">No one has used your code yet.</p>
+                    )}
                   </div>
                 </Section>
 
