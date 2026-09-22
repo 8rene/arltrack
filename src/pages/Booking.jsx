@@ -101,6 +101,22 @@ const DATE_STYLES = {
 };
 const BLOCKED_STATUSES = new Set(['booked', 'preparation', 'maintenance']);
 
+// Pure helper (no component state) so it can be reused both at click-time
+// and for re-validating an already-set range (e.g. one restored from a
+// stale localStorage draft, or one that was valid when saved but got
+// booked by someone else since). Returns true if any day strictly between
+// start and end is blocked.
+const rangeCrossesBlocked = (dateStatuses, start, end) => {
+  let cur = addDays(toMidnight(start), 1);
+  const endMid = toMidnight(end);
+  while (cur < endMid) {
+    const key = toLocalDateStr(cur);
+    if (BLOCKED_STATUSES.has(dateStatuses[key] || 'available')) return true;
+    cur = addDays(cur, 1);
+  }
+  return false;
+};
+
 // ── End date/time calculator ───────────────────────────────────
 const calcEnd = (startDate, startTime, hours) => {
   if (!startDate || !startTime) return { endDate: '', endTime: '' };
@@ -272,6 +288,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // ── Car bookings (for calendar) ──────────────────────────────
   const [carBookings,  setCarBookings]  = useState([]);
   const [dateStatuses, setDateStatuses] = useState({});
+  // Only true once GET /services/car-bookings/:carID has actually
+  // succeeded for the currently selected car — gates the auto-revalidation
+  // effect below so it never wipes a legitimate selection just because the
+  // availability fetch hasn't resolved yet (or failed).
+  const [carBookingsLoaded, setCarBookingsLoaded] = useState(false);
 
   // ── Booking form ─────────────────────────────────────────────
   // Pre-populate from Hero form if navigated from there
@@ -428,6 +449,37 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     saveDraft({ duration, startDate, startTime, endDate, endTime });
   }, [duration, startDate, startTime, endDate, endTime]);
 
+  // ── Auto-revalidate the current date selection against live availability ──
+  // startDate/endDate can end up populated WITHOUT ever going through
+  // handleDayClick's checks — e.g. restored from a stale localStorage draft,
+  // or carried over from Hero navigation state. Previously that meant a
+  // range that's no longer available (booked by someone else since it was
+  // saved, or spans days that are now blocked) could sit there unvalidated
+  // until the customer manually noticed and hit "Clear" themselves. Instead,
+  // re-check as soon as we actually know current availability (right after
+  // GET /services/car-bookings/:carID resolves) and silently clear+notify
+  // if it's no longer valid — never depend on the customer catching it.
+  useEffect(() => {
+    if (!carBookingsLoaded || !startDate) return;
+    const startD = new Date(`${startDate}T00:00:00`);
+    const startStatus = dateStatuses[startDate] || 'available';
+    const startInvalid = BLOCKED_STATUSES.has(startStatus) || startD < today;
+
+    let endInvalid = false;
+    if (endDate) {
+      const endD = new Date(`${endDate}T00:00:00`);
+      const endStatus = dateStatuses[endDate] || 'available';
+      endInvalid = BLOCKED_STATUSES.has(endStatus)
+        || rangeCrossesBlocked(dateStatuses, startD, endD);
+    }
+
+    if (startInvalid || endInvalid) {
+      showToast('One or more of your saved dates are no longer available. Please pick new dates.');
+      setStartDate(''); setStartTime(''); setEndDate(''); setEndTime('');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carBookingsLoaded, dateStatuses]);
+
   // ── Fetch service types ──────────────────────────────────────
   useEffect(() => {
     fetch(`${process.env.REACT_APP_API_URL}/services/types`)
@@ -445,6 +497,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // ── Fetch bookings when car is selected ──────────────────────
   const handleCarSelect = useCallback(async (car) => {
     setSelectedCar(car);
+    setCarBookingsLoaded(false);
     // Only reset date fields if no pre-filled draft data exists
     // (so navigating from Hero with pre-filled data is preserved)
     const hasDraft = !!(duration || startDate || startTime);
@@ -460,8 +513,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       const data = await res.json();
       setCarBookings(data);
       setDateStatuses(getDateStatuses(data));
+      setCarBookingsLoaded(true);
     } catch {
       setCarBookings([]); setDateStatuses({});
+      // Deliberately NOT setting carBookingsLoaded here — a failed fetch
+      // means we don't actually know availability, so the revalidation
+      // effect should not treat this as "confirmed still valid" and should
+      // not force-clear a legitimate selection over a network error either.
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, startDate, startTime]);
@@ -611,22 +669,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     });
   };
 
-  // Any date strictly between the two endpoints that's blocked (booked/
-  // maintenance) makes the whole range invalid — clicking an open Start and
-  // an open End used to be accepted even when the days in between weren't
-  // actually available, because only the two clicked endpoints were ever
-  // checked against dateStatuses.
-  const rangeCrossesBlockedDate = (startD, endD) => {
-    let cur = addDays(toMidnight(startD), 1);
-    const endMid = toMidnight(endD);
-    while (cur < endMid) {
-      const key = toLocalDateStr(cur);
-      if (BLOCKED_STATUSES.has(dateStatuses[key] || 'available')) return true;
-      cur = addDays(cur, 1);
-    }
-    return false;
-  };
-
   const handleDayClick = (date, idx) => {
     const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     const status = dateStatuses[key] || 'available';
@@ -670,7 +712,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           // Ignore rather than silently accepting a same-day End.
           return;
         }
-        if (rangeCrossesBlockedDate(startDateObj, clickedDate)) {
+        if (rangeCrossesBlocked(dateStatuses, startDateObj, clickedDate)) {
           showToast('That range includes a date that\'s already unavailable. Please choose a shorter range or a different start date.');
           return;
         }
