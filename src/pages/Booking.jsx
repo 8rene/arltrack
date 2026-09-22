@@ -1602,7 +1602,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* Amount options */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
                     {[
-                      { key:'partial', label:'Partial (50%)', amount: Math.floor(grandTotal*0.5), note: `Balance ₱${Math.ceil(grandTotal*0.5).toLocaleString()} on pickup.` },
+                      { key:'partial', label:'Partial (50%)', amount: Math.floor(grandTotal*0.5), note: `Balance ₱${Math.ceil(grandTotal*0.5).toLocaleString()} on pickup (or pay it online anytime from My Bookings).` },
                       { key:'full',    label:'Full Payment',  amount: grandTotal,                 note: 'No balance on pickup.' },
                     ].map(({ key, label, amount, note }) => (
                       <button key={key} type="button"

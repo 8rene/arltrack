@@ -72,6 +72,41 @@ export default function BookingDetailsPage() {
   // payment — same source/shape as MyBookings.jsx uses, fetched separately
   // since /bookings/:bookingID/details doesn't include refund info.
   const [refund, setRefund]   = useState(null);
+  const [payingNow, setPayingNow] = useState(false);
+  const [payError, setPayError]   = useState("");
+
+  // "Complete Payment" used to open the STORED checkout URL directly. That URL can
+  // belong to a session that was already paid (webhook slow) or has expired, so the
+  // customer could be sent to a dead page — or pay twice. Going through create-link
+  // makes the server ask PayMongo first: already paid → just confirm it; expired →
+  // a fresh session; still open → the same link.
+  const handleCompletePayment = async () => {
+    const pay = data?.payment;
+    if (!pay?.paymentID) return;
+    setPayingNow(true); setPayError("");
+    try {
+      const token = localStorage.getItem("arl_token");
+      const phase = pay.balanceStatus === "pending" ? "balance" : "deposit";
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/create-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          bookingID,
+          paymentID: pay.paymentID,
+          description: `ARL Track Booking #${bookingID}${phase === "balance" ? " (Balance)" : ""}`,
+          paymentMethod: pay.paymentMethod,
+          phase,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to open payment.");
+      if (json.alreadyPaid) { navigate(`/payment-return?paymentID=${pay.paymentID}&bookingID=${bookingID}`); return; }
+      window.location.href = json.checkoutUrl + `?paymentID=${pay.paymentID}`;
+    } catch (err) {
+      setPayError(err.message || "Could not connect to PayMongo. Please try again.");
+      setPayingNow(false);
+    }
+  };
 
   useEffect(() => { fetchDetails(); }, [bookingID]);
 
@@ -237,10 +272,13 @@ export default function BookingDetailsPage() {
               <DR label="Reference No."     value={payment.referenceNumber} mono />
             </div>
             {payment.checkoutUrl && (payment.status === "pending" || payment.balanceStatus === "pending") && (
-              <a href={payment.checkoutUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-block px-5 py-2.5 bg-arl-cta text-white rounded-full text-sm font-bold hover:bg-arl-secondary transition">
-                {payment.balanceStatus === "pending" ? "Complete Balance Payment →" : "Complete Payment →"}
-              </a>
+              <>
+                <button type="button" onClick={handleCompletePayment} disabled={payingNow}
+                  className="inline-block px-5 py-2.5 bg-arl-cta text-white rounded-full text-sm font-bold hover:bg-arl-secondary disabled:opacity-60 transition">
+                  {payingNow ? "Opening…" : payment.balanceStatus === "pending" ? "Complete Balance Payment →" : "Complete Payment →"}
+                </button>
+                {payError && <p className="text-xs text-red-500 mt-2">{payError}</p>}
+              </>
             )}
             {payment.proofUrl && (
               <div className="mt-3">

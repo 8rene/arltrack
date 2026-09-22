@@ -49,6 +49,20 @@ const PAYMENT_STATUS_CONFIG = {
 const getPaymentInfo = (payment) => {
   if (!payment) return { key: "due", extra: "", amountPaid: 0 };
 
+  // Preferred: the backend's own derivation (getUserBookings → derivePaymentStatus),
+  // built on the same shared math the admin dashboard uses — it knows about a
+  // balance paid online, one staff collected in person, cash-confirmed payments
+  // and staff discounts, none of which this file can see from here. The local
+  // logic below is only a fallback for a response that doesn't carry it.
+  const derived = payment.paymentStatus;
+  if (derived && derived.key) {
+    return {
+      key: derived.key,
+      extra: derived.key === "partial" ? peso(derived.balance) : "",
+      amountPaid: Number(derived.amountPaid) || 0,
+    };
+  }
+
   const amount = Number(payment.amount) || 0;
   const status = (payment.status || "").toLowerCase();
   const method = (payment.methodOfPayment || "").toLowerCase();
@@ -56,7 +70,8 @@ const getPaymentInfo = (payment) => {
   if (status === "refunded") return { key: "refunded", extra: "", amountPaid: 0 };
   if (status === "failed" || status === "rejected") return { key: "failed", extra: "", amountPaid: 0 };
   if (status === "cancelled") return { key: "cancelled", extra: "", amountPaid: 0 };
-  if (status !== "paid") return { key: "due", extra: "", amountPaid: 0 }; // deposit not paid yet
+  if (status !== "paid" && status !== "approved") return { key: "due", extra: "", amountPaid: 0 }; // deposit not paid yet
+  if (payment.balanceCollected) return { key: "paid", extra: "", amountPaid: amount }; // staff collected the rest in person
 
   if (method.includes("full")) return { key: "paid", extra: "", amountPaid: amount };
 
@@ -169,7 +184,7 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
         />
 
         <p className="text-xs text-gray-400 mt-3">
-          Your refund request will be reviewed by our team. You'll be notified once it's processed.
+          The refund covers everything you've paid for this booking ({peso(amountPaid)}) and the booking will be cancelled once it's approved. Our team will review it and you'll be notified once it's processed.
         </p>
 
         <div className="flex gap-3 mt-4">
@@ -253,7 +268,10 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
   // what decides which one the button below actually does.
   const depositPaid   = p.status === "paid";
   const isPartialPlan = String(p.methodOfPayment || "").toLowerCase() === "partial";
-  const balanceDue    = depositPaid && isPartialPlan && p.balanceStatus !== "paid";
+  const balanceDue    = depositPaid && isPartialPlan && p.balanceStatus !== "paid" && !p.balanceCollected;
+  // The deposit alone confirms a booking ("upcoming"); the balance is normally
+  // settled at pickup. Paying it early online is an OPTIONAL convenience.
+  const canPayBalanceOnline = status === "upcoming" && balanceDue && !hasActiveRefund;
 
   // "Pay Now" / "Pay Balance" — for "to pay" bookings only. Same call
   // Booking.jsx's own handlePaymongoCheckout makes right after creating the
@@ -278,6 +296,13 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to create payment link.");
+      // The server found the earlier attempt was actually paid (e.g. the webhook
+      // was slow) and settled it — nothing to charge. Show the confirmation page
+      // instead of opening a second checkout.
+      if (data.alreadyPaid) {
+        navigate(`/payment-return?paymentID=${p.paymentID}&bookingID=${bookingID}`);
+        return;
+      }
       window.location.href = data.checkoutUrl + `?paymentID=${p.paymentID}`;
     } catch (err) {
       showToast(err.message || "Could not connect to PayMongo. Please try again.");
@@ -386,6 +411,17 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   </button>
                 )}
 
+                {/* Optional: pay the remaining balance online now instead of at
+                    pickup. Only for a confirmed (upcoming) Partial booking. */}
+                {canPayBalanceOnline && (
+                  <button
+                    onClick={handlePayNow}
+                    disabled={payingNow}
+                    className="text-xs font-bold text-arl-cta border border-arl-cta/40 hover:bg-arl-cta/10 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
+                    {payingNow ? "Redirecting…" : "💳 Pay Balance Online (optional)"}
+                  </button>
+                )}
+
                 {/* Cancel — only while NOTHING has been charged yet. Once a
                     Partial booking's deposit clears, it's in the same boat
                     as an "upcoming" booking (real money on it already) —
@@ -413,7 +449,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     active refund request already in flight. A past
                     Rejected/Failed request doesn't block this — the
                     customer can simply try again. */}
-                { (status === "upcoming" && p.status === "paid") && !hasActiveRefund && (
+                { (status === "upcoming" && ["paid", "approved"].includes(String(p.status || "").toLowerCase())) && !hasActiveRefund && (
                   <button
                     onClick={() => setShowRefundModal(true)}
                     className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">
@@ -553,7 +589,15 @@ const MyBookings = ({ user }) => {
   const [bookings,  setBookings]  = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState("");
-  const [activeTab, setActiveTab] = useState("upcoming");
+  // ?tab=to-pay lets PayMongo's "cancel" link (and notifications) land straight
+  // on the unpaid booking with its Pay Now button.
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      const map = { "to-pay": "toPay", toPay: "toPay", upcoming: "upcoming", ongoing: "ongoing", refunds: "refunds", history: "history" };
+      return map[t] || "upcoming";
+    } catch { return "upcoming"; }
+  });
 
   const [refundRequests, setRefundRequests] = useState([]);
 
