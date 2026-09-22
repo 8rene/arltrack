@@ -611,6 +611,22 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     });
   };
 
+  // Any date strictly between the two endpoints that's blocked (booked/
+  // maintenance) makes the whole range invalid — clicking an open Start and
+  // an open End used to be accepted even when the days in between weren't
+  // actually available, because only the two clicked endpoints were ever
+  // checked against dateStatuses.
+  const rangeCrossesBlockedDate = (startD, endD) => {
+    let cur = addDays(toMidnight(startD), 1);
+    const endMid = toMidnight(endD);
+    while (cur < endMid) {
+      const key = toLocalDateStr(cur);
+      if (BLOCKED_STATUSES.has(dateStatuses[key] || 'available')) return true;
+      cur = addDays(cur, 1);
+    }
+    return false;
+  };
+
   const handleDayClick = (date, idx) => {
     const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     const status = dateStatuses[key] || 'available';
@@ -652,6 +668,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           // never fits inside the same calendar day for any realistic
           // pickup time, so same-day was the exact bug being fixed here.
           // Ignore rather than silently accepting a same-day End.
+          return;
+        }
+        if (rangeCrossesBlockedDate(startDateObj, clickedDate)) {
+          showToast('That range includes a date that\'s already unavailable. Please choose a shorter range or a different start date.');
           return;
         }
         setEndDate(key);
