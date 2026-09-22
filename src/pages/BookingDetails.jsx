@@ -267,6 +267,7 @@ export default function BookingDetailsPage() {
               <DR label="Gateway Fee"       value={peso(payment.gatewayFee)} />
               <DR label="Extra Fee"         value={payment.extraFee ? peso(payment.extraFee) : null} />
               <DR label="Driver's Fee"      value={payment.driversFee ? peso(payment.driversFee) : null} />
+              <DR label="Discount Applied"  value={payment.discountAmount ? `-${peso(payment.discountAmount)}` : null} />
               <DR label="Balance Due"       value={peso(payment.balanceDue)} />
               <DR label="Payment Method"    value={payment.methodOfPayment} />
               <DR label="Reference No."     value={payment.referenceNumber} mono />

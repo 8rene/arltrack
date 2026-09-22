@@ -1110,7 +1110,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       const data = await response.json();
 
       if (!response.ok) {
-        showToast(data.message || "Booking failed. Please try again.");
+        // For the duplicate-booking guard specifically, the backend now also
+        // sends the conflicting booking's own dates — show them instead of
+        // just repeating the generic message, so it's clear which existing
+        // reservation is actually in the way (and not a false positive).
+        if (response.status === 409 && data.existingStartDateTime && data.existingEndDateTime) {
+          showToast(
+            `${data.message} (Existing booking: ${fmt(data.existingStartDateTime)} – ${fmt(data.existingEndDateTime)}, status: ${data.existingStatus || 'unknown'}. Check My Bookings.)`
+          );
+        } else {
+          showToast(data.message || "Booking failed. Please try again.");
+        }
         return;
       }
 
