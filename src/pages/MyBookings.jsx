@@ -391,7 +391,14 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
 
             <div className="flex flex-col gap-2.5">
               <div className="flex items-center gap-3">
-                <span className="text-lg sm:text-xl font-black text-arl-cta">{peso(p.amount || totalFee)}</span>
+                {p.discountAmount > 0 ? (
+                  <span className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-lg sm:text-xl font-black text-arl-cta">{peso((p.amount || totalFee) - p.discountAmount)}</span>
+                    <span className="text-sm text-gray-400 line-through">{peso(p.amount || totalFee)}</span>
+                  </span>
+                ) : (
+                  <span className="text-lg sm:text-xl font-black text-arl-cta">{peso(p.amount || totalFee)}</span>
+                )}
                 <span className="text-xs text-gray-400">{totalDays} day(s)</span>
               </div>
 
@@ -508,7 +515,10 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   <DR label="Payment ID"        value={p.paymentID} mono />
                   <DR label="Total Amount"      value={
                     p.discountAmount > 0
-                      ? `${peso((p.amount || 0) - p.discountAmount)} (${peso(p.discountAmount)} off)`
+                      ? <span className="flex items-baseline gap-1.5 flex-wrap">
+                          <span>{peso((p.amount || 0) - p.discountAmount)}</span>
+                          <span className="text-xs text-gray-400 line-through font-normal">{peso(p.amount)}</span>
+                        </span>
                       : peso(p.amount)
                   } />
                   <DR label="Deposit Paid"      value={peso(p.depositFee)} />

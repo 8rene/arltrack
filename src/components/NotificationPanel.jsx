@@ -116,6 +116,11 @@ const META_BY_TYPE = {
     badge: { text: "Refund Failed", className: "bg-red-50 text-red-700" },
     action: "View Details",
   },
+  discount_applied: {
+    bg: "bg-pink-100", emoji: "🏷️", title: "Discount Applied",
+    badge: { text: "Discount", className: "bg-pink-50 text-pink-700" },
+    action: "View Details",
+  },
 };
 
 const DEFAULT_META = {

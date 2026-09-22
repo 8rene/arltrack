@@ -232,7 +232,14 @@ export default function BookingDetailsPage() {
                 <span>{booking.totalDays} day(s)</span>
                 <span>{booking.modeOfDriving || "With Chauffeur"}</span>
               </div>
-              <p className="text-lg font-black text-arl-cta mt-2">{peso(booking.totalFee)}</p>
+              {payment?.discountAmount > 0 ? (
+                <div className="flex items-baseline gap-2 mt-2 flex-wrap">
+                  <p className="text-lg font-black text-arl-cta">{peso(booking.totalFee - payment.discountAmount)}</p>
+                  <p className="text-sm text-gray-400 line-through">{peso(booking.totalFee)}</p>
+                </div>
+              ) : (
+                <p className="text-lg font-black text-arl-cta mt-2">{peso(booking.totalFee)}</p>
+              )}
             </div>
           </div>
         </div>
@@ -267,7 +274,7 @@ export default function BookingDetailsPage() {
               <DR label="Gateway Fee"       value={peso(payment.gatewayFee)} />
               <DR label="Extra Fee"         value={payment.extraFee ? peso(payment.extraFee) : null} />
               <DR label="Driver's Fee"      value={payment.driversFee ? peso(payment.driversFee) : null} />
-              <DR label="Discount Applied"  value={payment.discountAmount ? `-${peso(payment.discountAmount)}` : null} />
+              <DR label="Discount Applied"  value={payment.discountAmount ? peso(payment.discountAmount) : null} />
               <DR label="Balance Due"       value={peso(payment.balanceDue)} />
               <DR label="Payment Method"    value={payment.methodOfPayment} />
               <DR label="Reference No."     value={payment.referenceNumber} mono />
