@@ -506,14 +506,18 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">💳 Payment Details</p>
                 <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
                   <DR label="Payment ID"        value={p.paymentID} mono />
-                  <DR label="Total Amount"      value={peso(p.amount)} />
+                  <DR label="Total Amount"      value={
+                    p.discountAmount > 0
+                      ? `${peso((p.amount || 0) - p.discountAmount)} (${peso(p.discountAmount)} off)`
+                      : peso(p.amount)
+                  } />
                   <DR label="Deposit Paid"      value={peso(p.depositFee)} />
                   <DR label="Rental Fee"        value={peso(p.rentalFee)} />
                   <DR label="Service Fee"       value={peso(p.serviceFee)} />
                   <DR label="Gateway Fee"       value={peso(p.gatewayFee)} />
                   <DR label="Extra Fee"         value={peso(p.extraFee)} />
                   <DR label="Drivers Fee"       value={p.driversFee ? peso(p.driversFee) : null} />
-                  <DR label="Discount Applied"  value={p.discountAmount ? `-${peso(p.discountAmount)}` : null} />
+                  <DR label="Discount Applied"  value={p.discountAmount ? peso(p.discountAmount) : null} />
                   <DR label="Balance on Pickup" value={peso(Math.max(0, (p.amount || 0) - (p.depositFee || 0)))} />
                   <DR label="Payment Method"    value={p.methodOfPayment || p.paymentMethod} />
                   <DR label="Reference No."     value={p.referenceNumber} mono />
