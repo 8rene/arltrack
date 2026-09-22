@@ -88,12 +88,16 @@ const getDateStatuses = (carBookings) => {
   return map;
 };
 
+// All non-available statuses render identically (flat grey, generic label) —
+// the customer only needs to know a date can't be picked, not whether that's
+// because it's booked, in prep, unpaid-pending, or maintenance.
+const UNAVAILABLE_STYLE = { bg: 'bg-gray-300', text: 'text-gray-500', label: 'Unavailable' };
 const DATE_STYLES = {
-  booked:      { bg: 'bg-red-500',    text: 'text-white',     label: 'Booked'      },
-  preparation: { bg: 'bg-orange-400', text: 'text-white',     label: 'Preparation' },
-  pending:     { bg: 'bg-yellow-400', text: 'text-gray-800',  label: 'Pending'     },
-  maintenance: { bg: 'bg-blue-400',   text: 'text-white',     label: 'Maintenance' },
-  available:   { bg: '',              text: 'text-gray-700',  label: 'Available'   },
+  booked:      UNAVAILABLE_STYLE,
+  preparation: UNAVAILABLE_STYLE,
+  pending:     UNAVAILABLE_STYLE,
+  maintenance: UNAVAILABLE_STYLE,
+  available:   { bg: '', text: 'text-gray-700', label: 'Available' },
 };
 const BLOCKED_STATUSES = new Set(['booked', 'preparation', 'maintenance']);
 
@@ -760,7 +764,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         </div>
         {/* Legend */}
         <div className="flex flex-wrap gap-2 sm:gap-3 mt-2.5 sm:mt-4 pt-2.5 sm:pt-3 border-t border-gray-100">
-          {Object.entries(DATE_STYLES).map(([k, v]) => (
+          {[['available', DATE_STYLES.available], ['unavailable', UNAVAILABLE_STYLE]].map(([k, v]) => (
             <div key={k} className="flex items-center gap-1 sm:gap-1.5">
               <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-md ${v.bg || 'bg-gray-200 border border-gray-300'}`} />
               <span className="text-[10px] sm:text-xs text-gray-500 capitalize">{v.label}</span>
