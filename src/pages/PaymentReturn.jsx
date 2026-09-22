@@ -52,7 +52,8 @@ export default function PaymentReturn() {
 
         if (data.status === "failed") {
           setStatus("failed");
-          setMessage("Payment failed or was cancelled. Please try again.");
+          setMessage("Payment failed or was cancelled. Redirecting to your unpaid booking…");
+          pendingTimer = setTimeout(() => { if (!cancelled) navigate("/my-bookings?tab=to-pay"); }, 2500);
           return;
         }
 
@@ -154,7 +155,7 @@ export default function PaymentReturn() {
         {(status === "failed" || status === "pending" || status === "notfound") && (
           <div className="flex flex-col gap-3">
             <button
-              onClick={() => navigate("/my-bookings")}
+              onClick={() => navigate(status === "failed" ? "/my-bookings?tab=to-pay" : "/my-bookings")}
               className="w-full bg-arl-primary text-white py-3 rounded-full font-semibold hover:bg-opacity-90 transition">
               View My Bookings
             </button>
@@ -168,8 +169,8 @@ export default function PaymentReturn() {
           </div>
         )}
 
-        {status === "paid" && (
-          <p className="text-xs text-gray-400">Redirecting automatically…</p>
+        {(status === "paid" || status === "failed") && (
+          <p className="text-xs text-gray-400 mb-2">Redirecting automatically…</p>
         )}
       </div>
     </div>
