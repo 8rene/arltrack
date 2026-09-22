@@ -54,23 +54,31 @@ const DAYS        = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 // ── Booking date status calculator ────────────────────────────
 const getDateStatuses = (carBookings) => {
   // Returns a map of "YYYY-MM-DD" -> status string
+  // carBookings entries come from GET /api/services/car-bookings/:carID, which
+  // sends startDateTime/endDateTime (not startDate/endDate) and real booking
+  // statuses: "to pay" | "upcoming" | "ongoing" | "maintenance".
   const map = {};
-  carBookings.forEach(({ status, startDate, endDate }) => {
-    if (!startDate) return;
-    const start = toMidnight(new Date(startDate));
-    const end   = endDate ? toMidnight(new Date(endDate)) : start;
-    const s     = (status || 'pending').toLowerCase();
+  carBookings.forEach(({ status, startDateTime, endDateTime }) => {
+    if (!startDateTime) return;
+    const start = toMidnight(new Date(startDateTime));
+    const end   = endDateTime ? toMidnight(new Date(endDateTime)) : start;
+    const raw   = (status || 'to pay').toLowerCase();
+    // "upcoming"/"ongoing" are confirmed bookings → treated as fully booked.
+    // "to pay" is an unpaid hold → shown as pending, doesn't block clicks.
+    // "maintenance" passes through as-is.
+    const isConfirmedBooking = raw === 'upcoming' || raw === 'ongoing';
+    const s = isConfirmedBooking ? 'booked' : raw === 'to pay' ? 'pending' : raw;
 
     let cur = new Date(start);
     while (cur <= end) {
       const key = toLocalDateStr(cur);
       // Priority: booked > preparation > pending > maintenance
-      if (!map[key] || s === 'approved') map[key] = s === 'approved' ? 'booked' : s;
+      if (!map[key] || s === 'booked') map[key] = s;
       cur = addDays(cur, 1);
     }
 
-    // Preparation: 1 day before and after approved bookings
-    if (s === 'approved') {
+    // Preparation: 1 day before and after confirmed bookings
+    if (isConfirmedBooking) {
       const before = toLocalDateStr(addDays(start, -1));
       const after  = toLocalDateStr(addDays(end,    1));
       if (!map[before] || map[before] === 'available') map[before] = 'preparation';

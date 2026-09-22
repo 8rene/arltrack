@@ -513,6 +513,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   <DR label="Gateway Fee"       value={peso(p.gatewayFee)} />
                   <DR label="Extra Fee"         value={peso(p.extraFee)} />
                   <DR label="Drivers Fee"       value={p.driversFee ? peso(p.driversFee) : null} />
+                  <DR label="Discount Applied"  value={p.discountAmount ? `-${peso(p.discountAmount)}` : null} />
                   <DR label="Balance on Pickup" value={peso(Math.max(0, (p.amount || 0) - (p.depositFee || 0)))} />
                   <DR label="Payment Method"    value={p.methodOfPayment || p.paymentMethod} />
                   <DR label="Reference No."     value={p.referenceNumber} mono />
