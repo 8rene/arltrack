@@ -297,21 +297,9 @@ export default function BookingDetailsPage() {
         {/* Trip details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🗓️ Trip Details</p>
-
-          {/* End time called out on its own — this is the return deadline,
-              easy to miss when it's styled the same as every other field. */}
-          {booking.endDateTime && (
-            <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-4">
-              <span className="text-2xl leading-none">⏰</span>
-              <div>
-                <p className="text-xs text-orange-600 font-bold uppercase tracking-wide">Return By</p>
-                <p className="text-lg sm:text-xl font-black text-orange-700 leading-tight">{fmtDT(booking.endDateTime)}</p>
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
             <DR label="Start"          value={fmtDT(booking.startDateTime)} />
+            <DR label="End"            value={fmtDT(booking.endDateTime)} />
             <DR label="Days"           value={`${booking.totalDays} day(s)`} />
             <DR label="Service"        value={booking.serviceType} />
             <DR label="Drive Mode"     value={booking.modeOfDriving} />
