@@ -76,6 +76,10 @@ export default function BookingDetailsPage() {
   const [payError, setPayError]   = useState("");
   const [resendingReceipt, setResendingReceipt] = useState(false);
   const [receiptMsg, setReceiptMsg] = useState("");
+  // Countdown (seconds) before "Email My Receipt" can be clicked again —
+  // set from the server's cooldown so it survives a page refresh, not just
+  // local component state.
+  const [receiptCooldown, setReceiptCooldown] = useState(0);
 
   // "Complete Payment" used to open the STORED checkout URL directly. That URL can
   // belong to a session that was already paid (webhook slow) or has expired, so the
@@ -110,6 +114,8 @@ export default function BookingDetailsPage() {
     }
   };
 
+  const RECEIPT_COOLDOWN_SECONDS = 5 * 60;
+
   const handleResendReceipt = async () => {
     setResendingReceipt(true); setReceiptMsg("");
     try {
@@ -119,14 +125,27 @@ export default function BookingDetailsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Failed to send receipt.");
+      if (!res.ok) {
+        if (res.status === 429 && json.retryAfterSeconds) {
+          setReceiptCooldown(json.retryAfterSeconds);
+        }
+        throw new Error(json.message || "Failed to send receipt.");
+      }
       setReceiptMsg(json.message || "Receipt sent to your email.");
+      setReceiptCooldown(RECEIPT_COOLDOWN_SECONDS);
     } catch (err) {
       setReceiptMsg(err.message || "Could not send the receipt. Please try again.");
     } finally {
       setResendingReceipt(false);
     }
   };
+
+  // Ticks the cooldown down once a second while it's active.
+  useEffect(() => {
+    if (receiptCooldown <= 0) return;
+    const t = setInterval(() => setReceiptCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [receiptCooldown]);
 
   useEffect(() => { fetchDetails(); }, [bookingID]);
 
@@ -140,6 +159,17 @@ export default function BookingDetailsPage() {
       if (!res.ok) throw new Error("Failed to load booking details.");
       const json = await res.json();
       setData(json);
+
+      // Restore the "Email My Receipt" cooldown across refreshes — the
+      // server timestamps the last successful send on the payment doc.
+      if (json.payment?.lastReceiptSentAt) {
+        const raw = json.payment.lastReceiptSentAt;
+        const lastSent = raw?._seconds !== undefined ? new Date(raw._seconds * 1000) : new Date(raw);
+        if (!isNaN(lastSent.getTime())) {
+          const remaining = RECEIPT_COOLDOWN_SECONDS - Math.floor((Date.now() - lastSent.getTime()) / 1000);
+          if (remaining > 0) setReceiptCooldown(remaining);
+        }
+      }
 
       if (json.payment?.paymentID) {
         try {
@@ -310,9 +340,13 @@ export default function BookingDetailsPage() {
             )}
             {payment.status === "paid" && (
               <div className="mt-3">
-                <button type="button" onClick={handleResendReceipt} disabled={resendingReceipt}
+                <button type="button" onClick={handleResendReceipt} disabled={resendingReceipt || receiptCooldown > 0}
                   className="inline-block px-5 py-2.5 bg-white border border-arl-primary text-arl-primary rounded-full text-sm font-bold hover:bg-arl-primary hover:text-white disabled:opacity-60 transition">
-                  {resendingReceipt ? "Sending…" : "📧 Email My Receipt"}
+                  {resendingReceipt
+                    ? "Sending…"
+                    : receiptCooldown > 0
+                      ? `📧 Email My Receipt (${Math.floor(receiptCooldown / 60)}:${String(receiptCooldown % 60).padStart(2, "0")})`
+                      : "📧 Email My Receipt"}
                 </button>
                 {receiptMsg && <p className="text-xs text-gray-500 mt-2">{receiptMsg}</p>}
               </div>
