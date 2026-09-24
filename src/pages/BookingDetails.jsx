@@ -74,6 +74,8 @@ export default function BookingDetailsPage() {
   const [refund, setRefund]   = useState(null);
   const [payingNow, setPayingNow] = useState(false);
   const [payError, setPayError]   = useState("");
+  const [resendingReceipt, setResendingReceipt] = useState(false);
+  const [receiptMsg, setReceiptMsg] = useState("");
 
   // "Complete Payment" used to open the STORED checkout URL directly. That URL can
   // belong to a session that was already paid (webhook slow) or has expired, so the
@@ -105,6 +107,24 @@ export default function BookingDetailsPage() {
     } catch (err) {
       setPayError(err.message || "Could not connect to PayMongo. Please try again.");
       setPayingNow(false);
+    }
+  };
+
+  const handleResendReceipt = async () => {
+    setResendingReceipt(true); setReceiptMsg("");
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${bookingID}/resend-receipt`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to send receipt.");
+      setReceiptMsg(json.message || "Receipt sent to your email.");
+    } catch (err) {
+      setReceiptMsg(err.message || "Could not send the receipt. Please try again.");
+    } finally {
+      setResendingReceipt(false);
     }
   };
 
@@ -287,6 +307,15 @@ export default function BookingDetailsPage() {
                 </button>
                 {payError && <p className="text-xs text-red-500 mt-2">{payError}</p>}
               </>
+            )}
+            {payment.status === "paid" && (
+              <div className="mt-3">
+                <button type="button" onClick={handleResendReceipt} disabled={resendingReceipt}
+                  className="inline-block px-5 py-2.5 bg-white border border-arl-primary text-arl-primary rounded-full text-sm font-bold hover:bg-arl-primary hover:text-white disabled:opacity-60 transition">
+                  {resendingReceipt ? "Sending…" : "📧 Email My Receipt"}
+                </button>
+                {receiptMsg && <p className="text-xs text-gray-500 mt-2">{receiptMsg}</p>}
+              </div>
             )}
             {payment.proofUrl && (
               <div className="mt-3">
