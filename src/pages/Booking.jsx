@@ -1118,14 +1118,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           showToast(
             `${data.message} (Existing booking: ${fmt(data.existingStartDateTime)} – ${fmt(data.existingEndDateTime)}, status: ${data.existingStatus || 'unknown'}. Check My Bookings.)`
           );
-        } else if (data.postRentalCooldown) {
-          // 24h post-rental cooldown after a previous booking was marked
-          // "completed" — lifts automatically at cooldownUntil, or earlier
-          // if staff verify the car return sooner.
-          const until = data.cooldownUntil
-            ? new Date(data.cooldownUntil).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-            : null;
-          showToast(until ? `${data.message} You can book again after ${until}.` : data.message);
         } else {
           showToast(data.message || "Booking failed. Please try again.");
         }
