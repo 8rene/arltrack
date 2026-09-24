@@ -362,8 +362,8 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
               <p className="text-xs text-gray-500">
                 <span className="font-semibold text-gray-600">Start:</span> {fmtDT(startDateTime)}
               </p>
-              <p className="text-xs text-gray-500">
-                <span className="font-semibold text-gray-600">End:</span> {fmtDT(endDateTime)}
+              <p className="text-xs text-orange-700 font-bold bg-orange-50 border border-orange-200 rounded-md px-1.5 py-0.5 inline-block">
+                ⏰ End: {fmtDT(endDateTime)}
               </p>
               <p className="text-xs text-gray-400">
                 <span className="font-semibold text-gray-500">Booked on:</span> {fmtDT(createdAt)}
