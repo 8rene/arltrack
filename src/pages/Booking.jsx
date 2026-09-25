@@ -65,24 +65,38 @@ const getDateStatuses = (carBookings) => {
     const raw   = (status || 'to pay').toLowerCase();
     // "upcoming"/"ongoing" are confirmed bookings → treated as fully booked.
     // "to pay" is an unpaid hold → shown as pending, doesn't block clicks.
+    // "completed" (already returned) only still matters for its 1-day
+    // post-rental buffer below — the rental window itself is in the past
+    // and doesn't need marking.
     // "maintenance" passes through as-is.
     const isConfirmedBooking = raw === 'upcoming' || raw === 'ongoing';
+    const isCompleted = raw === 'completed';
     const s = isConfirmedBooking ? 'booked' : raw === 'to pay' ? 'pending' : raw;
 
-    let cur = new Date(start);
-    while (cur <= end) {
-      const key = toLocalDateStr(cur);
-      // Priority: booked > preparation > pending > maintenance
-      if (!map[key] || s === 'booked') map[key] = s;
-      cur = addDays(cur, 1);
+    if (!isCompleted) {
+      let cur = new Date(start);
+      while (cur <= end) {
+        const key = toLocalDateStr(cur);
+        // Priority: booked > preparation > pending > maintenance
+        if (!map[key] || s === 'booked') map[key] = s;
+        cur = addDays(cur, 1);
+      }
     }
 
-    // Preparation: 1 day before and after confirmed bookings
+    // Preparation buffer: 1 day before a confirmed booking starts, and 1 day
+    // after it ends OR after it was already returned ("completed") — a
+    // returned booking no longer needs the "before" side, its start is in
+    // the past. Kept in sync with the same buffer the backend now enforces
+    // synchronously in bookings.controller.js's availability guard (not the
+    // once-a-day postRentalMaintenance cron), so what's shown here always
+    // matches what's actually blockable.
     if (isConfirmedBooking) {
       const before = toLocalDateStr(addDays(start, -1));
-      const after  = toLocalDateStr(addDays(end,    1));
       if (!map[before] || map[before] === 'available') map[before] = 'preparation';
-      if (!map[after]  || map[after]  === 'available') map[after]  = 'preparation';
+    }
+    if (isConfirmedBooking || isCompleted) {
+      const after = toLocalDateStr(addDays(end, 1));
+      if (!map[after] || map[after] === 'available') map[after] = 'preparation';
     }
   });
   return map;
@@ -1118,14 +1132,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           showToast(
             `${data.message} (Existing booking: ${fmt(data.existingStartDateTime)} – ${fmt(data.existingEndDateTime)}, status: ${data.existingStatus || 'unknown'}. Check My Bookings.)`
           );
-        } else if (data.postRentalCooldown) {
-          // 24h post-rental cooldown after a previous booking was marked
-          // "completed" — lifts automatically at cooldownUntil, or earlier
-          // if staff verify the car return sooner.
-          const until = data.cooldownUntil
-            ? new Date(data.cooldownUntil).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-            : null;
-          showToast(until ? `${data.message} You can book again after ${until}.` : data.message);
         } else {
           showToast(data.message || "Booking failed. Please try again.");
         }
