@@ -620,6 +620,7 @@ const MyBookings = ({ user }) => {
     if (!user?.userID) { navigate("/"); return; }
     fetchBookings();
     fetchRefundRequests();
+    fetchOutstandingBalance();
   }, [user]);
 
   const fetchBookings = async () => {
@@ -650,6 +651,27 @@ const MyBookings = ({ user }) => {
       if (res.ok) setRefundRequests(data.data || []);
     } catch {
       // non-critical — refund badges/buttons just won't reflect the latest state
+    }
+  };
+
+  // Any confirmed-but-unpaid penalty balance across this customer's past
+  // bookings, mirrored onto the user doc by admin-backend's
+  // penalty.service.js whenever it changes. Shown as a single account-
+  // level banner here (not fetched per-booking-card, which would be an
+  // N+1 request for a list this size) — createBooking already blocks new
+  // bookings while this is > 0, so the banner is telling the customer
+  // why, not just informing them.
+  const [outstandingBalance, setOutstandingBalance] = useState(0);
+  const fetchOutstandingBalance = async () => {
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res   = await fetch(`${process.env.REACT_APP_API_URL}/user/profile/${user.userID}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) setOutstandingBalance(data.outstandingPenaltyBalance || 0);
+    } catch {
+      // non-critical — the banner just won't show; createBooking still enforces the block server-side
     }
   };
 
@@ -720,6 +742,19 @@ const MyBookings = ({ user }) => {
           <h1 className="text-3xl font-black text-arl-primary tracking-tight">My Bookings</h1>
           <p className="text-gray-500 text-sm mt-1">Track all your rides and payment details</p>
         </div>
+
+        {outstandingBalance > 0 && (
+          <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-red-700">
+                Outstanding balance: ₱{outstandingBalance.toLocaleString()}
+              </p>
+              <p className="text-xs text-red-500 mt-0.5">
+                Please settle this in store before booking again.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="flex overflow-x-auto scrollbar-hide bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1 -mx-1 px-1 sm:mx-0">
           {[

@@ -61,6 +61,99 @@ const DR = ({ label, value, mono = false }) =>
     </div>
   ) : null;
 
+// Security deposit + confirmed penalties for this booking, in its own
+// card separate from Payment Details — a penalty is a deduction against
+// a held deposit, not part of the rental transaction, so mixing the two
+// would make Payment Details harder to read. Fetches its own data
+// (same non-fatal pattern BookingDetailsPage already uses for the
+// refund badge) so a failure here never blocks the rest of the page.
+// Only CONFIRMED penalties are ever returned by the backend — a draft
+// staff are still typing up is never visible here.
+const PENALTY_TYPE_LABEL = {
+  Late: "Late return", Part: "Vehicle damage", Cleaning: "Cleaning",
+  Fuel: "Fuel", Violation: "Traffic violation", Smoking: "Smoking",
+  LostItem: "Lost item", Other: "Other",
+};
+
+const PenaltiesBox = ({ bookingID }) => {
+  const [info, setInfo] = useState(null); // null = loading, false = failed to load
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem("arl_token");
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${bookingID}/penalties`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        if (!cancelled) setInfo(json.data);
+      } catch {
+        if (!cancelled) setInfo(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bookingID]);
+
+  if (info === null || info === false) return null; // loading or failed — never block the page
+
+  const { depositAmount, depositStatus, penalties, runningBalance, settlement } = info;
+  if (depositAmount === null && penalties.length === 0) return null; // nothing to show pre-pickup
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">🔒 Security Deposit</p>
+        {settlement?.status && <Badge text={settlement.status} styleMap={PAYMENT_STYLE} />}
+      </div>
+
+      {depositAmount === null ? (
+        <p className="text-sm text-gray-500">
+          A ₱{1000} refundable security deposit is collected at pickup.
+        </p>
+      ) : (
+        <>
+          <div className="flex items-baseline justify-between mb-2">
+            <span className="text-sm text-gray-500">Deposit held</span>
+            <span className="text-sm font-semibold text-gray-700">{peso(depositAmount)}</span>
+          </div>
+
+          {penalties.length > 0 && (
+            <div className="space-y-1.5 border-t border-gray-100 pt-3 mt-2 mb-3">
+              {penalties.map((p) => (
+                <div key={p.penaltyID} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">
+                    {PENALTY_TYPE_LABEL[p.type] || p.type}
+                    {p.description ? ` — ${p.description}` : ""}
+                  </span>
+                  <span className="text-red-500 font-medium">-{peso(p.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className={`flex items-baseline justify-between pt-3 border-t border-gray-100 ${penalties.length ? "" : "border-t-0 pt-0"}`}>
+            <span className="text-sm font-semibold text-gray-700">
+              {runningBalance < 0 ? "Balance you owe" : "Refundable balance"}
+            </span>
+            <span className={`text-base font-bold ${runningBalance < 0 ? "text-red-600" : "text-green-600"}`}>
+              {peso(Math.abs(runningBalance))}
+            </span>
+          </div>
+
+          {settlement?.status && (
+            <p className="text-xs text-gray-400 mt-2">
+              {settlement.status === "Refunded" && "This deposit has been settled and the balance returned."}
+              {settlement.status === "Settled" && "This deposit has been settled in full."}
+              {settlement.status === "OwedByCustomer" && "Please settle this balance in store on your next visit."}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 export default function BookingDetailsPage() {
   const { bookingID } = useParams();
   const navigate = useNavigate();
@@ -318,7 +411,6 @@ export default function BookingDetailsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
               <DR label="Payment ID"        value={payment.paymentID} mono />
               <DR label="Total Amount"      value={peso(payment.amount)} />
-              <DR label="Deposit Paid"      value={peso(payment.depositFee)} />
               <DR label="Rental Fee"        value={peso(payment.rentalFee)} />
               <DR label="Service Fee"       value={peso(payment.serviceFee)} />
               <DR label="Gateway Fee"       value={peso(payment.gatewayFee)} />
@@ -365,6 +457,8 @@ export default function BookingDetailsPage() {
             <p className="text-xs text-gray-400">No payment record found for this booking.</p>
           </div>
         )}
+
+        {payment && <PenaltiesBox bookingID={bookingID} />}
       </div>
     </div>
   );
