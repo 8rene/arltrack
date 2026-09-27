@@ -69,12 +69,6 @@ const DR = ({ label, value, mono = false }) =>
 // refund badge) so a failure here never blocks the rest of the page.
 // Only CONFIRMED penalties are ever returned by the backend — a draft
 // staff are still typing up is never visible here.
-const PENALTY_TYPE_LABEL = {
-  Late: "Late return", Part: "Vehicle damage", Cleaning: "Cleaning",
-  Fuel: "Fuel", Violation: "Traffic violation", Smoking: "Smoking",
-  LostItem: "Lost item", Other: "Other",
-};
-
 const PenaltiesBox = ({ bookingID }) => {
   const [info, setInfo] = useState(null); // null = loading, false = failed to load
   useEffect(() => {
@@ -123,8 +117,7 @@ const PenaltiesBox = ({ bookingID }) => {
               {penalties.map((p) => (
                 <div key={p.penaltyID} className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">
-                    {PENALTY_TYPE_LABEL[p.type] || p.type}
-                    {p.description ? ` — ${p.description}` : ""}
+                    {(p.lineItems || []).map((i) => i.description).join(", ") || "Charge"}
                   </span>
                   <span className="text-red-500 font-medium">-{peso(p.amount)}</span>
                 </div>
