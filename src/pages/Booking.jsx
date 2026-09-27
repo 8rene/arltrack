@@ -1080,7 +1080,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           endDate,
           endTime,
           // NOTE: totalDays / rentalFee / extraFee / driversFee / serviceFee /
-          // gatewayFee / grandTotal / depositFee / methodOfPayment are no
+          // gatewayFee / grandTotal / methodOfPayment are no
           // longer sent — the backend recomputes every one of these itself
           // (from the car's Firestore pricing + these dates/destination/
           // driveType) instead of trusting whatever the browser calculated.
