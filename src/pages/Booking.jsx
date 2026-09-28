@@ -134,7 +134,7 @@ const rangeCrossesBlocked = (dateStatuses, start, end) => {
 // ── Analog clock time picker ───────────────────────────────────
 // Click (or drag on) the dial: first pick the hour, then the minutes
 // (15-minute steps, same as the old dropdown). Value is "HH:MM" in 24h.
-const ClockTimePicker = ({ value, onChange }) => {
+const ClockTimePicker = ({ value, onChange, onDone }) => {
   const [mode, setMode] = useState('hour');
   const [pmLocal, setPmLocal] = useState(false);
   const svgRef   = useRef(null);
@@ -168,6 +168,7 @@ const ClockTimePicker = ({ value, onChange }) => {
     } else {
       const minute = [0, 15, 30, 45][Math.round(a / 90) % 4];
       emit(has ? h12 : 12, minute, isPm);
+      if (final) onDone?.();
     }
   };
 
@@ -196,7 +197,7 @@ const ClockTimePicker = ({ value, onChange }) => {
   const segOff  = 'bg-gray-100 text-gray-500 hover:bg-gray-200';
 
   return (
-    <div className="border-2 border-gray-200 rounded-2xl p-4 bg-white max-w-xs mx-auto sm:mx-0">
+    <div className="p-4 bg-white">
       <div className="flex items-center justify-center gap-2 mb-3">
         <button type="button" onClick={() => setMode('hour')}
           className={segBase + (mode === 'hour' ? segOn : segOff)}>
@@ -243,6 +244,51 @@ const ClockTimePicker = ({ value, onChange }) => {
       <p className="text-[11px] text-gray-400 text-center mt-2">
         {mode === 'hour' ? 'Select the hour, then the minutes.' : 'Select the minutes (00, 15, 30, 45).'}
       </p>
+    </div>
+  );
+};
+
+// ── Time field: looks like the old dropdown, opens the clock on click ──
+const TimeField = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('touchstart', close);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close); };
+  }, [open]);
+
+  const label = (() => {
+    if (!value) return 'Select a time…';
+    const [h, m] = value.split(':').map(Number);
+    return `${((h % 12) || 12)}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+  })();
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={'w-full px-4 py-3 border-2 rounded-xl text-sm bg-white text-left flex items-center justify-between cursor-pointer focus:outline-none ' +
+          (open ? 'border-arl-primary ' : 'border-gray-200 focus:border-arl-primary ') +
+          (value ? 'text-gray-700' : 'text-gray-400')}>
+        <span>{label}</span>
+        <svg className={'w-4 h-4 text-gray-400 transition-transform ' + (open ? 'rotate-180' : '')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-30 left-0 mt-2 w-full sm:w-auto sm:min-w-[300px] bg-white border-2 border-gray-200 rounded-2xl shadow-xl">
+          <ClockTimePicker value={value} onChange={onChange} onDone={() => setOpen(false)} />
+          <div className="px-4 pb-4 -mt-1">
+            <button type="button" onClick={() => setOpen(false)}
+              className="w-full py-2 rounded-xl bg-arl-primary text-white text-sm font-bold hover:opacity-90 transition">
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1651,7 +1697,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <p className="text-xs text-gray-400 mb-3">
                         {startDate ? `Pickup on ${fmt(startDate)}` : 'Select a date above first.'}
                       </p>
-                      <ClockTimePicker value={startTime} onChange={handleStartTimeChange} />
+                      <TimeField value={startTime} onChange={handleStartTimeChange} />
                       {errors.startTime && <p className="text-arl-cta text-xs mt-2">{errors.startTime}</p>}
 
                       {/* Auto-end banner */}
