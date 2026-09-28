@@ -600,13 +600,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // checkout both recompute their own authoritative totals independently).
   const [quote, setQuote] = useState({
     days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0,
-    serviceFee: 0, gatewayFee: 0, grandTotal: 0, payNow: 0, balance: 0,
+    serviceFee: 0, gatewayFee: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0,
   });
   const [quoteLoading, setQuoteLoading] = useState(false);
 
   useEffect(() => {
     if (!selectedCar?.carID || !duration) {
-      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, serviceFee: 0, gatewayFee: 0, grandTotal: 0, payNow: 0, balance: 0 });
+      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, serviceFee: 0, gatewayFee: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
       return;
     }
     let cancelled = false;
@@ -636,6 +636,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             driversFee: data.driversFee || 0,
             serviceFee: data.serviceFee || 0,
             gatewayFee: data.gatewayFee || 0,
+            securityDeposit: data.securityDeposit || 0,
             grandTotal: data.grandTotal || 0,
             payNow: data.payNow || 0,
             balance: data.balance || 0,
@@ -651,7 +652,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return () => { cancelled = true; clearTimeout(timer); };
   }, [selectedCar?.carID, duration, startDate, startTime, endDate, endTime, destination, driveType, paymentAmount]);
 
-  const { days, total, diffHrs, extraFee, driversFee, serviceFee, gatewayFee, grandTotal } = quote;
+  const { days, total, diffHrs, extraFee, driversFee, serviceFee, gatewayFee, securityDeposit, grandTotal } = quote;
   const getPayNow  = () => quote.payNow;
   const getBalance = () => quote.balance;
 
@@ -1859,6 +1860,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ...(driversFee > 0 ? [["Driver's Fee",             `₱${driversFee.toLocaleString()}`]] : []),
                       ['Service Fee',   `₱${serviceFee.toLocaleString()}`],
                       ['Gateway Fee',   `₱${gatewayFee.toLocaleString()}`],
+                      ...(securityDeposit > 0 ? [['Security Deposit (refundable)', `₱${securityDeposit.toLocaleString()}`]] : []),
                       ['Total Fee',     `₱${grandTotal.toLocaleString()}`],
                       ['Payment Type',  getMethodOfPayment()],
                       ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
