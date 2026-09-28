@@ -40,11 +40,11 @@ const REFUND_STYLE = {
   Failed:   "bg-red-100 text-red-600 border-red-300",
 };
 const REFUND_LABEL = {
-  Pending:  "⏳ Refund: Pending",
-  Approved: "🔵 Refund: Approved",
-  Refunded: "✅ Refund: Refunded",
-  Rejected: "❌ Refund: Rejected",
-  Failed:   "❌ Refund: Failed",
+  Pending:  "Refund: Pending",
+  Approved: "Refund: Approved",
+  Refunded: "Refund: Refunded",
+  Rejected: "Refund: Rejected",
+  Failed:   "Refund: Failed",
 };
 
 const Badge = ({ text, styleMap }) => (
@@ -149,7 +149,7 @@ const PenaltiesBox = ({ bookingID }) => {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">🔒 Security Deposit &amp; Penalties</p>
+        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">Security Deposit &amp; Penalties</p>
         {badge && <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${badge.cls}`}>{badge.label}</span>}
       </div>
 
@@ -367,7 +367,6 @@ export default function BookingDetailsPage() {
     return (
       <div className="min-h-screen bg-gray-50 pt-24 pb-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center py-20">
-          <p className="text-5xl mb-4">🚫</p>
           <p className="text-gray-600 font-semibold">{error || "Booking not found."}</p>
           <button onClick={() => navigate("/my-bookings")}
             className="mt-5 px-6 py-2.5 bg-arl-primary text-white rounded-full text-sm font-bold hover:bg-arl-secondary transition">
@@ -401,7 +400,7 @@ export default function BookingDetailsPage() {
             <div className="w-28 h-20 sm:w-36 sm:h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
               {booking.carImage
                 ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">🚗</div>}
+                : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300" />}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -453,7 +452,7 @@ export default function BookingDetailsPage() {
 
         {/* Trip details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🗓️ Trip Details</p>
+          <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Trip Details</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
             <DR label="Start"          value={fmtDT(booking.startDateTime)} />
             <DR label="End"            value={fmtDT(booking.endDateTime)} />
@@ -469,7 +468,7 @@ export default function BookingDetailsPage() {
         {payment ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-black text-arl-primary uppercase tracking-widest">💳 Payment Details</p>
+              <p className="text-xs font-black text-arl-primary uppercase tracking-widest">Payment Details</p>
               <Badge text={payment.status} styleMap={PAYMENT_STYLE} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
@@ -502,8 +501,8 @@ export default function BookingDetailsPage() {
                   {resendingReceipt
                     ? "Sending…"
                     : receiptCooldown > 0
-                      ? `📧 Email My Receipt (${Math.floor(receiptCooldown / 60)}:${String(receiptCooldown % 60).padStart(2, "0")})`
-                      : "📧 Email My Receipt"}
+                      ? `Email My Receipt (${Math.floor(receiptCooldown / 60)}:${String(receiptCooldown % 60).padStart(2, "0")})`
+                      : "Email My Receipt"}
                 </button>
                 {receiptMsg && <p className="text-xs text-gray-500 mt-2">{receiptMsg}</p>}
               </div>
