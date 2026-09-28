@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
@@ -184,7 +185,7 @@ const ClockTimePicker = ({ value, onChange, onDone }) => {
   const handAngle = mode === 'hour'
     ? (has ? (h12 % 12) * 30 : null)
     : (has ? mm * 6 : null);
-  const rad = 68;
+  const rad = 74;
   const hx = handAngle === null ? 100 : 100 + rad * Math.sin((handAngle * Math.PI) / 180);
   const hy = handAngle === null ? 100 : 100 - rad * Math.cos((handAngle * Math.PI) / 180);
 
@@ -197,7 +198,7 @@ const ClockTimePicker = ({ value, onChange, onDone }) => {
   const segOff  = 'bg-gray-100 text-gray-500 hover:bg-gray-200';
 
   return (
-    <div className="p-4 bg-white">
+    <div>
       <div className="flex items-center justify-center gap-2 mb-3">
         <button type="button" onClick={() => setMode('hour')}
           className={segBase + (mode === 'hour' ? segOn : segOff)}>
@@ -219,13 +220,13 @@ const ClockTimePicker = ({ value, onChange, onDone }) => {
       </div>
 
       <svg ref={svgRef} viewBox="0 0 200 200"
-        className="w-full max-w-[240px] mx-auto block touch-none select-none cursor-pointer text-arl-primary"
+        className="w-full max-w-[270px] mx-auto block touch-none select-none cursor-pointer text-arl-primary"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
         <circle cx="100" cy="100" r="96" fill="#f3f4f6" />
         {handAngle !== null && (
           <>
             <line x1="100" y1="100" x2={hx} y2={hy} stroke="currentColor" strokeWidth="2" />
-            <circle cx={hx} cy={hy} r="15" fill="currentColor" />
+            <circle cx={hx} cy={hy} r="17" fill="currentColor" />
           </>
         )}
         <circle cx="100" cy="100" r="3.5" fill="currentColor" />
@@ -234,7 +235,7 @@ const ClockTimePicker = ({ value, onChange, onDone }) => {
           const y = 100 - rad * Math.cos((a * Math.PI) / 180);
           return (
             <text key={text} x={x} y={y} textAnchor="middle" dominantBaseline="central"
-              fontSize="14" fontWeight={sel ? 700 : 500}
+              fontSize="16" fontWeight={sel ? 700 : 500}
               fill={sel ? '#ffffff' : '#374151'} pointerEvents="none">
               {text}
             </text>
@@ -248,17 +249,21 @@ const ClockTimePicker = ({ value, onChange, onDone }) => {
   );
 };
 
-// ── Time field: looks like the old dropdown, opens the clock on click ──
+// ── Time field: looks like the old dropdown, opens a clock dialog on click ──
 const TimeField = ({ value, onChange }) => {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
+  const before = useRef('');
+
+  const openDialog = () => { before.current = value || ''; setOpen(true); };
+  const cancel = () => { onChange(before.current); setOpen(false); };
 
   useEffect(() => {
     if (!open) return;
-    const close = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('touchstart', close);
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
   }, [open]);
 
   const label = (() => {
@@ -268,28 +273,38 @@ const TimeField = ({ value, onChange }) => {
   })();
 
   return (
-    <div ref={wrapRef} className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className={'w-full px-4 py-3 border-2 rounded-xl text-sm bg-white text-left flex items-center justify-between cursor-pointer focus:outline-none ' +
-          (open ? 'border-arl-primary ' : 'border-gray-200 focus:border-arl-primary ') +
+    <>
+      <button type="button" onClick={openDialog}
+        className={'w-full px-4 py-3 border-2 rounded-xl text-sm bg-white text-left flex items-center justify-between cursor-pointer focus:outline-none focus:border-arl-primary border-gray-200 ' +
           (value ? 'text-gray-700' : 'text-gray-400')}>
         <span>{label}</span>
-        <svg className={'w-4 h-4 text-gray-400 transition-transform ' + (open ? 'rotate-180' : '')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </button>
-      {open && (
-        <div className="absolute z-30 left-0 mt-2 w-full sm:w-auto sm:min-w-[300px] bg-white border-2 border-gray-200 rounded-2xl shadow-xl">
-          <ClockTimePicker value={value} onChange={onChange} onDone={() => setOpen(false)} />
-          <div className="px-4 pb-4 -mt-1">
-            <button type="button" onClick={() => setOpen(false)}
-              className="w-full py-2 rounded-xl bg-arl-primary text-white text-sm font-bold hover:opacity-90 transition">
-              Done
-            </button>
+
+      {open && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+          <div role="dialog" aria-modal="true"
+            className="w-full max-w-[340px] bg-white rounded-3xl shadow-2xl p-5">
+            <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-3">Select pickup time</p>
+            <ClockTimePicker value={value} onChange={onChange} onDone={() => setTimeout(() => setOpen(false), 250)} />
+            <div className="flex gap-3 mt-4">
+              <button type="button" onClick={cancel}
+                className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">
+                Cancel
+              </button>
+              <button type="button" onClick={() => setOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-bold hover:opacity-90 transition">
+                OK
+              </button>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 
