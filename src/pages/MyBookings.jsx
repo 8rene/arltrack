@@ -12,30 +12,16 @@ const fmtDT = (val) => {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
-// Small inline calendar glyph for the Upcoming tab — used instead of the
-// 📅 emoji, which on some Android builds renders with a baked-in day
-// number fixed into the glyph itself (this is what was showing up as a
-// stray "17" floating near the tab bar). currentColor lets it pick up
-// the tab's active/inactive text color automatically.
-const CalendarGlyph = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-    <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
-    <line x1="3" y1="9.5" x2="21" y2="9.5" />
-    <line x1="8" y1="2.5" x2="8" y2="6.5" />
-    <line x1="16" y1="2.5" x2="16" y2="6.5" />
-  </svg>
-);
-
 const peso = (v) => `₱${Number(v || 0).toLocaleString()}`;
 
 // ── Payment status config (badge shown on each booking card) ──
 const PAYMENT_STATUS_CONFIG = {
-  due:       { label: "Payment Due",       bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
-  partial:   { label: "Partial",           bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300", icon: "🟠" },
-  paid:      { label: "Fully Paid",        bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
-  refunded:  { label: "Refunded",          bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300",   icon: "↩️" },
-  failed:    { label: "Payment Failed",    bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
-  cancelled: { label: "Payment Cancelled", bg: "bg-gray-100",   text: "text-gray-500",   border: "border-gray-300",   icon: "🚫" },
+  due:       { label: "Payment Due",       bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300" },
+  partial:   { label: "Partial",           bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300" },
+  paid:      { label: "Fully Paid",        bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300" },
+  refunded:  { label: "Refunded",          bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300" },
+  failed:    { label: "Payment Failed",    bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300" },
+  cancelled: { label: "Payment Cancelled", bg: "bg-gray-100",   text: "text-gray-500",   border: "border-gray-300" },
 };
 
 // Mirrors admin's computeAmounts() in payments.service.js, so the customer
@@ -92,7 +78,7 @@ const PaymentStatusBadge = ({ payment }) => {
   const cfg = PAYMENT_STATUS_CONFIG[key];
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      {cfg.icon} {cfg.label}{extra ? ` — ${extra} due` : ""}
+      {cfg.label}{extra ? ` — ${extra} due` : ""}
     </span>
   );
 };
@@ -131,11 +117,11 @@ const REFUND_REASONS = [
 
 // ── Refund request status config (badge shown once a refund is requested) ──
 const REFUND_STATUS_CONFIG = {
-  Pending:  { label: "Refund: Pending",  bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
-  Approved: { label: "Refund: Approved", bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300",   icon: "🔵" },
-  Refunded: { label: "Refund: Refunded", bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
-  Rejected: { label: "Refund: Rejected", bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
-  Failed:   { label: "Refund: Failed",   bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
+  Pending:  { label: "Refund: Pending",  bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300" },
+  Approved: { label: "Refund: Approved", bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300" },
+  Refunded: { label: "Refund: Refunded", bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300" },
+  Rejected: { label: "Refund: Rejected", bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300" },
+  Failed:   { label: "Refund: Failed",   bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300" },
 };
 
 const RefundStatusBadge = ({ status }) => {
@@ -143,7 +129,7 @@ const RefundStatusBadge = ({ status }) => {
   if (!cfg) return null;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      {cfg.icon} {cfg.label}
+      {cfg.label}
     </span>
   );
 };
@@ -334,7 +320,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
               : null}
             <div className="w-full h-full items-center justify-center text-2xl sm:text-3xl text-gray-300"
-              style={{ display: carImage ? "none" : "flex" }}>🚗</div>
+              style={{ display: carImage ? "none" : "flex" }} />
           </div>
 
           {/* Info */}
@@ -363,7 +349,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 <span className="font-semibold text-gray-600">Start:</span> {fmtDT(startDateTime)}
               </p>
               <p className="text-xs text-orange-700 font-bold bg-orange-50 border border-orange-200 rounded-md px-1.5 py-0.5 inline-block">
-                ⏰ End: {fmtDT(endDateTime)}
+                End: {fmtDT(endDateTime)}
               </p>
               <p className="text-xs text-gray-400">
                 <span className="font-semibold text-gray-500">Booked on:</span> {fmtDT(createdAt)}
@@ -414,7 +400,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     onClick={handlePayNow}
                     disabled={payingNow}
                     className="text-xs font-bold text-white bg-arl-cta hover:bg-opacity-90 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
-                    {payingNow ? "Redirecting…" : balanceDue ? "💳 Pay Balance" : "💳 Pay Now"}
+                    {payingNow ? "Redirecting…" : balanceDue ? "Pay Balance" : "Pay Now"}
                   </button>
                 )}
 
@@ -425,7 +411,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     onClick={handlePayNow}
                     disabled={payingNow}
                     className="text-xs font-bold text-arl-cta border border-arl-cta/40 hover:bg-arl-cta/10 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
-                    {payingNow ? "Redirecting…" : "💳 Pay Balance Online (optional)"}
+                    {payingNow ? "Redirecting…" : "Pay Balance Online (optional)"}
                   </button>
                 )}
 
@@ -460,7 +446,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   <button
                     onClick={() => setShowRefundModal(true)}
                     className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">
-                    💸 Request Refund
+                    Request Refund
                   </button>
                 )}
 
@@ -468,7 +454,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 <button
                   onClick={() => navigate(`/booking/${bookingID}/details`)}
                   className="text-xs font-bold text-purple-600 border border-purple-200 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition">
-                  📋 Details
+                  Details
                 </button>
 
                 {/* Rebook — for cancelled and completed */}
@@ -476,7 +462,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   <button
                     onClick={handleRebook}
                     className="text-xs font-bold text-arl-secondary border border-arl-secondary/30 hover:bg-arl-secondary/10 px-3 py-1.5 rounded-lg transition">
-                    🔁 Rebook
+                    Rebook
                   </button>
                 )}
 
@@ -493,7 +479,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
         {expanded && (
           <div className="border-t border-gray-100">
             <div className="px-5 py-4 bg-gray-50">
-              <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🚗 Booking Details</p>
+              <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Booking Details</p>
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                 <DR label="Booking ID"  value={bookingID} mono />
                 <DR label="Booked On"   value={fmtDT(createdAt)} />
@@ -510,7 +496,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
 
             {payment ? (
               <div className="px-5 py-4 bg-blue-50/50 border-t border-blue-100">
-                <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">💳 Payment Details</p>
+                <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Payment Details</p>
                 <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
                   <DR label="Payment ID"        value={p.paymentID} mono />
                   <DR label="Total Amount"      value={
@@ -555,7 +541,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
 };
 
 // ── Empty state ──
-// A live calendar icon for the "upcoming" empty state — replaces the 📅
+// A live calendar icon for the "upcoming" empty state — replaces the calendar
 // emoji, which renders with a hard-coded, platform-specific date baked
 // into the glyph itself (fixed at "17" on this Android build, something
 // else elsewhere) rather than the actual current date, which read as a
@@ -577,19 +563,19 @@ const LiveCalendarIcon = () => {
 };
 
 const EMPTY_STATE_COPY = {
-  toPay:    { icon: "💳", title: "Nothing to pay",         body: "Unpaid bookings awaiting payment will show up here." },
-  upcoming: { icon: "📅", title: "No upcoming bookings",  body: "Book a ride to see it here." },
-  ongoing:  { icon: "🚗", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
-  refunds:  { icon: "💸", title: "No refund requests",     body: "Bookings you've requested a refund for will show up here." },
-  history:  { icon: "📜", title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
+  toPay:    { title: "Nothing to pay",         body: "Unpaid bookings awaiting payment will show up here." },
+  upcoming: { title: "No upcoming bookings",  body: "Book a ride to see it here." },
+  ongoing:  { title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
+  refunds:  { title: "No refund requests",     body: "Bookings you've requested a refund for will show up here." },
+  history:  { title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
 };
 
 const EmptyState = ({ tab }) => {
-  const { icon, title, body } = EMPTY_STATE_COPY[tab] || EMPTY_STATE_COPY.upcoming;
+  const { title, body } = EMPTY_STATE_COPY[tab] || EMPTY_STATE_COPY.upcoming;
   return (
     <div className="text-center py-20">
       <div className="mb-4">
-        {tab === "upcoming" ? <LiveCalendarIcon /> : <p className="text-5xl">{icon}</p>}
+        {tab === "upcoming" && <LiveCalendarIcon />}
       </div>
       <p className="text-gray-500 font-bold text-lg">{title}</p>
       <p className="text-gray-400 text-sm mt-1">{body}</p>
@@ -757,17 +743,16 @@ const MyBookings = ({ user }) => {
 
         <div className="flex overflow-x-auto scrollbar-hide bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1 -mx-1 px-1 sm:mx-0">
           {[
-            { key: "toPay",    label: "To Pay",   count: toPay.length,    icon: "💳" },
-            { key: "upcoming", label: "Upcoming", count: upcoming.length, icon: <CalendarGlyph /> },
-            { key: "ongoing",  label: "Ongoing",  count: ongoing.length,  icon: "🚗" },
-            { key: "refunds",  label: "Refunds",  count: refunded.length, icon: "💸" },
-            { key: "history",  label: "History",  count: history.length,  icon: "📜" },
-          ].map(({ key, label, count, icon }) => (
+            { key: "toPay",    label: "To Pay",   count: toPay.length },
+            { key: "upcoming", label: "Upcoming", count: upcoming.length },
+            { key: "ongoing",  label: "Ongoing",  count: ongoing.length },
+            { key: "refunds",  label: "Refunds",  count: refunded.length },
+            { key: "history",  label: "History",  count: history.length },
+          ].map(({ key, label, count }) => (
             <button key={key} onClick={() => setActiveTab(key)}
               className={`shrink-0 flex items-center gap-1.5 whitespace-nowrap py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 activeTab === key ? "bg-arl-primary text-white shadow" : "text-gray-500 hover:text-arl-primary hover:bg-gray-50"
               }`}>
-              <span>{icon}</span>
               <span>{label}</span>
               <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-black ${
                 activeTab === key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
@@ -792,7 +777,7 @@ const MyBookings = ({ user }) => {
 
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -819,7 +804,7 @@ const MyBookings = ({ user }) => {
           <div className="text-center mt-8">
             <button onClick={fetchBookings}
               className="text-sm text-arl-secondary hover:text-arl-primary font-semibold transition">
-              🔄 Refresh
+              Refresh
             </button>
           </div>
         )}

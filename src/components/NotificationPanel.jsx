@@ -47,77 +47,77 @@ const timeAgo = (ts) => {
 // anything) they should do next.
 const META_BY_TYPE = {
   booking_created: {
-    bg: "bg-teal-100", emoji: "📅", title: "Booking Created",
+    bg: "bg-teal-100", title: "Booking Created",
     badge: { text: "Created", className: "bg-teal-50 text-teal-700" },
     action: "View Booking",
   },
   payment_pending: {
-    bg: "bg-amber-100", emoji: "⏳", title: "Payment Pending",
+    bg: "bg-amber-100", title: "Payment Pending",
     badge: { text: "Awaiting Payment", className: "bg-amber-50 text-amber-700" },
     action: "Pay Now",
   },
   payment_successful: {
-    bg: "bg-green-100", emoji: "✅", title: "Payment Successful",
+    bg: "bg-green-100", title: "Payment Successful",
     badge: { text: "Paid", className: "bg-green-50 text-green-700" },
     action: "View Details",
   },
   payment_failed: {
-    bg: "bg-red-100", emoji: "❌", title: "Payment Failed",
+    bg: "bg-red-100", title: "Payment Failed",
     badge: { text: "Failed", className: "bg-red-50 text-red-700" },
     action: "Try Again",
   },
   booking_confirmed: {
-    bg: "bg-blue-100", emoji: "🎉", title: "Booking Confirmed",
+    bg: "bg-blue-100", title: "Booking Confirmed",
     badge: { text: "Confirmed", className: "bg-blue-50 text-blue-700" },
     action: "View Booking",
   },
   upcoming_booking: {
-    bg: "bg-indigo-100", emoji: "🚗", title: "Upcoming Booking",
+    bg: "bg-indigo-100", title: "Upcoming Booking",
     badge: { text: "Upcoming", className: "bg-indigo-50 text-indigo-700" },
     action: "View Booking",
   },
   booking_reminder: {
-    bg: "bg-indigo-100", emoji: "⏰", title: "Booking Reminder",
+    bg: "bg-indigo-100", title: "Booking Reminder",
     badge: { text: "Starting Soon", className: "bg-indigo-50 text-indigo-700" },
     action: "View Booking",
   },
   booking_cancelled: {
-    bg: "bg-gray-200", emoji: "🚫", title: "Booking Cancelled",
+    bg: "bg-gray-200", title: "Booking Cancelled",
     badge: { text: "Cancelled", className: "bg-gray-100 text-gray-600" },
     action: "View Details",
   },
   booking_expired: {
-    bg: "bg-orange-100", emoji: "⌛", title: "Booking Expired",
+    bg: "bg-orange-100", title: "Booking Expired",
     badge: { text: "Expired", className: "bg-orange-50 text-orange-700" },
     action: "View Details",
   },
   booking_rescheduled: {
-    bg: "bg-purple-100", emoji: "🔄", title: "Booking Rescheduled",
+    bg: "bg-purple-100", title: "Booking Rescheduled",
     badge: { text: "Rescheduled", className: "bg-purple-50 text-purple-700" },
     action: "View Booking",
   },
   refund_approved: {
-    bg: "bg-emerald-100", emoji: "💸", title: "Refund Approved",
+    bg: "bg-emerald-100", title: "Refund Approved",
     badge: { text: "Refund Approved", className: "bg-emerald-50 text-emerald-700" },
     action: "View Details",
   },
   refund_rejected: {
-    bg: "bg-red-100", emoji: "🚫", title: "Refund Rejected",
+    bg: "bg-red-100", title: "Refund Rejected",
     badge: { text: "Refund Rejected", className: "bg-red-50 text-red-700" },
     action: "View Details",
   },
   refund_completed: {
-    bg: "bg-emerald-100", emoji: "✅", title: "Refund Completed",
+    bg: "bg-emerald-100", title: "Refund Completed",
     badge: { text: "Refunded", className: "bg-emerald-50 text-emerald-700" },
     action: "View Details",
   },
   refund_failed: {
-    bg: "bg-red-100", emoji: "❌", title: "Refund Failed",
+    bg: "bg-red-100", title: "Refund Failed",
     badge: { text: "Refund Failed", className: "bg-red-50 text-red-700" },
     action: "View Details",
   },
   discount_applied: {
-    bg: "bg-pink-100", emoji: "🏷️", title: "Discount Applied",
+    bg: "bg-pink-100", title: "Discount Applied",
     badge: { text: "Discount", className: "bg-pink-50 text-pink-700" },
     action: "View Details",
   },
@@ -125,24 +125,24 @@ const META_BY_TYPE = {
   // action lands on BookingDetails, whose "Security Deposit & Penalties"
   // card lists each charge, what was deducted and what comes back.
   PenaltyConfirmed: {
-    bg: "bg-red-100", emoji: "⚠️", title: "Penalty Added",
+    bg: "bg-red-100", title: "Penalty Added",
     badge: { text: "Penalty", className: "bg-red-50 text-red-700" },
     action: "View Breakdown",
   },
   PenaltyWaived: {
-    bg: "bg-emerald-100", emoji: "🤝", title: "Penalty Waived",
+    bg: "bg-emerald-100", title: "Penalty Waived",
     badge: { text: "Waived", className: "bg-emerald-50 text-emerald-700" },
     action: "View Details",
   },
   PenaltyVoided: {
-    bg: "bg-gray-200", emoji: "↩️", title: "Penalty Removed",
+    bg: "bg-gray-200", title: "Penalty Removed",
     badge: { text: "Removed", className: "bg-gray-100 text-gray-600" },
     action: "View Details",
   },
 };
 
 const DEFAULT_META = {
-  bg: "bg-gray-100", emoji: "🔔", title: "Notification",
+  bg: "bg-gray-100", title: "Notification",
   badge: { text: "Update", className: "bg-gray-100 text-gray-600" },
   action: "View Details",
 };
@@ -153,10 +153,6 @@ function NotifRow({ n, onAction, onDelete }) {
 
   return (
     <div className="flex items-start gap-3 px-5 py-3.5 hover:bg-arl-light/60 transition-colors group">
-      <div className={`w-9 h-9 rounded-full ${meta.bg} flex items-center justify-center shrink-0 mt-0.5 text-base`}>
-        {meta.emoji}
-      </div>
-
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-semibold text-arl-dark leading-snug">{meta.title}</p>

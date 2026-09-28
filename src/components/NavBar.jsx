@@ -109,26 +109,26 @@ export default function Navbar({ user, userDetails, onLogin, onLogout }) {
                     onClick={() => { setShowDropdown(false); navigate("/profile"); }}
                     className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
-                    👤 My Profile
+                    My Profile
                   </button>
                   <button
                     onClick={() => { setShowDropdown(false); navigate("/my-bookings"); }}
                     className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
-                    📅 My Bookings
+                    My Bookings
                   </button>
                   <button
                     onClick={() => { setShowDropdown(false); navigate("/my-reviews"); }}
                     className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
-                    ⭐ My Reviews
+                    My Reviews
                   </button>
                   <div className="h-px bg-gray-100" />
                   <button
                     onClick={() => { setShowDropdown(false); onLogout(); }}
                     className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition"
                   >
-                    🚪 Log Out
+                    Log Out
                   </button>
                 </div>
               )}

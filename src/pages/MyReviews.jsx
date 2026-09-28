@@ -88,7 +88,7 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
           <div className="w-14 h-11 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
             {booking.carImage
               ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-xl">🚗</div>
+              : <div className="w-full h-full flex items-center justify-center text-xl" />
             }
           </div>
           <div className="flex-1 min-w-0">
@@ -122,7 +122,7 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
           </div>
 
           {error && (
-            <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">⛔ {error}</p>
+            <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{error}</p>
           )}
 
           <div className="flex gap-3">
@@ -168,7 +168,7 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved }) => {
           <div className="w-20 h-16 sm:w-28 sm:h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
             {booking.carImage
               ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-2xl sm:text-3xl text-gray-300">🚗</div>
+              : <div className="w-full h-full flex items-center justify-center text-2xl sm:text-3xl text-gray-300" />
             }
           </div>
 
@@ -210,7 +210,7 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved }) => {
                 onClick={() => setShowModal(true)}
                 className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-arl-primary text-white text-xs font-bold rounded-full hover:bg-arl-secondary transition shadow"
               >
-                ⭐ Write a Review
+                Write a Review
               </button>
             )}
           </div>
@@ -318,12 +318,11 @@ const MyReviews = ({ user }) => {
         {!loading && !error && bookings.length > 0 && (
           <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
             {[
-              { label: "Total Bookings", value: bookings.length,  icon: "📅" },
-              { label: "Reviewed",       value: reviewedCount,    icon: "⭐" },
-              { label: "Pending Review", value: pendingCount,     icon: "✍️" },
-            ].map(({ label, value, icon }) => (
+              { label: "Total Bookings", value: bookings.length },
+              { label: "Reviewed",       value: reviewedCount },
+              { label: "Pending Review", value: pendingCount },
+            ].map(({ label, value }) => (
               <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-2.5 sm:p-4 text-center">
-                <p className="text-lg sm:text-2xl mb-1">{icon}</p>
                 <p className="text-xl sm:text-2xl font-black text-arl-primary">{value}</p>
                 <p className="text-[10px] sm:text-xs text-gray-400 font-medium leading-tight">{label}</p>
               </div>
@@ -354,7 +353,7 @@ const MyReviews = ({ user }) => {
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 mb-6">
-            ⛔ {error}
+            {error}
           </div>
         )}
 
@@ -377,7 +376,6 @@ const MyReviews = ({ user }) => {
 
         {!loading && !error && filtered.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-5xl mb-4">{filter === "reviewed" ? "⭐" : filter === "pending" ? "✍️" : "📅"}</p>
             <p className="text-gray-600 font-semibold text-lg">
               {filter === "reviewed" ? "No reviews yet" : filter === "pending" ? "All bookings reviewed!" : "No reviewable bookings found"}
             </p>

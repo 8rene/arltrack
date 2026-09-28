@@ -64,7 +64,7 @@ const EditableField = ({ label, value, onSave, type = "text", placeholder = "", 
           <div className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-500 cursor-not-allowed select-none">
             {value || <span className="text-gray-300 italic">Not set</span>}
           </div>
-          <p className="text-xs text-gray-400 mt-1">🔒 {lockNote || "Cannot be changed"}</p>
+          <p className="text-xs text-gray-400 mt-1">{lockNote || "Cannot be changed"}</p>
         </div>
       ) : editing ? (
         <div>
@@ -125,7 +125,7 @@ const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
     <div className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-500 select-none">
       {value || <span className="text-gray-300 italic">Not set</span>}
     </div>
-    <p className="text-xs text-gray-400 mt-1">🔒 {lockNote}</p>
+    <p className="text-xs text-gray-400 mt-1">{lockNote}</p>
   </div>
 );
 
@@ -546,7 +546,7 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
               />
             </div>
 
-            {error && <p className="text-xs text-red-500">⛔ {error}</p>}
+            {error && <p className="text-xs text-red-500">{error}</p>}
 
             <div className="flex gap-3">
               <button onClick={onClose} disabled={submitting}
@@ -566,10 +566,9 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
 };
 
 // Section wrapper
-const Section = ({ title, icon, children }) => (
+const Section = ({ title, children }) => (
   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
     <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50">
-      <span className="text-xl">{icon}</span>
       <h3 className="font-bold text-arl-primary text-base">{title}</h3>
     </div>
     <div className="p-4 sm:p-6">{children}</div>
@@ -633,7 +632,7 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
           <div className="w-14 h-11 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
             {booking.imageURL
               ? <img src={booking.imageURL} alt={booking.carName} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-xl">🚗</div>}
+              : <div className="w-full h-full flex items-center justify-center text-xl" />}
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="font-black text-arl-primary truncate">{booking.carName || "Vehicle"}</h2>
@@ -654,7 +653,7 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
               value={comment} onChange={(e) => setComment(e.target.value)} maxLength={500} />
             <p className="text-xs text-gray-400 text-right mt-1">{comment.length}/500</p>
           </div>
-          {error && <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">⛔ {error}</p>}
+          {error && <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{error}</p>}
           <div className="flex gap-3">
             <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">Cancel</button>
             <button onClick={handleSubmit} disabled={saving || rating === 0}
@@ -669,10 +668,10 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
 };
 
 const STATUS_BADGE = {
-  pending:   { bg: "bg-yellow-100", text: "text-yellow-700", label: "⏳ Pending"   },
-  approved:  { bg: "bg-blue-100",   text: "text-blue-700",   label: "✅ Approved"  },
-  cancelled: { bg: "bg-red-100",    text: "text-red-600",    label: "❌ Cancelled" },
-  completed: { bg: "bg-green-100",  text: "text-green-700",  label: "🏁 Completed" },
+  pending:   { bg: "bg-yellow-100", text: "text-yellow-700", label: "Pending"   },
+  approved:  { bg: "bg-blue-100",   text: "text-blue-700",   label: "Approved"  },
+  cancelled: { bg: "bg-red-100",    text: "text-red-600",    label: "Cancelled" },
+  completed: { bg: "bg-green-100",  text: "text-green-700",  label: "Completed" },
 };
 
 const CancelReasonInput = ({ onConfirm, onClose, loading, error }) => {
@@ -689,7 +688,7 @@ const CancelReasonInput = ({ onConfirm, onClose, loading, error }) => {
         value={reason}
         onChange={(e) => setReason(e.target.value)}
       />
-      {error && <p className="text-xs text-red-500 mt-2">⛔ {error}</p>}
+      {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
       <div className="flex gap-3 mt-4">
         <button onClick={onClose} disabled={loading}
           className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
@@ -761,7 +760,7 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved, onCancelled }) => {
           <div className="w-28 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
             {booking.imageURL
               ? <img src={booking.imageURL} alt={booking.carName} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">🚗</div>}
+              : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300" />}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -776,7 +775,7 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved, onCancelled }) => {
               {booking.totalDays && <span className="text-xs text-gray-500">{booking.totalDays} day(s)</span>}
               <span className="text-xs text-gray-400">{fmtDT(booking.startDateTime)}</span>
             </div>
-            {cancelError && <p className="text-xs text-red-500 mt-2">⛔ {cancelError}</p>}
+            {cancelError && <p className="text-xs text-red-500 mt-2">{cancelError}</p>}
             {isCompleted ? (
               rev ? (
                 <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100">
@@ -789,7 +788,7 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved, onCancelled }) => {
               ) : (
                 <button onClick={() => setShowModal(true)}
                   className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-arl-primary text-white text-xs font-bold rounded-full hover:bg-arl-secondary transition shadow">
-                  ⭐ Write a Review
+                  Write a Review
                 </button>
               )
             ) : isCancellable ? (
@@ -873,12 +872,11 @@ const ReviewsTab = ({ user, navigate }) => {
       {!loading && !error && completedBookings.length > 0 && (
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: "Completed Trips", value: completedBookings.length, icon: "🏁" },
-            { label: "Reviewed",        value: reviewedCount,   icon: "⭐" },
-            { label: "Pending Review",  value: pendingCount,    icon: "✍️" },
-          ].map(({ label, value, icon }) => (
+            { label: "Completed Trips", value: completedBookings.length },
+            { label: "Reviewed",        value: reviewedCount },
+            { label: "Pending Review",  value: pendingCount },
+          ].map(({ label, value }) => (
             <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-              <p className="text-2xl mb-1">{icon}</p>
               <p className="text-2xl font-black text-arl-primary">{value}</p>
               <p className="text-xs text-gray-400 font-medium">{label}</p>
             </div>
@@ -899,7 +897,7 @@ const ReviewsTab = ({ user, navigate }) => {
           ))}
         </div>
       )}
-      {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">⛔ {error}</div>}
+      {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">{error}</div>}
       {loading && (
         <div className="space-y-4">
           {[1,2,3].map(i => (
@@ -918,7 +916,6 @@ const ReviewsTab = ({ user, navigate }) => {
       )}
       {!loading && !error && completedBookings.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-5xl mb-4">🏁</p>
           <p className="text-gray-600 font-semibold text-lg">No completed trips yet</p>
           <p className="text-gray-400 text-sm mt-1">You can only review vehicles after your booking is completed.</p>
           <button onClick={() => navigate("/vehicles")}
@@ -929,7 +926,6 @@ const ReviewsTab = ({ user, navigate }) => {
       )}
       {!loading && !error && completedBookings.length > 0 && filtered.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-5xl mb-4">{filter === "reviewed" ? "⭐" : "✍️"}</p>
           <p className="text-gray-600 font-semibold text-lg">
             {filter === "reviewed" ? "No reviews written yet" : "All completed trips reviewed!"}
           </p>
@@ -1203,12 +1199,12 @@ const ProfilePage = ({ user }) => {
                 : "bg-arl-primary text-white hover:bg-arl-secondary"
             }`}
           >
-            {pendingEditRequest ? "⏳ Pending Edit Request" : "Request Profile Edit"}
+            {pendingEditRequest ? "Pending Edit Request" : "Request Profile Edit"}
           </button>
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">⛔ {error}</div>
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">{error}</div>
         )}
 
         {/* ── PROFILE ── */}
@@ -1230,7 +1226,7 @@ const ProfilePage = ({ user }) => {
               <div className="space-y-6">
 
                 {/* ── Profile Photo ── */}
-                <Section title="Profile Photo" icon="📷">
+                <Section title="Profile Photo">
                   <div className="flex items-center gap-4 sm:gap-6">
                     {/* Avatar */}
                     <div className="relative flex-shrink-0">
@@ -1267,7 +1263,7 @@ const ProfilePage = ({ user }) => {
                 </Section>
 
                 {/* ── Account Information ── */}
-                <Section title="Account Information" icon="👤">
+                <Section title="Account Information">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <ReadOnlyField label="Email" value={email} lockNote="Cannot be changed" />
                     <ReadOnlyField label="Phone" value={phone} lockNote="Cannot be changed" />
@@ -1282,14 +1278,14 @@ const ProfilePage = ({ user }) => {
                       <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold ${
                         profile?.isVerified ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"
                       }`}>
-                        {profile?.isVerified ? "✓ Verified" : "⏳ Unverified"}
+                        {profile?.isVerified ? "✓ Verified" : "Unverified"}
                       </div>
                     </div>
                   </div>
                 </Section>
 
                 {/* ── Referral ── */}
-                <Section title="My Referral Code" icon="🎟">
+                <Section title="My Referral Code">
                   <p className="text-sm text-gray-500 mb-3">
                     Share this code — friends who enter it when they sign up get linked to your account.
                   </p>
@@ -1339,7 +1335,7 @@ const ProfilePage = ({ user }) => {
                 </Section>
 
                 {/* ── Personal Details ── */}
-                <Section title="Personal Details" icon="📋">
+                <Section title="Personal Details">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <EditableField label="First Name"  value={firstName}  onSave={(v) => saveField("firstName",  v)} />
                     <EditableField label="Last Name"   value={lastName}   onSave={(v) => saveField("lastName",   v)} />
@@ -1359,9 +1355,8 @@ const ProfilePage = ({ user }) => {
                 </Section>
 
                 {/* ── Home Address ── */}
-                <Section title="Home Address" icon="📍">
+                <Section title="Home Address">
                   <div className="mb-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100 flex items-start gap-2">
-                    <span className="text-yellow-500 mt-0.5">🔒</span>
                     <p className="text-xs text-yellow-700">Province, Municipality, and Barangay are set during registration. Contact support to update them.</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1375,7 +1370,7 @@ const ProfilePage = ({ user }) => {
                 </Section>
 
                 {/* ── Verification Documents ── */}
-                <Section title="Verification Documents" icon="🪪">
+                <Section title="Verification Documents">
                   <p className="text-xs text-gray-400 mb-4">Document information is managed by administrators. Resubmit a new photo below if it needs updating, or contact us for anything else.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <ReadOnlyField label="Document Type"   value={profile?.documentType   || ""} lockNote="Managed by admin" />
