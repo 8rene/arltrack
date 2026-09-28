@@ -431,6 +431,47 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (phone) setContact((prev) => prev || phone);
     if (mail)  setEmail((prev)   => prev || mail);
   }, [userDetails, user]);
+
+  // Safety net: if App never handed us the account details (its own fetch
+  // was slow/failed, or the page state was blanked), load them here directly
+  // so the Details step is never stuck on empty fields. `accountLoadError`
+  // surfaces WHY instead of silently leaving "Not set".
+  const [accountLoadError, setAccountLoadError] = useState('');
+  const [accountRetry, setAccountRetry] = useState(0);
+  useEffect(() => {
+    const token = localStorage.getItem('arl_token');
+    if (!token) { setAccountLoadError('You are not logged in. Please log in to continue.'); return; }
+    let uid = user?.userID;
+    if (!uid) {
+      try { uid = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).userID; } catch { /* ignore */ }
+    }
+    if (!uid) return;
+    if (firstName && lastName && contact && email) { setAccountLoadError(''); return; }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/user/details/${uid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(res.status === 401 || res.status === 403
+          ? 'Your session expired. Please log out and log in again.'
+          : `Could not load your account (server returned ${res.status}).`);
+        const d = await res.json();
+        if (cancelled) return;
+        setFirstName((prev) => prev || d.firstName || '');
+        setLastName((prev)  => prev || d.lastName  || '');
+        setContact((prev)   => prev || d.phone     || '');
+        setEmail((prev)     => prev || d.email     || '');
+        setAccountLoadError('');
+        if (onUserDetailsUpdate && !userDetails?.firstName) onUserDetailsUpdate(d);
+      } catch (e) {
+        if (!cancelled) setAccountLoadError(e.message || 'Could not load your account details.');
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.userID, accountRetry]);
   const [specialNotes,      setSpecialNotes]       = useState(initValNoDraft('specialNotes'));
   const [paymentAmount,     setPaymentAmount]      = useState('partial');
   const [paymentMethod,     setPaymentMethod]      = useState('gcash');
@@ -1582,6 +1623,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 <div>
                   <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">Your Information</h3>
                   <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">We'll use this to confirm your booking.</p>
+                  {accountLoadError && (
+                    <div className="mb-4 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-amber-800">
+                      <span>{accountLoadError}</span>
+                      <button type="button" onClick={() => setAccountRetry((n) => n + 1)} className="shrink-0 font-semibold underline">Retry</button>
+                    </div>
+                  )}
 
                   {/* Name fields — always locked; must be set/updated via Profile */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
