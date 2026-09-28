@@ -419,6 +419,18 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   });
   const [contact,           setContact]            = useState(userDetails?.phone || user?.phone || "");
   const [email,             setEmail]              = useState(userDetails?.email || user?.email || "");
+  // The useState initializers above only run once, on first render. If the
+  // account details load AFTER this page mounts (direct visit / refresh), the
+  // fields would stay empty forever — fill them in when they arrive, but never
+  // overwrite something that's already there.
+  useEffect(() => {
+    if (userDetails?.firstName) setFirstName((prev) => prev || userDetails.firstName);
+    if (userDetails?.lastName)  setLastName((prev)  => prev || userDetails.lastName);
+    const phone = userDetails?.phone || user?.phone;
+    const mail  = userDetails?.email || user?.email;
+    if (phone) setContact((prev) => prev || phone);
+    if (mail)  setEmail((prev)   => prev || mail);
+  }, [userDetails, user]);
   const [specialNotes,      setSpecialNotes]       = useState(initValNoDraft('specialNotes'));
   const [paymentAmount,     setPaymentAmount]      = useState('partial');
   const [paymentMethod,     setPaymentMethod]      = useState('gcash');
@@ -1172,7 +1184,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setDropoffLocation(''); setDestination(''); setDriveType('chauffeur');
     setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]);
     preLockPickup.current = { location: '', coords: null };
-    setFirstName(''); setLastName(''); setContact(''); setEmail('');
+    // These four come from the customer's own account, not from anything
+    // typed into this booking — restore them instead of blanking, otherwise
+    // the very next booking is blocked at the Details step ("Not set").
+    setFirstName(userDetails?.firstName || ''); setLastName(userDetails?.lastName || '');
+    setContact(userDetails?.phone || user?.phone || ''); setEmail(userDetails?.email || user?.email || '');
     setSpecialNotes(''); setPaymentAmount('partial'); setPaymentMethod('gcash');
     setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); setErrors({});
   };
