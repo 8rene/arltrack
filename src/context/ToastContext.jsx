@@ -44,9 +44,6 @@ export function ToastProvider({ children }) {
             className={`arl-toast arl-toast--${t.type}`}
             onClick={() => dismissToast(t.id)}
           >
-            <span className="arl-toast-icon">
-              {t.type === "success" ? "✅" : t.type === "info" ? "ℹ️" : "⛔"}
-            </span>
             <span>{t.message}</span>
           </div>
         ))}

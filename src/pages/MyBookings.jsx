@@ -750,7 +750,7 @@ const MyBookings = ({ user }) => {
             { key: "history",  label: "History",  count: history.length },
           ].map(({ key, label, count }) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={`shrink-0 flex items-center gap-1.5 whitespace-nowrap py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              className={`flex-1 shrink-0 flex items-center justify-center gap-1.5 whitespace-nowrap py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 activeTab === key ? "bg-arl-primary text-white shadow" : "text-gray-500 hover:text-arl-primary hover:bg-gray-50"
               }`}>
               <span>{label}</span>
@@ -763,7 +763,7 @@ const MyBookings = ({ user }) => {
           ))}
         </div>
 
-        <p className="text-xs text-gray-400 mb-4 px-1">
+        <p className="text-xs text-gray-400 mb-4">
           {activeTab === "toPay"
             ? "To Pay — Complete payment within 12 hours or the booking is auto-cancelled."
             : activeTab === "upcoming"

@@ -135,7 +135,7 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
                 </div>
               </div>
 
-              {error && <p className="login-error" style={{ marginBottom: "0.75rem" }}>⛔ {error}</p>}
+              {error && <p className="login-error" style={{ marginBottom: "0.75rem" }}>{error}</p>}
 
               <button type="submit" className="login-btn" disabled={loading}>
                 {loading ? "Sending…" : "Send Code"}
@@ -210,7 +210,7 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
                 </div>
               </div>
 
-              {error && <p className="login-error" style={{ marginBottom: "0.75rem" }}>⛔ {error}</p>}
+              {error && <p className="login-error" style={{ marginBottom: "0.75rem" }}>{error}</p>}
 
               <button type="submit" className="login-btn" disabled={loading}>
                 {loading ? "Resetting…" : "Reset Password"}
