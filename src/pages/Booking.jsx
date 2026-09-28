@@ -1923,7 +1923,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ...(driversFee > 0 ? [["Driver's Fee",             `₱${driversFee.toLocaleString()}`]] : []),
                       ['Service Fee',   `₱${serviceFee.toLocaleString()}`],
                       ['Gateway Fee',   `₱${gatewayFee.toLocaleString()}`],
-                      ...(securityDeposit > 0 ? [['Security Deposit (refundable)', `₱${securityDeposit.toLocaleString()}`]] : []),
+                      ...(securityDeposit > 0 ? [['Security Deposit', `₱${securityDeposit.toLocaleString()}`]] : []),
                       ['Total Fee',     `₱${grandTotal.toLocaleString()}`],
                       ['Payment Type',  getMethodOfPayment()],
                       ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
