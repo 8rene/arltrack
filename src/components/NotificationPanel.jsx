@@ -121,6 +121,24 @@ const META_BY_TYPE = {
     badge: { text: "Discount", className: "bg-pink-50 text-pink-700" },
     action: "View Details",
   },
+  // Written by the admin app's penalty.service.js (notifyCustomer). The
+  // action lands on BookingDetails, whose "Security Deposit & Penalties"
+  // card lists each charge, what was deducted and what comes back.
+  PenaltyConfirmed: {
+    bg: "bg-red-100", emoji: "⚠️", title: "Penalty Added",
+    badge: { text: "Penalty", className: "bg-red-50 text-red-700" },
+    action: "View Breakdown",
+  },
+  PenaltyWaived: {
+    bg: "bg-emerald-100", emoji: "🤝", title: "Penalty Waived",
+    badge: { text: "Waived", className: "bg-emerald-50 text-emerald-700" },
+    action: "View Details",
+  },
+  PenaltyVoided: {
+    bg: "bg-gray-200", emoji: "↩️", title: "Penalty Removed",
+    badge: { text: "Removed", className: "bg-gray-100 text-gray-600" },
+    action: "View Details",
+  },
 };
 
 const DEFAULT_META = {

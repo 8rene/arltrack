@@ -61,14 +61,57 @@ const DR = ({ label, value, mono = false }) =>
     </div>
   ) : null;
 
-// Security deposit + confirmed penalties for this booking, in its own
-// card separate from Payment Details — a penalty is a deduction against
-// a held deposit, not part of the rental transaction, so mixing the two
-// would make Payment Details harder to read. Fetches its own data
-// (same non-fatal pattern BookingDetailsPage already uses for the
-// refund badge) so a failure here never blocks the rest of the page.
-// Only CONFIRMED penalties are ever returned by the backend — a draft
-// staff are still typing up is never visible here.
+// Security deposit + penalties for this booking, in its own card separate
+// from Payment Details — a penalty is a deduction against a held deposit,
+// not part of the rental transaction, so mixing the two would make Payment
+// Details harder to read. Fetches its own data (same non-fatal pattern
+// BookingDetailsPage already uses for the refund badge) so a failure here
+// never blocks the rest of the page.
+//
+// Shows, top to bottom: the deposit received, every penalty with what it
+// was for, how much of the deposit is deducted for them, and what the
+// customer receives back (or still owes). Waived/voided charges stay
+// visible but struck-through, since the customer was already notified
+// about them. All figures come from the backend (getMyBookingPenalties),
+// which mirrors the admin-side settlement math.
+const DEPOSIT_BADGE = {
+  Refunded:       { label: "Deposit Returned", cls: "bg-green-100 text-green-700 border-green-200" },
+  Settled:        { label: "Settled",          cls: "bg-blue-100 text-blue-700 border-blue-200" },
+  OwedByCustomer: { label: "Balance Due",      cls: "bg-red-100 text-red-600 border-red-200" },
+  Waived:         { label: "Deposit Waived",   cls: "bg-gray-100 text-gray-500 border-gray-200" },
+  Held:           { label: "Deposit Held",     cls: "bg-amber-100 text-amber-700 border-amber-200" },
+};
+const fmtD = (iso) => {
+  const d = iso ? new Date(iso) : null;
+  return d && !isNaN(d.getTime()) ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+};
+
+const PenaltyRow = ({ p }) => {
+  const removed = p.status !== "Confirmed"; // Waived | Voided
+  const fullyPaid = !removed && p.paidAmount >= p.amount;
+  const partlyPaid = !removed && p.paidAmount > 0 && !fullyPaid;
+  const items = p.lineItems.length ? p.lineItems : [{ description: "Charge", amount: p.amount }];
+  return (
+    <div className={`rounded-xl border px-3 py-2.5 ${removed ? "border-gray-100 bg-gray-50" : "border-red-100 bg-red-50/40"}`}>
+      {items.map((i, idx) => (
+        <div key={idx} className="flex items-start justify-between gap-3 text-sm">
+          <span className={removed ? "text-gray-400 line-through" : "text-gray-700"}>{i.description}</span>
+          <span className={`shrink-0 font-medium ${removed ? "text-gray-400 line-through" : "text-red-500"}`}>-{peso(i.amount)}</span>
+        </div>
+      ))}
+      <div className="flex items-center justify-between mt-1.5 text-[11px] text-gray-400">
+        <span>{fmtD(p.createdAt)}</span>
+        <span className={fullyPaid ? "text-green-600 font-semibold" : partlyPaid ? "text-amber-600 font-semibold" : removed ? "font-semibold" : ""}>
+          {p.status === "Waived" && "Waived — no charge"}
+          {p.status === "Voided" && "Removed — no charge"}
+          {fullyPaid && "Paid"}
+          {partlyPaid && `${peso(p.paidAmount)} paid · ${peso(p.amount - p.paidAmount)} left`}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 const PenaltiesBox = ({ bookingID }) => {
   const [info, setInfo] = useState(null); // null = loading, false = failed to load
   useEffect(() => {
@@ -91,57 +134,85 @@ const PenaltiesBox = ({ bookingID }) => {
 
   if (info === null || info === false) return null; // loading or failed — never block the page
 
-  const { depositAmount, depositStatus, penalties, runningBalance, settlement } = info;
+  const {
+    depositAmount, depositStatus, depositSettled, penalties,
+    deductedFromDeposit, refundAmount, refundMethod, refundedAt, stillOwed, settlement,
+  } = info;
+  const depositWaived = depositStatus === "Waived";
+  const hasDeposit = depositAmount !== null && !depositWaived;
   if (depositAmount === null && penalties.length === 0) return null; // nothing to show pre-pickup
+
+  const badgeKey = settlement?.status || (hasDeposit ? "Held" : depositWaived ? "Waived" : null);
+  const badge = badgeKey ? DEPOSIT_BADGE[badgeKey] : null;
+  const showRefundRow = hasDeposit && (refundAmount > 0 || stillOwed === 0);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">🔒 Security Deposit</p>
-        {settlement?.status && <Badge text={settlement.status} styleMap={PAYMENT_STYLE} />}
+        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">🔒 Security Deposit &amp; Penalties</p>
+        {badge && <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${badge.cls}`}>{badge.label}</span>}
       </div>
 
-      {depositAmount === null ? (
-        <p className="text-sm text-gray-500">
-          A ₱{1000} refundable security deposit is collected at pickup.
-        </p>
-      ) : (
-        <>
-          <div className="flex items-baseline justify-between mb-2">
-            <span className="text-sm text-gray-500">Deposit held</span>
-            <span className="text-sm font-semibold text-gray-700">{peso(depositAmount)}</span>
-          </div>
+      {/* 1 ── Deposit received */}
+      {hasDeposit && (
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="text-sm text-gray-500">Deposit received</span>
+          <span className="text-sm font-semibold text-gray-700">{peso(depositAmount)}</span>
+        </div>
+      )}
+      {depositWaived && <p className="text-sm text-gray-500 mb-3">Your security deposit was waived for this booking.</p>}
+      {depositAmount === null && penalties.length > 0 && (
+        <p className="text-sm text-gray-500 mb-3">No security deposit was recorded for this booking.</p>
+      )}
 
-          {penalties.length > 0 && (
-            <div className="space-y-1.5 border-t border-gray-100 pt-3 mt-2 mb-3">
-              {penalties.map((p) => (
-                <div key={p.penaltyID} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">
-                    {(p.lineItems || []).map((i) => i.description).join(", ") || "Charge"}
-                  </span>
-                  <span className="text-red-500 font-medium">-{peso(p.amount)}</span>
-                </div>
-              ))}
+      {/* 2 ── Penalties, with what each one was for */}
+      {penalties.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Penalties</p>
+          <div className="space-y-2">{penalties.map((p) => <PenaltyRow key={p.penaltyID} p={p} />)}</div>
+        </div>
+      )}
+
+      {/* 3 + 4 ── Deducted, then what comes back / what is still owed */}
+      {(hasDeposit || stillOwed > 0) && (
+        <div className="border-t border-gray-100 pt-3 space-y-2">
+          {hasDeposit && penalties.some((p) => p.status === "Confirmed") && (
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-gray-500">{depositSettled ? "Deducted from deposit" : "To be deducted from deposit"}</span>
+              <span className="text-sm font-semibold text-red-500">-{peso(deductedFromDeposit)}</span>
             </div>
           )}
 
-          <div className={`flex items-baseline justify-between pt-3 border-t border-gray-100 ${penalties.length ? "" : "border-t-0 pt-0"}`}>
-            <span className="text-sm font-semibold text-gray-700">
-              {runningBalance < 0 ? "Balance you owe" : "Refundable balance"}
-            </span>
-            <span className={`text-base font-bold ${runningBalance < 0 ? "text-red-600" : "text-green-600"}`}>
-              {peso(Math.abs(runningBalance))}
-            </span>
-          </div>
-
-          {settlement?.status && (
-            <p className="text-xs text-gray-400 mt-2">
-              {settlement.status === "Refunded" && "This deposit has been settled and the balance returned."}
-              {settlement.status === "Settled" && "This deposit has been settled in full."}
-              {settlement.status === "OwedByCustomer" && "Please settle this balance in store on your next visit."}
+          {showRefundRow && (
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-semibold text-gray-700">{depositSettled ? "Deposit returned to you" : "You'll receive back"}</span>
+              <span className="text-base font-bold text-green-600">{peso(refundAmount)}</span>
+            </div>
+          )}
+          {depositSettled && refundAmount > 0 && (
+            <p className="text-xs text-gray-400">
+              Returned{refundMethod ? ` via ${refundMethod}` : ""}{refundedAt ? ` on ${fmtD(refundedAt)}` : ""}.
             </p>
           )}
-        </>
+
+          {stillOwed > 0 && (
+            <>
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-semibold text-gray-700">Balance you owe</span>
+                <span className="text-base font-bold text-red-600">{peso(stillOwed)}</span>
+              </div>
+              <p className="text-xs text-gray-400">
+                {hasDeposit && !depositSettled
+                  ? "Your deposit doesn't fully cover the penalties. Please settle the remaining balance with our staff."
+                  : "Please settle this balance in store on your next visit."}
+              </p>
+            </>
+          )}
+
+          {!depositSettled && hasDeposit && (
+            <p className="text-xs text-gray-400">The final amounts are confirmed when the vehicle is returned and the deposit is settled.</p>
+          )}
+        </div>
       )}
     </div>
   );
