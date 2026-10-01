@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
+import { demoName, demoInitial } from "../utils/demoMode";
 import { storage } from "../firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import {
@@ -1166,7 +1167,7 @@ const ProfilePage = ({ user }) => {
   if (!user?.userID) return null;
 
   // Initials fallback for avatar
-  const initials = `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "?";
+  const initials = demoInitial(`${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "?");
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-16">
@@ -1254,7 +1255,7 @@ const ProfilePage = ({ user }) => {
                     </div>
                     {/* Info */}
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-gray-700 truncate">{firstName} {lastName}</p>
+                      <p className="font-bold text-gray-700 truncate">{demoName(`${firstName} ${lastName}`)}</p>
                       <p className="text-sm text-gray-400 mt-0.5 truncate">{email}</p>
                       {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
                       <p className="text-xs text-gray-400 mt-1">JPG, PNG or WEBP · Max 5MB</p>

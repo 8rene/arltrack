@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, CheckCircle, MapPin } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
 import { useToast } from '../context/ToastContext';
+import { demoName } from '../utils/demoMode';
 import gcashLogo  from '../assets/images/GCash_Logo.png';
 import mayaLogo   from '../assets/images/PayMayaLogo.jpg';
 import qrphLogo   from '../assets/images/qr-ph-logo-6f76723590.webp';
@@ -2071,7 +2072,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Drop-off',      dropoffLocation],
                       ['Destination',   destination || '-'],
                       ['Drive Type',    driveType === 'self-drive' ? 'Self-Drive' : 'With Chauffeur'],
-                      ['Passenger',     `${firstName} ${lastName}`],
+                      ['Passenger',     demoName(`${firstName} ${lastName}`)],
                       ['Contact',       contact],
                       ['Email',         email],
                       ['Rental Fee',    `₱${total.toLocaleString()}`],
@@ -2140,7 +2141,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   ['Days',       days ? `${days} day(s)` : '-'],
                   ['Hire',       driveType === 'self-drive' ? 'Self-Drive' : 'With Chauffeur'],
                   ['Destination', destination || '-'],
-                  ['Passenger',  firstName && lastName ? `${firstName} ${lastName}` : '-'],
+                  ['Passenger',  demoName(firstName && lastName ? `${firstName} ${lastName}` : '-')],
                   ['Payment',    `${paymentAmount} — ${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2">

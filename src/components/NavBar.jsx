@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import SignUpModal from "./auth/SignUpModal";
 import LoginModal from "./auth/LoginModal";
 import NotificationPanel from "./NotificationPanel";
+import { demoName, demoInitial } from "../utils/demoMode";
 
 export default function Navbar({ user, userDetails, onLogin, onLogout }) {
   const [scrolled,      setScrolled]      = useState(false);
@@ -36,13 +37,15 @@ export default function Navbar({ user, userDetails, onLogin, onLogout }) {
   };
 
   // Display name: firstName + lastName if available, else email prefix
-  const displayName = userDetails?.firstName && userDetails?.lastName
-    ? `${userDetails.firstName} ${userDetails.lastName}`
-    : userDetails?.firstName
-    ? userDetails.firstName
-    : user?.email?.split("@")[0] || "User";
+  const displayName = demoName(
+    userDetails?.firstName && userDetails?.lastName
+      ? `${userDetails.firstName} ${userDetails.lastName}`
+      : userDetails?.firstName
+      ? userDetails.firstName
+      : user?.email?.split("@")[0] || "User"
+  );
 
-  const avatarLetter = (userDetails?.firstName?.[0] || user?.email?.[0] || "U").toUpperCase();
+  const avatarLetter = demoInitial((userDetails?.firstName?.[0] || user?.email?.[0] || "U").toUpperCase());
 
   return (
     <>
