@@ -425,6 +425,16 @@ export default function BookingDetailsPage() {
               {/* Admin's reason for rejecting the refund — already captured
                   and saved on the refundRequests doc (rejectReason), just
                   never displayed anywhere in the customer app before. */}
+              {/* Why the booking was cancelled (e.g. by staff) — saved on
+                  the booking as cancellationReason, returned by /details. */}
+              {String(booking.status || "").toLowerCase() === "cancelled" && booking.cancellationReason && (
+                <div className="mt-2 flex items-start gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <span className="text-gray-400 text-xs leading-none mt-0.5">🚫</span>
+                  <p className="text-xs text-gray-600 leading-snug">
+                    <span className="font-semibold">Cancelled:</span> {booking.cancellationReason}
+                  </p>
+                </div>
+              )}
               {refund?.status === "Rejected" && refund?.rejectReason && (
                 <div className="mt-2 flex items-start gap-1.5 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                   <span className="text-red-400 text-xs leading-none mt-0.5">✕</span>
