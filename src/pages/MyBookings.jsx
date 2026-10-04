@@ -193,7 +193,7 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested, onCancelToPay }) => {
+const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
 
@@ -415,17 +415,9 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   </button>
                 )}
 
-                {/* Cancel — only while NOTHING has been charged yet. Once a
-                    Partial booking's deposit clears, it's in the same boat
-                    as an "upcoming" booking (real money on it already) —
-                    goes through Request Refund (admin review) instead. */}
-                {status === "to pay" && !depositPaid && (
-                  <button
-                    onClick={() => onCancelToPay(bookingID)}
-                    className="text-xs font-bold text-gray-500 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition">
-                    ✕ Cancel
-                  </button>
-                )}
+                {/* Cancel button removed from "To Pay" too — Request Refund
+                    (admin review) is now the only way to back out of a
+                    booking, at any stage, paid or not yet paid. */}
 
                 {/* Cancel button removed — Request Refund is now the only
                     way to back out of an upcoming booking. Cancelling
@@ -660,26 +652,6 @@ const MyBookings = ({ user }) => {
     }
   };
 
-  // Cancel a still-unpaid "to pay" booking. Nothing's been charged yet, so
-  // (unlike an already-paid "upcoming" booking) this goes straight through
-  // rather than via the Request Refund/admin-review flow.
-  const handleCancelToPay = async (bookingID) => {
-    if (!window.confirm("Cancel this booking? This can't be undone.")) return;
-    try {
-      const token = localStorage.getItem("arl_token");
-      const res   = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${bookingID}/cancel`, {
-        method:  "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ reason: "Cancelled by customer before payment." }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to cancel booking.");
-      fetchBookings();
-    } catch (err) {
-      setError(err.message || "Failed to cancel booking.");
-    }
-  };
-
   // Only these statuses count as "there's already an active request" —
   // Rejected/Failed lets the customer try requesting again.
   const findActiveRefund = (paymentID) =>
@@ -793,7 +765,6 @@ const MyBookings = ({ user }) => {
                   existingRefund={b.payment?.paymentID ? findAnyRefund(b.payment.paymentID) : null}
                   hasActiveRefund={!!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
-                  onCancelToPay={handleCancelToPay}
                 />
               ))
             : <EmptyState tab={activeTab} />
