@@ -1,24 +1,25 @@
 import { useEffect } from "react";
 import Footer from "../components/layout/Footer";
+import { usePolicySettings } from "../utils/policySettings";
 
-const SECTIONS = [
+const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, fullRefundHours }) => [
   {
     num: "01",
     title: "How to Make a Reservation",
-    body: "To book a vehicle with ARL Car Rental, browse our available fleet and select your preferred vehicle. Choose your rental dates, service type (self-drive or with driver), and pickup location. Submit your booking request through the platform. Your reservation is only confirmed once the required ₱1,000 deposit has been received — unconfirmed bookings are not held.",
+    body: `To book a vehicle with ARL Car Rental, browse our available fleet and select your preferred vehicle. Choose your rental dates, service type (self-drive or with driver), and pickup location. Submit your booking request through the platform. Your reservation is only confirmed once the required ${depositText} deposit has been received — unconfirmed bookings are not held.`,
   },
   {
     num: "02",
     title: "Reservation Deposit",
-    highlight: "₱1,000 minimum deposit to secure your booking",
-    body: "A minimum deposit of ₱1,000 is required to confirm your reservation. This deposit is applied toward your total rental fee. Priority is given strictly on a first-come, first-served basis to the customer who completes payment first. Pencil bookings or verbal reservations without deposit are not accepted.",
+    highlight: `${depositText} minimum deposit to secure your booking`,
+    body: `A minimum deposit of ${depositText} is required to confirm your reservation. This deposit is applied toward your total rental fee. Priority is given strictly on a first-come, first-served basis to the customer who completes payment first. Pencil bookings or verbal reservations without deposit are not accepted.`,
   },
   {
     num: "03",
     title: "Payment Schedule",
-    body: "After the deposit is received and the booking is confirmed, the remaining balance must be paid in full before the vehicle is released on your pickup date. Note that a 5% service fee and a 5% online payment gateway fee apply to all transactions.",
+    body: `After the deposit is received and the booking is confirmed, the remaining balance must be paid in full before the vehicle is released on your pickup date. Note that a service fee (${serviceFeePercent}% of the rental fee) and an online payment gateway fee (${gatewayFeePercent}% of the booking total) are added to every booking and shown in your price breakdown before you pay.`,
     list: [
-      { label: "Step 1", value: "Pay ₱1,000 deposit to confirm" },
+      { label: "Step 1", value: `Pay ${depositText} deposit to confirm` },
       { label: "Step 2", value: "Receive booking confirmation" },
       { label: "Step 3", value: "Settle balance before pickup" },
       { label: "Step 4", value: "Present valid ID on pickup date" },
@@ -73,11 +74,11 @@ const SECTIONS = [
   {
     num: "10",
     title: "Cancellation & Rescheduling",
-    body: "If you need to cancel or reschedule your booking, please notify ARL Car Rental through official channels as early as possible.",
+    body: `If you need to cancel or reschedule your booking, please notify ARL Car Rental through official channels as early as possible. The ${fullRefundHours} hours are counted from the moment you send your refund request, not from the moment it is reviewed. Service and gateway fees are refunded together with your booking amount; when a refund falls under the ${fullRefundHours}-hour limit, only the ${depositText} deposit is withheld.`,
     list: [
-      { label: "48 hours or more before pickup", value: "Full ₱1,000 refund" },
-      { label: "Less than 48 hours before pickup", value: "Deposit non-refundable" },
-      { label: "No-show on pickup date", value: "Deposit forfeited in full" },
+      { label: `${fullRefundHours} hours or more before pickup`, value: "Full refund of everything you paid" },
+      { label: `Less than ${fullRefundHours} hours before pickup`, value: `Everything refunded except the ${depositText} deposit` },
+      { label: "No-show on pickup date", value: `${depositText} deposit forfeited; everything else refunded` },
       { label: "Rescheduling notice", value: "At least 24 hours prior" },
     ],
   },
@@ -102,6 +103,8 @@ const SECTIONS = [
 ];
 
 export default function BookingGuidelinesPage() {
+  const policy = usePolicySettings();
+  const SECTIONS = buildSections(policy);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);

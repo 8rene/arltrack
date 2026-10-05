@@ -40,11 +40,11 @@ const REFUND_STYLE = {
   Failed:   "bg-red-100 text-red-600 border-red-300",
 };
 const REFUND_LABEL = {
-  Pending:  "Refund: Pending",
-  Approved: "Refund: Approved",
-  Refunded: "Refund: Refunded",
-  Rejected: "Refund: Rejected",
-  Failed:   "Refund: Failed",
+  Pending:  "⏳ Refund: Pending",
+  Approved: "🔵 Refund: Approved",
+  Refunded: "✅ Refund: Refunded",
+  Rejected: "❌ Refund: Rejected",
+  Failed:   "❌ Refund: Failed",
 };
 
 const Badge = ({ text, styleMap }) => (
@@ -149,7 +149,7 @@ const PenaltiesBox = ({ bookingID }) => {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">Security Deposit &amp; Penalties</p>
+        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">🔒 Security Deposit &amp; Penalties</p>
         {badge && <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${badge.cls}`}>{badge.label}</span>}
       </div>
 
@@ -367,6 +367,7 @@ export default function BookingDetailsPage() {
     return (
       <div className="min-h-screen bg-gray-50 pt-24 pb-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center py-20">
+          <p className="text-5xl mb-4">🚫</p>
           <p className="text-gray-600 font-semibold">{error || "Booking not found."}</p>
           <button onClick={() => navigate("/my-bookings")}
             className="mt-5 px-6 py-2.5 bg-arl-primary text-white rounded-full text-sm font-bold hover:bg-arl-secondary transition">
@@ -400,7 +401,7 @@ export default function BookingDetailsPage() {
             <div className="w-28 h-20 sm:w-36 sm:h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
               {booking.carImage
                 ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300" />}
+                : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">🚗</div>}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -425,16 +426,6 @@ export default function BookingDetailsPage() {
               {/* Admin's reason for rejecting the refund — already captured
                   and saved on the refundRequests doc (rejectReason), just
                   never displayed anywhere in the customer app before. */}
-              {/* Why the booking was cancelled (e.g. by staff) — saved on
-                  the booking as cancellationReason, returned by /details. */}
-              {String(booking.status || "").toLowerCase() === "cancelled" && booking.cancellationReason && (
-                <div className="mt-2 flex items-start gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                  <span className="text-gray-400 text-xs leading-none mt-0.5">🚫</span>
-                  <p className="text-xs text-gray-600 leading-snug">
-                    <span className="font-semibold">Cancelled:</span> {booking.cancellationReason}
-                  </p>
-                </div>
-              )}
               {refund?.status === "Rejected" && refund?.rejectReason && (
                 <div className="mt-2 flex items-start gap-1.5 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                   <span className="text-red-400 text-xs leading-none mt-0.5">✕</span>
@@ -462,7 +453,7 @@ export default function BookingDetailsPage() {
 
         {/* Trip details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Trip Details</p>
+          <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🗓️ Trip Details</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
             <DR label="Start"          value={fmtDT(booking.startDateTime)} />
             <DR label="End"            value={fmtDT(booking.endDateTime)} />
@@ -478,18 +469,17 @@ export default function BookingDetailsPage() {
         {payment ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-black text-arl-primary uppercase tracking-widest">Payment Details</p>
+              <p className="text-xs font-black text-arl-primary uppercase tracking-widest">💳 Payment Details</p>
               <Badge text={payment.status} styleMap={PAYMENT_STYLE} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
               <DR label="Payment ID"        value={payment.paymentID} mono />
               <DR label="Total Amount"      value={peso(payment.amount)} />
               <DR label="Rental Fee"        value={peso(payment.rentalFee)} />
-              <DR label="Service Fee"       value={peso(payment.serviceFee)} />
-              <DR label="Gateway Fee"       value={peso(payment.gatewayFee)} />
+              <DR label={payment.serviceFeeRate > 0 ? `Service Fee (${payment.serviceFeeRate}% of rental)` : "Service Fee"} value={peso(payment.serviceFee)} />
+              <DR label={payment.gatewayFeeRate > 0 ? `Gateway Fee (${payment.gatewayFeeRate}% of total)` : "Gateway Fee"} value={peso(payment.gatewayFee)} />
               <DR label="Extra Fee"         value={payment.extraFee ? peso(payment.extraFee) : null} />
               <DR label="Driver's Fee"      value={payment.driversFee ? peso(payment.driversFee) : null} />
-              <DR label="Security Deposit (refundable)" value={payment.securityDeposit ? peso(payment.securityDeposit) : null} />
               <DR label="Discount Applied"  value={payment.discountAmount ? peso(payment.discountAmount) : null} />
               <DR label="Balance Due"       value={peso(payment.balanceDue)} />
               <DR label="Payment Method"    value={payment.methodOfPayment} />
@@ -511,8 +501,8 @@ export default function BookingDetailsPage() {
                   {resendingReceipt
                     ? "Sending…"
                     : receiptCooldown > 0
-                      ? `Email My Receipt (${Math.floor(receiptCooldown / 60)}:${String(receiptCooldown % 60).padStart(2, "0")})`
-                      : "Email My Receipt"}
+                      ? `📧 Email My Receipt (${Math.floor(receiptCooldown / 60)}:${String(receiptCooldown % 60).padStart(2, "0")})`
+                      : "📧 Email My Receipt"}
                 </button>
                 {receiptMsg && <p className="text-xs text-gray-500 mt-2">{receiptMsg}</p>}
               </div>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
@@ -132,182 +131,6 @@ const rangeCrossesBlocked = (dateStatuses, start, end) => {
   return false;
 };
 
-// ── Analog clock time picker ───────────────────────────────────
-// Click (or drag on) the dial: first pick the hour, then the minutes
-// (15-minute steps, same as the old dropdown). Value is "HH:MM" in 24h.
-const ClockTimePicker = ({ value, onChange, onDone }) => {
-  const [mode, setMode] = useState('hour');
-  const [pmLocal, setPmLocal] = useState(false);
-  const svgRef   = useRef(null);
-  const dragging = useRef(false);
-
-  const has  = !!value;
-  const [h24, mm] = has ? value.split(':').map(Number) : [null, null];
-  const isPm = has ? h24 >= 12 : pmLocal;
-  const h12  = has ? ((h24 % 12) || 12) : null;
-  const pad  = (n) => String(n).padStart(2, '0');
-
-  const emit = (hour12, minute, pm) =>
-    onChange(`${pad((hour12 % 12) + (pm ? 12 : 0))}:${pad(minute)}`);
-
-  const angleOf = (e) => {
-    const r = svgRef.current.getBoundingClientRect();
-    const x = e.clientX - (r.left + r.width / 2);
-    const y = e.clientY - (r.top + r.height / 2);
-    let a = (Math.atan2(x, -y) * 180) / Math.PI;
-    if (a < 0) a += 360;
-    return a;
-  };
-
-  const apply = (e, final) => {
-    const a = angleOf(e);
-    if (mode === 'hour') {
-      let hr = Math.round(a / 30) % 12;
-      if (hr === 0) hr = 12;
-      emit(hr, has ? mm : 0, isPm);
-      if (final) setMode('minute');
-    } else {
-      const minute = [0, 15, 30, 45][Math.round(a / 90) % 4];
-      emit(has ? h12 : 12, minute, isPm);
-      if (final) onDone?.();
-    }
-  };
-
-  const onDown = (e) => { dragging.current = true; e.currentTarget.setPointerCapture?.(e.pointerId); apply(e, false); };
-  const onMove = (e) => { if (dragging.current) apply(e, false); };
-  const onUp   = (e) => { if (!dragging.current) return; dragging.current = false; apply(e, true); };
-
-  const setMeridiem = (pm) => {
-    setPmLocal(pm);
-    if (has) emit(h12, mm, pm);
-  };
-
-  const handAngle = mode === 'hour'
-    ? (has ? (h12 % 12) * 30 : null)
-    : (has ? mm * 6 : null);
-  const rad = 74;
-  const hx = handAngle === null ? 100 : 100 + rad * Math.sin((handAngle * Math.PI) / 180);
-  const hy = handAngle === null ? 100 : 100 - rad * Math.cos((handAngle * Math.PI) / 180);
-
-  const labels = mode === 'hour'
-    ? Array.from({ length: 12 }, (_, i) => ({ text: String(i === 0 ? 12 : i), a: i * 30, sel: has && h12 === (i === 0 ? 12 : i) }))
-    : [0, 15, 30, 45].map((m, i) => ({ text: pad(m), a: i * 90, sel: has && mm === m }));
-
-  const segBase = 'px-3 py-1 rounded-lg text-3xl font-black transition ';
-  const segOn   = 'bg-arl-primary text-white';
-  const segOff  = 'bg-gray-100 text-gray-500 hover:bg-gray-200';
-
-  return (
-    <div>
-      <div className="flex items-center justify-center gap-2 mb-3">
-        <button type="button" onClick={() => setMode('hour')}
-          className={segBase + (mode === 'hour' ? segOn : segOff)}>
-          {has ? h12 : '--'}
-        </button>
-        <span className="text-3xl font-black text-gray-400">:</span>
-        <button type="button" onClick={() => setMode('minute')}
-          className={segBase + (mode === 'minute' ? segOn : segOff)}>
-          {has ? pad(mm) : '--'}
-        </button>
-        <div className="flex flex-col gap-1 ml-2">
-          {['AM', 'PM'].map(ap => (
-            <button key={ap} type="button" onClick={() => setMeridiem(ap === 'PM')}
-              className={'px-2 py-0.5 rounded-md text-xs font-bold transition ' + ((ap === 'PM') === isPm ? segOn : segOff)}>
-              {ap}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <svg ref={svgRef} viewBox="0 0 200 200"
-        className="w-full max-w-[270px] mx-auto block touch-none select-none cursor-pointer text-arl-primary"
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
-        <circle cx="100" cy="100" r="96" fill="#f3f4f6" />
-        {handAngle !== null && (
-          <>
-            <line x1="100" y1="100" x2={hx} y2={hy} stroke="currentColor" strokeWidth="2" />
-            <circle cx={hx} cy={hy} r="17" fill="currentColor" />
-          </>
-        )}
-        <circle cx="100" cy="100" r="3.5" fill="currentColor" />
-        {labels.map(({ text, a, sel }) => {
-          const x = 100 + rad * Math.sin((a * Math.PI) / 180);
-          const y = 100 - rad * Math.cos((a * Math.PI) / 180);
-          return (
-            <text key={text} x={x} y={y} textAnchor="middle" dominantBaseline="central"
-              fontSize="16" fontWeight={sel ? 700 : 500}
-              fill={sel ? '#ffffff' : '#374151'} pointerEvents="none">
-              {text}
-            </text>
-          );
-        })}
-      </svg>
-      <p className="text-[11px] text-gray-400 text-center mt-2">
-        {mode === 'hour' ? 'Select the hour, then the minutes.' : 'Select the minutes (00, 15, 30, 45).'}
-      </p>
-    </div>
-  );
-};
-
-// ── Time field: looks like the old dropdown, opens a clock dialog on click ──
-const TimeField = ({ value, onChange }) => {
-  const [open, setOpen] = useState(false);
-  const before = useRef('');
-
-  const openDialog = () => { before.current = value || ''; setOpen(true); };
-  const cancel = () => { onChange(before.current); setOpen(false); };
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [open]);
-
-  const label = (() => {
-    if (!value) return 'Select a time…';
-    const [h, m] = value.split(':').map(Number);
-    return `${((h % 12) || 12)}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
-  })();
-
-  return (
-    <>
-      <button type="button" onClick={openDialog}
-        className={'w-full px-4 py-3 border-2 rounded-xl text-sm bg-white text-left flex items-center justify-between cursor-pointer focus:outline-none focus:border-arl-primary border-gray-200 ' +
-          (value ? 'text-gray-700' : 'text-gray-400')}>
-        <span>{label}</span>
-        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </button>
-
-      {open && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
-          <div role="dialog" aria-modal="true"
-            className="w-full max-w-[340px] bg-white rounded-3xl shadow-2xl p-5">
-            <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-3">Select pickup time</p>
-            <ClockTimePicker value={value} onChange={onChange} onDone={() => setTimeout(() => setOpen(false), 250)} />
-            <div className="flex gap-3 mt-4">
-              <button type="button" onClick={cancel}
-                className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition">
-                Cancel
-              </button>
-              <button type="button" onClick={() => setOpen(false)}
-                className="flex-1 py-2.5 rounded-xl bg-arl-primary text-white text-sm font-bold hover:opacity-90 transition">
-                OK
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </>
-  );
-};
-
 // ── End date/time calculator ───────────────────────────────────
 const calcEnd = (startDate, startTime, hours) => {
   if (!startDate || !startTime) return { endDate: '', endTime: '' };
@@ -389,7 +212,7 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
           ? <img src={imageURL} alt={name} className="w-full h-20 sm:h-36 object-cover"
               onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
           : null}
-        <div className="w-full h-20 sm:h-36 items-center justify-center text-2xl sm:text-4xl text-gray-300 bg-gray-100" style={{ display: imageURL ? 'none' : 'flex' }} />
+        <div className="w-full h-20 sm:h-36 items-center justify-center text-2xl sm:text-4xl text-gray-300 bg-gray-100" style={{ display: imageURL ? 'none' : 'flex' }}>🚗</div>
         <span className="absolute bottom-1 right-2 sm:bottom-2 sm:right-3 text-white/70 text-[10px] sm:text-xs font-black tracking-widest uppercase drop-shadow">{brandName}</span>
       </div>
       <div className="p-2 sm:p-4">
@@ -596,59 +419,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   });
   const [contact,           setContact]            = useState(userDetails?.phone || user?.phone || "");
   const [email,             setEmail]              = useState(userDetails?.email || user?.email || "");
-  // The useState initializers above only run once, on first render. If the
-  // account details load AFTER this page mounts (direct visit / refresh), the
-  // fields would stay empty forever — fill them in when they arrive, but never
-  // overwrite something that's already there.
-  useEffect(() => {
-    if (userDetails?.firstName) setFirstName((prev) => prev || userDetails.firstName);
-    if (userDetails?.lastName)  setLastName((prev)  => prev || userDetails.lastName);
-    const phone = userDetails?.phone || user?.phone;
-    const mail  = userDetails?.email || user?.email;
-    if (phone) setContact((prev) => prev || phone);
-    if (mail)  setEmail((prev)   => prev || mail);
-  }, [userDetails, user]);
-
-  // Safety net: if App never handed us the account details (its own fetch
-  // was slow/failed, or the page state was blanked), load them here directly
-  // so the Details step is never stuck on empty fields. `accountLoadError`
-  // surfaces WHY instead of silently leaving "Not set".
-  const [accountLoadError, setAccountLoadError] = useState('');
-  const [accountRetry, setAccountRetry] = useState(0);
-  useEffect(() => {
-    const token = localStorage.getItem('arl_token');
-    if (!token) { setAccountLoadError('You are not logged in. Please log in to continue.'); return; }
-    let uid = user?.userID;
-    if (!uid) {
-      try { uid = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).userID; } catch { /* ignore */ }
-    }
-    if (!uid) return;
-    if (firstName && lastName && contact && email) { setAccountLoadError(''); return; }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/user/details/${uid}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error(res.status === 401 || res.status === 403
-          ? 'Your session expired. Please log out and log in again.'
-          : `Could not load your account (server returned ${res.status}).`);
-        const d = await res.json();
-        if (cancelled) return;
-        setFirstName((prev) => prev || d.firstName || '');
-        setLastName((prev)  => prev || d.lastName  || '');
-        setContact((prev)   => prev || d.phone     || '');
-        setEmail((prev)     => prev || d.email     || '');
-        setAccountLoadError('');
-        if (onUserDetailsUpdate && !userDetails?.firstName) onUserDetailsUpdate(d);
-      } catch (e) {
-        if (!cancelled) setAccountLoadError(e.message || 'Could not load your account details.');
-      }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.userID, accountRetry]);
   const [specialNotes,      setSpecialNotes]       = useState(initValNoDraft('specialNotes'));
   const [paymentAmount,     setPaymentAmount]      = useState('partial');
   const [paymentMethod,     setPaymentMethod]      = useState('gcash');
@@ -830,13 +600,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // checkout both recompute their own authoritative totals independently).
   const [quote, setQuote] = useState({
     days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0,
-    serviceFee: 0, gatewayFee: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0,
+    serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0,
+    grandTotal: 0, payNow: 0, balance: 0,
   });
   const [quoteLoading, setQuoteLoading] = useState(false);
 
   useEffect(() => {
     if (!selectedCar?.carID || !duration) {
-      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, serviceFee: 0, gatewayFee: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
+      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
       return;
     }
     let cancelled = false;
@@ -866,6 +637,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             driversFee: data.driversFee || 0,
             serviceFee: data.serviceFee || 0,
             gatewayFee: data.gatewayFee || 0,
+            serviceFeeRate: data.serviceFeeRate || 0,
+            gatewayFeeRate: data.gatewayFeeRate || 0,
             securityDeposit: data.securityDeposit || 0,
             grandTotal: data.grandTotal || 0,
             payNow: data.payNow || 0,
@@ -882,7 +655,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return () => { cancelled = true; clearTimeout(timer); };
   }, [selectedCar?.carID, duration, startDate, startTime, endDate, endTime, destination, driveType, paymentAmount]);
 
-  const { days, total, diffHrs, extraFee, driversFee, serviceFee, gatewayFee, securityDeposit, grandTotal } = quote;
+  const { days, total, diffHrs, extraFee, driversFee, serviceFee, gatewayFee, serviceFeeRate, gatewayFeeRate, securityDeposit, grandTotal } = quote;
   const getPayNow  = () => quote.payNow;
   const getBalance = () => quote.balance;
 
@@ -1402,11 +1175,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setDropoffLocation(''); setDestination(''); setDriveType('chauffeur');
     setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]);
     preLockPickup.current = { location: '', coords: null };
-    // These four come from the customer's own account, not from anything
-    // typed into this booking — restore them instead of blanking, otherwise
-    // the very next booking is blocked at the Details step ("Not set").
-    setFirstName(userDetails?.firstName || ''); setLastName(userDetails?.lastName || '');
-    setContact(userDetails?.phone || user?.phone || ''); setEmail(userDetails?.email || user?.email || '');
+    setFirstName(''); setLastName(''); setContact(''); setEmail('');
     setSpecialNotes(''); setPaymentAmount('partial'); setPaymentMethod('gcash');
     setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); setErrors({});
   };
@@ -1468,9 +1237,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <p className="text-gray-500 text-sm mb-6">Select the car that suits your trip.</p>
                   <div className="flex flex-col sm:flex-row gap-3 mb-4">
                     <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
                       <input type="text" placeholder="Search by name or brand…" value={carSearch}
                         onChange={e => setCarSearch(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm" />
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm" />
                     </div>
                     <select value={filterBody} onChange={e => setFilterBody(e.target.value)}
                       className="px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm bg-white text-gray-600">
@@ -1482,8 +1252,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       Showing <span className="font-semibold text-arl-primary">{filteredCars.length}</span> of <span className="font-semibold">{cars.length}</span> vehicles
                     </p>
                   )}
-                  {carsError  && <p className="text-red-400 text-sm mb-4">{carsError}</p>}
-                  {errors.vehicle && <p className="text-arl-cta text-sm mb-4">{errors.vehicle}</p>}
+                  {carsError  && <p className="text-red-400 text-sm mb-4">⚠ {carsError}</p>}
+                  {errors.vehicle && <p className="text-arl-cta text-sm mb-4">⚠ {errors.vehicle}</p>}
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 max-h-[600px] overflow-y-auto pr-1">
                     {carsLoading
                       ? Array.from({length:6}).map((_,i) => <SkeletonCard key={i} />)
@@ -1493,7 +1263,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             selected={selectedCar?.carID === car.carID}
                             onSelect={handleCarSelect} />
                         ))
-                      : <div className="col-span-3 text-center py-12 text-gray-400"><p className="text-sm">No vehicles found.</p></div>
+                      : <div className="col-span-3 text-center py-12 text-gray-400"><p className="text-3xl mb-2">🔍</p><p className="text-sm">No vehicles found.</p></div>
                     }
                   </div>
                 </div>
@@ -1507,7 +1277,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     <div className="flex items-center gap-4 bg-arl-primary/5 border border-arl-primary/20 rounded-xl p-4 mb-6">
                       {selectedCar.imageURL
                         ? <img src={selectedCar.imageURL} alt={selectedCar.name} className="w-20 h-14 object-cover rounded-lg" onError={e => e.target.style.display='none'} />
-                        : <div className="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-2xl" />}
+                        : <div className="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">🚗</div>}
                       <div>
                         <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Selected Vehicle</p>
                         <p className="text-lg font-black text-arl-primary">{selectedCar.name}</p>
@@ -1522,6 +1292,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* Draft restored notice */}
                   {(duration || startDate || startTime || destination) && (
                     <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 text-sm">
+                      <span className="text-lg">💾</span>
                       <span className="text-green-700 font-medium">Your previous selections were restored. You can change them below.</span>
                       <button
                         type="button"
@@ -1611,7 +1382,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           className="w-4 h-4 accent-arl-primary rounded"
                         />
                         <label htmlFor="pickupInStore" className="text-xs font-semibold text-gray-600">
-                          Pick up in-store — {storeInfo.storeName}
+                          🏬 Pick up in-store — {storeInfo.storeName}
                         </label>
                       </div>
                     )}
@@ -1712,12 +1483,27 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <p className="text-xs text-gray-400 mb-3">
                         {startDate ? `Pickup on ${fmt(startDate)}` : 'Select a date above first.'}
                       </p>
-                      <TimeField value={startTime} onChange={handleStartTimeChange} />
+                      <select
+                        value={startTime || ''}
+                        onChange={e => handleStartTimeChange(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm text-gray-700 bg-white focus:border-arl-primary focus:outline-none cursor-pointer"
+                      >
+                        <option value="" disabled>Select a time…</option>
+                        {Array.from({length:24},(_,h)=>h).flatMap(h =>
+                          ['00','15','30','45'].map(m => {
+                            const val = `${String(h).padStart(2,'0')}:${m}`;
+                            const ap  = h >= 12 ? 'PM' : 'AM';
+                            const h12 = ((h % 12) || 12);
+                            return <option key={val} value={val}>{`${h12}:${m} ${ap}`}</option>;
+                          })
+                        )}
+                      </select>
                       {errors.startTime && <p className="text-arl-cta text-xs mt-2">{errors.startTime}</p>}
 
                       {/* Auto-end banner */}
                       {duration === '12 Hours' && startDate && startTime && endDate && endTime && (
                         <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+                          <span className="text-lg sm:text-2xl">🏁</span>
                           <div>
                             <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (12 hrs)</p>
                             <p className="text-sm sm:text-base font-black text-green-700">{fmt(endDate)}</p>
@@ -1728,6 +1514,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       )}
                       {duration === '22 Hours' && startDate && startTime && endDate && endTime && (
                         <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+                          <span className="text-lg sm:text-2xl">🏁</span>
                           <div>
                             <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (22 hrs)</p>
                             <p className="text-[10px] sm:text-xs text-green-500">{fmt(startDate)} →</p>
@@ -1755,6 +1542,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* ── Max rental length error ── */}
                   {maxDaysError && (
                     <div className="mt-6 flex gap-3 items-start bg-red-50 border-2 border-red-300 rounded-2xl p-4">
+                      <span className="text-2xl flex-shrink-0">🚫</span>
                       <div>
                         <p className="text-sm font-black text-red-700 mb-1">Rental Period Too Long</p>
                         <p className="text-sm text-red-600">{maxDaysError}</p>
@@ -1765,6 +1553,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* ── Number Coding error ── */}
                   {codingError && (
                     <div className="mt-6 flex gap-3 items-start bg-red-50 border-2 border-red-300 rounded-2xl p-4">
+                      <span className="text-2xl flex-shrink-0">🚫</span>
                       <div>
                         <p className="text-sm font-black text-red-700 mb-1">Number Coding Restriction</p>
                         <p className="text-sm text-red-600">{codingError}</p>
@@ -1780,12 +1569,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 <div>
                   <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">Your Information</h3>
                   <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">We'll use this to confirm your booking.</p>
-                  {accountLoadError && (
-                    <div className="mb-4 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-amber-800">
-                      <span>{accountLoadError}</span>
-                      <button type="button" onClick={() => setAccountRetry((n) => n + 1)} className="shrink-0 font-semibold underline">Retry</button>
-                    </div>
-                  )}
 
                   {/* Name fields — always locked; must be set/updated via Profile */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -1979,7 +1762,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-xs sm:text-sm font-mono"
                       />
                       {errors.gcashReference && (
-                        <p className="text-arl-cta text-[11px] sm:text-xs mt-1">{errors.gcashReference}</p>
+                        <p className="text-arl-cta text-[11px] sm:text-xs mt-1">⛔ {errors.gcashReference}</p>
                       )}
                     </div>
 
@@ -1991,6 +1774,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                       {!screenshotPreview ? (
                         <label className="flex flex-col items-center justify-center w-full h-28 sm:h-36 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-arl-primary hover:bg-arl-primary/5 transition-all group">
+                          <div className="text-2xl sm:text-4xl mb-1 sm:mb-2 group-hover:scale-110 transition-transform">📸</div>
                           <p className="text-xs sm:text-sm font-semibold text-gray-500 group-hover:text-arl-primary">
                             Click to upload screenshot
                           </p>
@@ -2037,7 +1821,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         </div>
                       )}
                       {errors.paymentScreenshot && (
-                        <p className="text-arl-cta text-xs mt-1">{errors.paymentScreenshot}</p>
+                        <p className="text-arl-cta text-xs mt-1">⛔ {errors.paymentScreenshot}</p>
                       )}
                     </div>
                   </div>
@@ -2077,9 +1861,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Rental Fee',    `₱${total.toLocaleString()}`],
                       ...(extraFee > 0   ? [['Extra Fee (Outside Area)', `₱${extraFee.toLocaleString()}`]] : []),
                       ...(driversFee > 0 ? [["Driver's Fee",             `₱${driversFee.toLocaleString()}`]] : []),
-                      ['Service Fee',   `₱${serviceFee.toLocaleString()}`],
-                      ['Gateway Fee',   `₱${gatewayFee.toLocaleString()}`],
-                      ...(securityDeposit > 0 ? [['Security Deposit', `₱${securityDeposit.toLocaleString()}`]] : []),
+                      ...(securityDeposit > 0 ? [['Security Deposit (refundable)', `₱${securityDeposit.toLocaleString()}`]] : []),
+                      [serviceFeeRate > 0 ? `Service Fee (${serviceFeeRate}% of rental)` : 'Service Fee', `₱${serviceFee.toLocaleString()}`],
+                      [gatewayFeeRate > 0 ? `Gateway Fee (${gatewayFeeRate}% of total)` : 'Gateway Fee', `₱${gatewayFee.toLocaleString()}`],
                       ['Total Fee',     `₱${grandTotal.toLocaleString()}`],
                       ['Payment Type',  getMethodOfPayment()],
                       ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
@@ -2215,7 +1999,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               </div>
               <div>
                 <p className="text-xs text-gray-400">Status</p>
-                <p className="text-sm font-semibold text-yellow-600">Pending Approval</p>
+                <p className="text-sm font-semibold text-yellow-600">⏳ Pending Approval</p>
               </div>
             </div>
             <button onClick={resetBooking}

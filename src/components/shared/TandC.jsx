@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
+import { usePolicySettings } from "../../utils/policySettings";
 
-const SECTIONS = [
+const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, fullRefundHours }) => [
   {
     num: "01",
     title: "Acceptance of Agreement",
@@ -9,7 +10,7 @@ const SECTIONS = [
   {
     num: "02",
     title: "Reservation & Booking Policy",
-    body: "Reservations are confirmed only once the required deposit is received. A minimum deposit of ₱1,000 is required to secure your rental date. Pencil bookings without deposit are not accepted — priority goes to the first customer who completes payment.",
+    body: `Reservations are confirmed only once the required deposit is received. A minimum deposit of ${depositText} is required to secure your rental date. Pencil bookings without deposit are not accepted — priority goes to the first customer who completes payment.`,
   },
   {
     num: "03",
@@ -19,18 +20,18 @@ const SECTIONS = [
   {
     num: "04",
     title: "Payment Terms",
-    highlight: "5% service fee · 5% online gateway fee",
+    highlight: `${serviceFeePercent}% service fee (of the rental fee) · ${gatewayFeePercent}% online gateway fee (of the booking total)`,
     body: "Full payment must be completed before the vehicle is released. Discounts for PWD, Senior Citizen, or other ID cards are not applicable to this service.",
   },
   {
     num: "05",
     title: "Cancellation & Refund Policy",
     list: [
-      { label: "48 hrs or more before pickup", value: "Full ₱1,000 refund" },
-      { label: "Less than 48 hrs before pickup", value: "Non-refundable" },
-      { label: "No-show", value: "Deposit forfeited" },
+      { label: `${fullRefundHours} hrs or more before pickup`, value: "Full refund of everything you paid" },
+      { label: `Less than ${fullRefundHours} hrs before pickup`, value: `Everything refunded except the ${depositText} deposit` },
+      { label: "No-show", value: `${depositText} deposit forfeited; everything else refunded` },
     ],
-    body: "Rescheduling is allowed with at least 24 hours' notice, subject to vehicle availability.",
+    body: `The ${fullRefundHours} hours are counted from the moment you send your refund request, not from the moment it is reviewed. Service and gateway fees are refunded together with your booking amount; when a refund falls under the ${fullRefundHours}-hour limit, only the ${depositText} deposit is withheld. Rescheduling is allowed with at least 24 hours' notice, subject to vehicle availability.`,
   },
   {
     num: "06",
@@ -107,6 +108,8 @@ const SECTIONS = [
 ];
 
 const TandC = ({ isOpen, onAgree, onCancel }) => {
+  const policy = usePolicySettings();
+  const SECTIONS = buildSections(policy);
   const scrollRef = useRef(null);
 
   useEffect(() => {

@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import Footer from "../components/layout/Footer";
+import { usePolicySettings } from "../utils/policySettings";
 
-const SECTIONS = [
+const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, fullRefundHours }) => [
   {
     num: "01",
     title: "Acceptance of Agreement",
@@ -10,7 +11,7 @@ const SECTIONS = [
   {
     num: "02",
     title: "Reservation & Booking Policy",
-    body: "ARL Car Rental follows a first-come, first-served reservation policy. Reservations are only confirmed once the required deposit or downpayment has been received. A minimum deposit of ₱1,000 is required to reserve a vehicle and secure the requested rental date. Pencil bookings or temporary reservations without deposit are not accepted.",
+    body: `ARL Car Rental follows a first-come, first-served reservation policy. Reservations are only confirmed once the required deposit or downpayment has been received. A minimum deposit of ${depositText} is required to reserve a vehicle and secure the requested rental date. Pencil bookings or temporary reservations without deposit are not accepted.`,
   },
   {
     num: "03",
@@ -20,19 +21,19 @@ const SECTIONS = [
   {
     num: "04",
     title: "Payment Terms",
-    highlight: "5% service fee · 5% online payment gateway fee",
+    highlight: `${serviceFeePercent}% service fee (of the rental fee) · ${gatewayFeePercent}% online payment gateway fee (of the booking total, including the service fee and security deposit)`,
     body: "After reservation approval, the renter must settle the remaining rental balance. Full payment must be completed before the vehicle is released. ARL Car Rental offers promotional discounts for rentals of 5 days or more (5% off) and for two or more vehicles in a single transaction (10% off). Discounts for PWD, Senior Citizen, or other identification cards are not applicable.",
   },
   {
     num: "05",
     title: "Cancellation & Refund Policy",
-    body: "Renters who wish to cancel must notify ARL Car Rental through official channels as early as possible.",
+    body: `Renters who wish to cancel must notify ARL Car Rental through official channels as early as possible. The ${fullRefundHours} hours are counted from the moment you send your refund request, not from the moment it is reviewed. Service and gateway fees are refunded together with your booking amount; when a refund falls under the ${fullRefundHours}-hour limit, only the ${depositText} deposit is withheld.`,
     list: [
-      { label: "48 hours or more before pickup", value: "Full ₱1,000 refund" },
-      { label: "Less than 48 hours before pickup", value: "Non-refundable" },
-      { label: "No-show on pickup date", value: "Deposit forfeited in full" },
+      { label: `${fullRefundHours} hours or more before pickup`, value: "Full refund of everything you paid" },
+      { label: `Less than ${fullRefundHours} hours before pickup`, value: `Everything refunded except the ${depositText} deposit` },
+      { label: "No-show on pickup date", value: `${depositText} deposit forfeited; everything else refunded` },
     ],
-    footer: "Rescheduling is allowed with at least 24 hours' notice, subject to vehicle availability. The ₱1,000 deposit may be applied to the rescheduled booking at management's discretion.",
+    footer: `Rescheduling is allowed with at least 24 hours' notice, subject to vehicle availability. The ${depositText} deposit may be applied to the rescheduled booking at management's discretion.`,
   },
   {
     num: "06",
@@ -110,6 +111,8 @@ const SECTIONS = [
 ];
 
 export default function TermsPage() {
+  const policy = usePolicySettings();
+  const SECTIONS = buildSections(policy);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
