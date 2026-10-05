@@ -35,7 +35,7 @@ export const fetchPolicySettings = async () => {
     return cache;
   } catch (err) {
     console.error("[policySettings] fetch failed:", err.message);
-    return toPolicy(DEFAULTS);
+    return toPolicy(DEFnAULTS);
   }
 };
 
