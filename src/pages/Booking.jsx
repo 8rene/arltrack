@@ -86,10 +86,9 @@ const getDateStatuses = (carBookings) => {
     // Preparation buffer: 1 day before a confirmed booking starts, and 1 day
     // after it ends OR after it was already returned ("completed") — a
     // returned booking no longer needs the "before" side, its start is in
-    // the past. Kept in sync with the same buffer the backend now enforces
-    // synchronously in bookings.controller.js's availability guard (not the
-    // once-a-day postRentalMaintenance cron), so what's shown here always
-    // matches what's actually blockable.
+    // the past. Kept in sync with the same buffer the backend enforces
+    // in bookings.controller.js's availability guard, so what's shown here
+    // always matches what's actually blockable.
     if (isConfirmedBooking) {
       const before = toLocalDateStr(addDays(start, -1));
       if (!map[before] || map[before] === 'available') map[before] = 'preparation';
