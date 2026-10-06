@@ -151,8 +151,18 @@ const DEFAULT_META = {
 function NotifRow({ n, onAction, onDelete }) {
   const meta = META_BY_TYPE[n.type] || { ...DEFAULT_META, title: n.title || DEFAULT_META.title };
 
+  // Whole row is clickable now (was: a separate "View Booking/Details →"
+  // link at the bottom of each card) — same onAction(n) navigation, just
+  // triggered by tapping anywhere on the card. Only clickable when there's
+  // actually something to navigate to (n.refID); the dismiss (X) button
+  // stops propagation so dismissing never also triggers navigation.
+  const clickable = !!n.refID;
+
   return (
-    <div className="flex items-start gap-3 px-5 py-3.5 hover:bg-arl-light/60 transition-colors group">
+    <div
+      onClick={clickable ? () => onAction(n) : undefined}
+      className={`flex items-start gap-3 px-5 py-3.5 hover:bg-arl-light/60 transition-colors group ${clickable ? "cursor-pointer" : ""}`}
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-semibold text-arl-dark leading-snug">{meta.title}</p>
@@ -161,17 +171,7 @@ function NotifRow({ n, onAction, onDelete }) {
           </span>
         </div>
         <p className="text-xs text-gray-500 mt-1 leading-relaxed">{n.message}</p>
-        <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-gray-400">{timeAgo(n.createdAt)}</p>
-          {n.refID && (
-            <button
-              onClick={() => onAction(n)}
-              className="text-xs font-bold text-arl-primary hover:text-arl-cta transition-colors"
-            >
-              {meta.action} →
-            </button>
-          )}
-        </div>
+        <p className="text-xs text-gray-400 mt-2">{timeAgo(n.createdAt)}</p>
       </div>
 
       <button
