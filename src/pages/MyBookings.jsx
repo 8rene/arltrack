@@ -12,30 +12,16 @@ const fmtDT = (val) => {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
-// Small inline calendar glyph for the Upcoming tab — used instead of the
-// 📅 emoji, which on some Android builds renders with a baked-in day
-// number fixed into the glyph itself (this is what was showing up as a
-// stray "17" floating near the tab bar). currentColor lets it pick up
-// the tab's active/inactive text color automatically.
-const CalendarGlyph = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-    <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
-    <line x1="3" y1="9.5" x2="21" y2="9.5" />
-    <line x1="8" y1="2.5" x2="8" y2="6.5" />
-    <line x1="16" y1="2.5" x2="16" y2="6.5" />
-  </svg>
-);
-
 const peso = (v) => `₱${Number(v || 0).toLocaleString()}`;
 
 // ── Payment status config (badge shown on each booking card) ──
 const PAYMENT_STATUS_CONFIG = {
-  due:       { label: "Payment Due",       bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
-  partial:   { label: "Partial",           bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300", icon: "🟠" },
-  paid:      { label: "Fully Paid",        bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
-  refunded:  { label: "Refunded",          bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300",   icon: "↩️" },
-  failed:    { label: "Payment Failed",    bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
-  cancelled: { label: "Payment Cancelled", bg: "bg-gray-100",   text: "text-gray-500",   border: "border-gray-300",   icon: "🚫" },
+  due:       { label: "Payment Due",       bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300" },
+  partial:   { label: "Partial",           bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-300" },
+  paid:      { label: "Fully Paid",        bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300" },
+  refunded:  { label: "Refunded",          bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300" },
+  failed:    { label: "Payment Failed",    bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300" },
+  cancelled: { label: "Payment Cancelled", bg: "bg-gray-100",   text: "text-gray-500",   border: "border-gray-300" },
 };
 
 // Mirrors admin's computeAmounts() in payments.service.js, so the customer
@@ -92,7 +78,7 @@ const PaymentStatusBadge = ({ payment }) => {
   const cfg = PAYMENT_STATUS_CONFIG[key];
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      {cfg.icon} {cfg.label}{extra ? ` — ${extra} due` : ""}
+      {cfg.label}{extra ? ` — ${extra} due` : ""}
     </span>
   );
 };
@@ -130,12 +116,16 @@ const REFUND_REASONS = [
 ];
 
 // ── Refund request status config (badge shown once a refund is requested) ──
+// Pending / Approved / Refunded only ever show inside the Refunds tab, which already
+// says "refund", so they drop the "Refund:" prefix. Rejected / Failed keep it: those
+// bookings go back to Upcoming (or sit in History), where a bare "Rejected" or "Failed"
+// would be ambiguous.
 const REFUND_STATUS_CONFIG = {
-  Pending:  { label: "Refund: Pending",  bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300", icon: "⏳" },
-  Approved: { label: "Refund: Approved", bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300",   icon: "🔵" },
-  Refunded: { label: "Refund: Refunded", bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300",  icon: "✅" },
-  Rejected: { label: "Refund: Rejected", bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
-  Failed:   { label: "Refund: Failed",   bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300",    icon: "❌" },
+  Pending:  { label: "Pending",          bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-300" },
+  Approved: { label: "Approved",         bg: "bg-blue-100",   text: "text-blue-700",   border: "border-blue-300" },
+  Refunded: { label: "Refunded",         bg: "bg-green-100",  text: "text-green-700",  border: "border-green-300" },
+  Rejected: { label: "Refund: Rejected", bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300" },
+  Failed:   { label: "Refund: Failed",   bg: "bg-red-100",    text: "text-red-600",    border: "border-red-300" },
 };
 
 const RefundStatusBadge = ({ status }) => {
@@ -143,7 +133,7 @@ const RefundStatusBadge = ({ status }) => {
   if (!cfg) return null;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      {cfg.icon} {cfg.label}
+      {cfg.label}
     </span>
   );
 };
@@ -153,35 +143,6 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
   const [reason, setReason] = useState(REFUND_REASONS[0]);
   const [notes, setNotes]   = useState("");
   const { amountPaid } = getPaymentInfo(booking.payment);
-
-  // What a refund would be RIGHT NOW under the 48-hour policy, worked out by the
-  // server (its clock is the one that counts). Shown before the customer submits.
-  const [quote, setQuote]           = useState(null);
-  const [quoteError, setQuoteError] = useState("");
-  const [quoteLoading, setQuoteLoading] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const token = localStorage.getItem("arl_token");
-        const res   = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/refunds/preview/${booking.payment.paymentID}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (cancelled) return;
-        if (!res.ok) setQuoteError(data.message || "Couldn't calculate your refund.");
-        else setQuote(data);
-      } catch {
-        if (!cancelled) setQuoteError("Couldn't calculate your refund. You can still send the request.");
-      } finally {
-        if (!cancelled) setQuoteLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [booking.payment.paymentID]);
-
-  const fmtWhen = (d) => d ? new Date(d).toLocaleString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" }) : "";
-  const blocked = !!quote && !quote.eligible; // e.g. nothing refundable, or a request already in progress
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -212,30 +173,8 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        {/* 48-hour policy: exactly what they get back if they send the request now */}
-        {quoteLoading && <p className="text-xs text-gray-400 mt-3">Calculating your refund...</p>}
-        {quoteError && <p className="text-xs text-red-500 mt-3">{quoteError}</p>}
-        {quote && (
-          <div className={`mt-3 rounded-xl border p-3 text-sm ${quote.depositForfeited > 0 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
-            <div className="flex justify-between"><span className="text-gray-600">You paid</span><span className="font-semibold">{peso(quote.grossPaid)}</span></div>
-            {quote.depositForfeited > 0 && (
-              <div className="flex justify-between text-amber-700"><span>Deposit (non-refundable)</span><span className="font-semibold">-{peso(quote.depositForfeited)}</span></div>
-            )}
-            <div className="flex justify-between border-t border-black/10 mt-1.5 pt-1.5"><span className="font-bold text-gray-800">You'll get back</span><span className="font-black text-gray-900">{peso(quote.refundAmount)}</span></div>
-            <p className="text-xs text-gray-500 mt-2">
-              {quote.tier === "full"
-                ? `Your pickup is more than ${quote.windowHours} hours away, so everything you paid is refundable.${quote.fullRefundUntil ? ` This applies to requests sent before ${fmtWhen(quote.fullRefundUntil)}.` : ""}`
-                : quote.tier === "no_show"
-                  ? "The pickup time has passed, so your deposit is non-refundable. Everything else you paid is refunded."
-                  : `Your pickup is less than ${quote.windowHours} hours away, so your deposit is non-refundable. Everything else you paid is refunded.`}
-              {" "}The time you send this request is what counts, not when we review it.
-            </p>
-            {quote.message && <p className="text-xs text-red-500 mt-2">{quote.message}</p>}
-          </div>
-        )}
-
         <p className="text-xs text-gray-400 mt-3">
-          The booking will be cancelled once your request is approved. Our team will review it and you'll be notified once it's processed.
+          The refund covers everything you've paid for this booking ({peso(amountPaid)}) and the booking will be cancelled once it's approved. Our team will review it and you'll be notified once it's processed.
         </p>
 
         <div className="flex gap-3 mt-4">
@@ -247,7 +186,7 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
           </button>
           <button
             onClick={() => onConfirm(reason, notes)}
-            disabled={loading || quoteLoading || blocked}
+            disabled={loading}
             className="flex-1 py-2.5 rounded-xl bg-arl-cta text-white text-sm font-bold hover:bg-arl-secondary transition disabled:opacity-60">
             {loading ? "Sending…" : "Confirm & Send"}
           </button>
@@ -258,7 +197,7 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested, onCancelToPay }) => {
+const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
 
@@ -385,7 +324,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
               : null}
             <div className="w-full h-full items-center justify-center text-2xl sm:text-3xl text-gray-300"
-              style={{ display: carImage ? "none" : "flex" }}>🚗</div>
+              style={{ display: carImage ? "none" : "flex" }} />
           </div>
 
           {/* Info */}
@@ -414,7 +353,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 <span className="font-semibold text-gray-600">Start:</span> {fmtDT(startDateTime)}
               </p>
               <p className="text-xs text-orange-700 font-bold bg-orange-50 border border-orange-200 rounded-md px-1.5 py-0.5 inline-block">
-                ⏰ End: {fmtDT(endDateTime)}
+                End: {fmtDT(endDateTime)}
               </p>
               <p className="text-xs text-gray-400">
                 <span className="font-semibold text-gray-500">Booked on:</span> {fmtDT(createdAt)}
@@ -465,7 +404,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     onClick={handlePayNow}
                     disabled={payingNow}
                     className="text-xs font-bold text-white bg-arl-cta hover:bg-opacity-90 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
-                    {payingNow ? "Redirecting…" : balanceDue ? "💳 Pay Balance" : "💳 Pay Now"}
+                    {payingNow ? "Redirecting…" : balanceDue ? "Pay Balance" : "Pay Now"}
                   </button>
                 )}
 
@@ -476,21 +415,13 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     onClick={handlePayNow}
                     disabled={payingNow}
                     className="text-xs font-bold text-arl-cta border border-arl-cta/40 hover:bg-arl-cta/10 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
-                    {payingNow ? "Redirecting…" : "💳 Pay Balance Online (optional)"}
+                    {payingNow ? "Redirecting…" : "Pay Balance Online (optional)"}
                   </button>
                 )}
 
-                {/* Cancel — only while NOTHING has been charged yet. Once a
-                    Partial booking's deposit clears, it's in the same boat
-                    as an "upcoming" booking (real money on it already) —
-                    goes through Request Refund (admin review) instead. */}
-                {status === "to pay" && !depositPaid && (
-                  <button
-                    onClick={() => onCancelToPay(bookingID)}
-                    className="text-xs font-bold text-gray-500 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition">
-                    ✕ Cancel
-                  </button>
-                )}
+                {/* Cancel button removed from "To Pay" too — Request Refund
+                    (admin review) is now the only way to back out of a
+                    booking, at any stage, paid or not yet paid. */}
 
                 {/* Cancel button removed — Request Refund is now the only
                     way to back out of an upcoming booking. Cancelling
@@ -511,7 +442,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   <button
                     onClick={() => setShowRefundModal(true)}
                     className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">
-                    💸 Request Refund
+                    Request Refund
                   </button>
                 )}
 
@@ -519,7 +450,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 <button
                   onClick={() => navigate(`/booking/${bookingID}/details`)}
                   className="text-xs font-bold text-purple-600 border border-purple-200 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition">
-                  📋 Details
+                  Details
                 </button>
 
                 {/* Rebook — for cancelled and completed */}
@@ -527,7 +458,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   <button
                     onClick={handleRebook}
                     className="text-xs font-bold text-arl-secondary border border-arl-secondary/30 hover:bg-arl-secondary/10 px-3 py-1.5 rounded-lg transition">
-                    🔁 Rebook
+                    Rebook
                   </button>
                 )}
 
@@ -544,7 +475,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
         {expanded && (
           <div className="border-t border-gray-100">
             <div className="px-5 py-4 bg-gray-50">
-              <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🚗 Booking Details</p>
+              <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Booking Details</p>
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                 <DR label="Booking ID"  value={bookingID} mono />
                 <DR label="Booked On"   value={fmtDT(createdAt)} />
@@ -561,7 +492,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
 
             {payment ? (
               <div className="px-5 py-4 bg-blue-50/50 border-t border-blue-100">
-                <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">💳 Payment Details</p>
+                <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Payment Details</p>
                 <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
                   <DR label="Payment ID"        value={p.paymentID} mono />
                   <DR label="Total Amount"      value={
@@ -573,10 +504,11 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                       : peso(p.amount)
                   } />
                   <DR label="Rental Fee"        value={peso(p.rentalFee)} />
-                  <DR label={p.serviceFeeRate > 0 ? `Service Fee (${p.serviceFeeRate}% of rental)` : "Service Fee"} value={peso(p.serviceFee)} />
-                  <DR label={p.gatewayFeeRate > 0 ? `Gateway Fee (${p.gatewayFeeRate}% of total)` : "Gateway Fee"} value={peso(p.gatewayFee)} />
+                  <DR label="Service Fee"       value={peso(p.serviceFee)} />
+                  <DR label="Gateway Fee"       value={peso(p.gatewayFee)} />
                   <DR label="Extra Fee"         value={peso(p.extraFee)} />
                   <DR label="Drivers Fee"       value={p.driversFee ? peso(p.driversFee) : null} />
+                  <DR label="Security Deposit (refundable)" value={p.securityDeposit ? peso(p.securityDeposit) : null} />
                   <DR label="Discount Applied"  value={p.discountAmount ? peso(p.discountAmount) : null} />
                   <DR label="Payment Method"    value={p.methodOfPayment || p.paymentMethod} />
                   <DR label="Reference No."     value={p.referenceNumber} mono />
@@ -605,7 +537,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
 };
 
 // ── Empty state ──
-// A live calendar icon for the "upcoming" empty state — replaces the 📅
+// A live calendar icon for the "upcoming" empty state — replaces the calendar
 // emoji, which renders with a hard-coded, platform-specific date baked
 // into the glyph itself (fixed at "17" on this Android build, something
 // else elsewhere) rather than the actual current date, which read as a
@@ -627,19 +559,19 @@ const LiveCalendarIcon = () => {
 };
 
 const EMPTY_STATE_COPY = {
-  toPay:    { icon: "💳", title: "Nothing to pay",         body: "Unpaid bookings awaiting payment will show up here." },
-  upcoming: { icon: "📅", title: "No upcoming bookings",  body: "Book a ride to see it here." },
-  ongoing:  { icon: "🚗", title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
-  refunds:  { icon: "💸", title: "No refund requests",     body: "Bookings you've requested a refund for will show up here." },
-  history:  { icon: "📜", title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
+  toPay:    { title: "Nothing to pay",         body: "Unpaid bookings awaiting payment will show up here." },
+  upcoming: { title: "No upcoming bookings",  body: "Book a ride to see it here." },
+  ongoing:  { title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
+  refunds:  { title: "No refund requests",     body: "Bookings you've requested a refund for will show up here." },
+  history:  { title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
 };
 
 const EmptyState = ({ tab }) => {
-  const { icon, title, body } = EMPTY_STATE_COPY[tab] || EMPTY_STATE_COPY.upcoming;
+  const { title, body } = EMPTY_STATE_COPY[tab] || EMPTY_STATE_COPY.upcoming;
   return (
     <div className="text-center py-20">
       <div className="mb-4">
-        {tab === "upcoming" ? <LiveCalendarIcon /> : <p className="text-5xl">{icon}</p>}
+        {tab === "upcoming" && <LiveCalendarIcon />}
       </div>
       <p className="text-gray-500 font-bold text-lg">{title}</p>
       <p className="text-gray-400 text-sm mt-1">{body}</p>
@@ -724,26 +656,6 @@ const MyBookings = ({ user }) => {
     }
   };
 
-  // Cancel a still-unpaid "to pay" booking. Nothing's been charged yet, so
-  // (unlike an already-paid "upcoming" booking) this goes straight through
-  // rather than via the Request Refund/admin-review flow.
-  const handleCancelToPay = async (bookingID) => {
-    if (!window.confirm("Cancel this booking? This can't be undone.")) return;
-    try {
-      const token = localStorage.getItem("arl_token");
-      const res   = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${bookingID}/cancel`, {
-        method:  "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ reason: "Cancelled by customer before payment." }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to cancel booking.");
-      fetchBookings();
-    } catch (err) {
-      setError(err.message || "Failed to cancel booking.");
-    }
-  };
-
   // Only these statuses count as "there's already an active request" —
   // Rejected/Failed lets the customer try requesting again.
   const findActiveRefund = (paymentID) =>
@@ -807,17 +719,16 @@ const MyBookings = ({ user }) => {
 
         <div className="flex overflow-x-auto scrollbar-hide bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1 -mx-1 px-1 sm:mx-0">
           {[
-            { key: "toPay",    label: "To Pay",   count: toPay.length,    icon: "💳" },
-            { key: "upcoming", label: "Upcoming", count: upcoming.length, icon: <CalendarGlyph /> },
-            { key: "ongoing",  label: "Ongoing",  count: ongoing.length,  icon: "🚗" },
-            { key: "refunds",  label: "Refunds",  count: refunded.length, icon: "💸" },
-            { key: "history",  label: "History",  count: history.length,  icon: "📜" },
-          ].map(({ key, label, count, icon }) => (
+            { key: "toPay",    label: "To Pay",   count: toPay.length },
+            { key: "upcoming", label: "Upcoming", count: upcoming.length },
+            { key: "ongoing",  label: "Ongoing",  count: ongoing.length },
+            { key: "refunds",  label: "Refunds",  count: refunded.length },
+            { key: "history",  label: "History",  count: history.length },
+          ].map(({ key, label, count }) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={`shrink-0 flex items-center gap-1.5 whitespace-nowrap py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+              className={`flex-1 shrink-0 flex items-center justify-center gap-1.5 whitespace-nowrap py-2.5 px-3 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 activeTab === key ? "bg-arl-primary text-white shadow" : "text-gray-500 hover:text-arl-primary hover:bg-gray-50"
               }`}>
-              <span>{icon}</span>
               <span>{label}</span>
               <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs font-black ${
                 activeTab === key ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
@@ -828,7 +739,7 @@ const MyBookings = ({ user }) => {
           ))}
         </div>
 
-        <p className="text-xs text-gray-400 mb-4 px-1">
+        <p className="text-xs text-gray-400 mb-4">
           {activeTab === "toPay"
             ? "To Pay — Complete payment within 12 hours or the booking is auto-cancelled."
             : activeTab === "upcoming"
@@ -842,7 +753,7 @@ const MyBookings = ({ user }) => {
 
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -858,7 +769,6 @@ const MyBookings = ({ user }) => {
                   existingRefund={b.payment?.paymentID ? findAnyRefund(b.payment.paymentID) : null}
                   hasActiveRefund={!!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
-                  onCancelToPay={handleCancelToPay}
                 />
               ))
             : <EmptyState tab={activeTab} />
@@ -869,7 +779,7 @@ const MyBookings = ({ user }) => {
           <div className="text-center mt-8">
             <button onClick={fetchBookings}
               className="text-sm text-arl-secondary hover:text-arl-primary font-semibold transition">
-              🔄 Refresh
+              Refresh
             </button>
           </div>
         )}
