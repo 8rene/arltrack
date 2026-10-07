@@ -129,6 +129,11 @@ const META_BY_TYPE = {
     badge: { text: "Penalty", className: "bg-red-50 text-red-700" },
     action: "View Breakdown",
   },
+  penalty_paid: {
+    bg: "bg-emerald-100", title: "Penalty Payment Received",
+    badge: { text: "Paid", className: "bg-emerald-50 text-emerald-700" },
+    action: "View Details",
+  },
   PenaltyWaived: {
     bg: "bg-emerald-100", title: "Penalty Waived",
     badge: { text: "Waived", className: "bg-emerald-50 text-emerald-700" },

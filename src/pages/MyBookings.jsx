@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
+import PenaltyPayButton from "../components/shared/PenaltyPayButton";
 
 // ── Date formatter — handles Firestore Timestamps, JS Dates, ISO strings ──
 const fmtDT = (val) => {
@@ -197,7 +198,7 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested }) => {
+const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested, penaltyOwed = 0 }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
 
@@ -446,6 +447,12 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   </button>
                 )}
 
+                {/* Unpaid penalty on a finished trip — pay it online instead of in store.
+                    Completed only: before that the held deposit still covers penalties. */}
+                {status === "completed" && penaltyOwed > 0 && (
+                  <PenaltyPayButton bookingID={bookingID} amount={penaltyOwed} />
+                )}
+
                 {/* Booking Details — pins + trip info for every booking */}
                 <button
                   onClick={() => navigate(`/booking/${bookingID}/details`)}
@@ -602,6 +609,7 @@ const MyBookings = ({ user }) => {
     fetchBookings();
     fetchRefundRequests();
     fetchOutstandingBalance();
+    fetchPenaltyOwed();
   }, [user]);
 
   const fetchBookings = async () => {
@@ -643,6 +651,20 @@ const MyBookings = ({ user }) => {
   // bookings while this is > 0, so the banner is telling the customer
   // why, not just informing them.
   const [outstandingBalance, setOutstandingBalance] = useState(0);
+  // Unpaid penalty per booking ({ [bookingID]: pesos }) — drives the Pay button on History cards.
+  const [penaltyOwed, setPenaltyOwed] = useState({});
+  const fetchPenaltyOwed = async () => {
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res   = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/penalty/outstanding`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (res.ok) setPenaltyOwed(json.data?.byBooking || {});
+    } catch {
+      // non-critical — the button just won't show; staff can still take payment in store
+    }
+  };
   const fetchOutstandingBalance = async () => {
     try {
       const token = localStorage.getItem("arl_token");
@@ -711,7 +733,7 @@ const MyBookings = ({ user }) => {
                 Outstanding balance: ₱{outstandingBalance.toLocaleString()}
               </p>
               <p className="text-xs text-red-500 mt-0.5">
-                Please settle this in store before booking again.
+                Pay it online from the History tab or settle it in store before booking again.
               </p>
             </div>
           </div>
@@ -769,6 +791,7 @@ const MyBookings = ({ user }) => {
                   existingRefund={b.payment?.paymentID ? findAnyRefund(b.payment.paymentID) : null}
                   hasActiveRefund={!!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
+                  penaltyOwed={penaltyOwed[b.bookingID] || 0}
                 />
               ))
             : <EmptyState tab={activeTab} />

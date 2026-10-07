@@ -14,12 +14,16 @@ export default function PaymentReturn() {
   const [params]  = useSearchParams();
   const navigate  = useNavigate();
   const paymentID = params.get("paymentID");
+  // A penalty payment returns with penaltyCheckoutID instead of paymentID.
+  const penaltyCheckoutID = params.get("penaltyCheckoutID");
+  const isPenalty = !!penaltyCheckoutID;
+  const refID = penaltyCheckoutID || paymentID;
 
   const [status,  setStatus]  = useState("checking"); // checking | paid | failed | notfound
   const [message, setMessage] = useState("Verifying your payment, please wait…");
 
   useEffect(() => {
-    if (!paymentID) {
+    if (!refID) {
       setStatus("notfound");
       setMessage("No payment ID found. Please check your bookings page.");
       return;
@@ -36,7 +40,9 @@ export default function PaymentReturn() {
       try {
         const token = localStorage.getItem("arl_token");
         const res   = await fetch(
-          `${process.env.REACT_APP_API_URL}/paymongo/status/${paymentID}`,
+          isPenalty
+            ? `${process.env.REACT_APP_API_URL}/paymongo/penalty/status/${penaltyCheckoutID}`
+            : `${process.env.REACT_APP_API_URL}/paymongo/status/${paymentID}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await res.json();
@@ -45,8 +51,8 @@ export default function PaymentReturn() {
 
         if (data.status === "paid") {
           setStatus("paid");
-          setMessage("Payment confirmed! Redirecting to your bookings…");
-          pendingTimer = setTimeout(() => { if (!cancelled) navigate("/my-bookings"); }, 2500);
+          setMessage(isPenalty ? "Penalty payment received! Redirecting to your booking history…" : "Payment confirmed! Redirecting to your bookings…");
+          pendingTimer = setTimeout(() => { if (!cancelled) navigate(isPenalty ? "/my-bookings?tab=history" : "/my-bookings"); }, 2500);
           return;
         }
 
@@ -84,7 +90,7 @@ export default function PaymentReturn() {
       cancelled = true;
       clearTimeout(pendingTimer);
     };
-  }, [paymentID, navigate]);
+  }, [refID, isPenalty, paymentID, penaltyCheckoutID, navigate]);
 
   const icons = {
     checking: (
@@ -158,7 +164,7 @@ export default function PaymentReturn() {
               className="w-full bg-arl-primary text-white py-3 rounded-full font-semibold hover:bg-opacity-90 transition">
               View My Bookings
             </button>
-            {status === "failed" && (
+            {status === "failed" && !isPenalty && (
               <button
                 onClick={() => navigate("/booking")}
                 className="w-full border-2 border-arl-cta text-arl-cta py-3 rounded-full font-semibold hover:bg-arl-cta hover:text-white transition">

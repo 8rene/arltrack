@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import PenaltyPayButton from "../components/shared/PenaltyPayButton";
 
 // ── Formatting helpers (same conventions as MyBookings.jsx) ──
 const fmtDT = (val) => {
@@ -204,8 +205,13 @@ const PenaltiesBox = ({ bookingID }) => {
               <p className="text-xs text-gray-400">
                 {hasDeposit && !depositSettled
                   ? "Your deposit doesn't fully cover the penalties. Please settle the remaining balance with our staff."
-                  : "Please settle this balance in store on your next visit."}
+                  : "Pay it online below, or settle it in store on your next visit."}
               </p>
+              {/* Online payment only once the deposit is settled — until then the deposit still covers it. */}
+              {(!hasDeposit || depositSettled) && (
+                <PenaltyPayButton bookingID={bookingID} amount={stillOwed}
+                  className="w-full text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition" />
+              )}
             </>
           )}
 
