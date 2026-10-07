@@ -425,6 +425,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [paymentScreenshot, setPaymentScreenshot]  = useState(null);
   const [screenshotPreview, setScreenshotPreview]  = useState('');
 
+  // ── Keep account-derived fields in sync with the logged-in user ──
+  // These are seeded by useState only on first render. App.jsx loads
+  // userDetails asynchronously (session restore / login), so on a fresh load
+  // the form mounted with empty values and never picked them up — leaving the
+  // read-only fields blank and the Next button permanently disabled.
+  useEffect(() => {
+    if (!user) return;
+    setFirstName(userDetails?.firstName || "");
+    setLastName(userDetails?.lastName || "");
+    setContact(userDetails?.phone || user?.phone || "");
+    setEmail(userDetails?.email || user?.email || "");
+  }, [user, userDetails]);
+
   const [codingError,      setCodingError]      = useState("");
   const [codingChecking,   setCodingChecking]   = useState(false);
 
