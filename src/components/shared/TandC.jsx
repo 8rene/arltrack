@@ -54,32 +54,37 @@ const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, full
   },
   {
     num: "09",
+    title: "Rental Time & Destination Selection",
+    body: "The renter is solely responsible for carefully choosing the pickup date, pickup time, and rental duration, and for making sure the selected schedule gives enough time to complete the entire trip, including travel to and from every destination, traffic, rest stops, and possible delays. The destination entered during booking is recorded for documentation and record-keeping purposes only. The ARL booking system does not calculate or estimate travel time or distance based on the selected destination, and an accepted booking does not mean that the chosen schedule is sufficient for the trip. Any time used beyond the agreed return time, including time lost because the schedule was underestimated, is treated as a late return and is charged under Late Return & Penalties.",
+  },
+  {
+    num: "10",
     title: "Security Deposit",
     body: "A security deposit may be required prior to vehicle release. It will be refunded in full upon return of the vehicle in satisfactory condition with no outstanding charges.",
   },
   {
-    num: "10",
+    num: "11",
     title: "Accidents & Incidents",
     body: "In the event of an accident: stop immediately, contact ARL Car Rental, and file a PNP report. Do not admit fault or settle with third parties without prior written consent from ARL Car Rental.",
   },
   {
-    num: "11",
+    num: "12",
     title: "Damages & Repair Liability",
     body: "The renter is responsible for all damages during the rental period — whether caused by accident, negligence, or misuse. Charges include repair costs, replacement costs, and administrative fees.",
   },
   {
-    num: "12",
+    num: "13",
     title: "Fuel Policy",
     body: "Fuel and toll fees are the renter's full responsibility. Vehicles must be returned with the same fuel level. A handling fee applies if returned with less fuel than provided.",
   },
   {
-    num: "13",
+    num: "14",
     title: "Late Return & Penalties",
     highlight: "₱100.00 per hour beyond the agreed return time",
     body: "Failure to return the vehicle within 12 hours without prior communication may result in the unit being treated as unreturned and subject to legal action.",
   },
   {
-    num: "14",
+    num: "15",
     title: "Number Coding Scheme (UVVRP)",
     body: "Enforced 7:00 AM – 7:00 PM on weekdays in Metro Manila:",
     list: [
@@ -91,17 +96,17 @@ const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, full
     ],
   },
   {
-    num: "15",
+    num: "16",
     title: "Vehicle Security & Responsibility",
     body: "The renter assumes full responsibility for the vehicle and its contents during the entire rental period. ARL Car Rental is not liable for any loss of personal belongings left inside the vehicle.",
   },
   {
-    num: "16",
+    num: "17",
     title: "Force Majeure",
     body: "Neither party is liable for failure due to circumstances beyond reasonable control — natural disasters, typhoons, floods, government-imposed restrictions, road closures, or civil unrest.",
   },
   {
-    num: "17",
+    num: "18",
     title: "Governing Law",
     body: "This agreement is governed by the laws of the Republic of the Philippines. Disputes shall be submitted to the proper courts where ARL Car Rental's principal office is located.",
   },

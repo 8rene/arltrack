@@ -267,6 +267,8 @@ const INFO = {
       'Use the vehicle for lawful purposes only. Off-road use is not allowed unless authorized in writing. (T&C: Vehicle Usage)',
       'Fuel and toll fees are the renter\'s full responsibility. (T&C: Fuel Policy)',
       'A destination outside our service area may add an extra fee, shown in your price breakdown. (app)',
+      'Your destination is saved for documentation purposes only. The system cannot calculate or estimate travel time based on the location you pick. (app)',
+      'You are responsible for choosing a pickup time and rental duration long enough to cover the whole trip, including travel, traffic and rest stops. Time beyond the agreed return is charged as a late return. (T&C: Rental Time & Destination Selection)',
     ],
   },
 };
@@ -1583,6 +1585,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       onCoordsChange={setDestinationCoords}
                       placeholder="Search for a destination…"
                     />
+                    <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
+                      Your destination is for documentation purposes only. Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.
+                    </p>
                     {errors.destination && <p className="text-arl-cta text-xs mt-1">{errors.destination}</p>}
 
                     {extraDestinations.map((d, i) => (
@@ -1624,6 +1629,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           : 'Click any available date. End time auto-calculated.'
                         }
                       </p>
+                      <p className="text-[11px] sm:text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                        You are responsible for carefully choosing your pickup time and rental duration so they cover your whole trip. Time beyond the agreed return is charged as a late return. (T&amp;C: Rental Time &amp; Destination Selection)
+                      </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                         {calViews.map((v, i) => renderCalendar(v, i))}
                       </div>
@@ -1638,21 +1646,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <p className="text-xs text-gray-400 mb-3">
                         {startDate ? `Pickup on ${fmt(startDate)}` : 'Select a date above first.'}
                       </p>
-                      <select
+                      <input
+                        type="time"
+                        step="900"
                         value={startTime || ''}
-                        onChange={e => handleStartTimeChange(e.target.value)}
+                        onChange={e => {
+                          // Snap to 15-minute steps (some clock dials ignore `step`)
+                          const v = e.target.value;
+                          if (!v) return handleStartTimeChange('');
+                          const [h, m] = v.split(':').map(Number);
+                          handleStartTimeChange(`${String(h).padStart(2,'0')}:${String(m - (m % 15)).padStart(2,'0')}`);
+                        }}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm text-gray-700 bg-white focus:border-arl-primary focus:outline-none cursor-pointer"
-                      >
-                        <option value="" disabled>Select a time…</option>
-                        {Array.from({length:24},(_,h)=>h).flatMap(h =>
-                          ['00','15','30','45'].map(m => {
-                            const val = `${String(h).padStart(2,'0')}:${m}`;
-                            const ap  = h >= 12 ? 'PM' : 'AM';
-                            const h12 = ((h % 12) || 12);
-                            return <option key={val} value={val}>{`${h12}:${m} ${ap}`}</option>;
-                          })
-                        )}
-                      </select>
+                      />
                       {errors.startTime && <p className="text-arl-cta text-xs mt-2">{errors.startTime}</p>}
 
                       {/* Auto-end banner */}

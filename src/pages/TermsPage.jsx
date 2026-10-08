@@ -57,32 +57,37 @@ const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, full
   },
   {
     num: "09",
+    title: "Rental Time & Destination Selection",
+    body: "The renter is solely responsible for carefully choosing the pickup date, pickup time, and rental duration, and for making sure the selected schedule gives enough time to complete the entire trip, including travel to and from every destination, traffic, rest stops, and possible delays. The destination entered during booking is recorded for documentation and record-keeping purposes only. The ARL booking system does not calculate or estimate travel time or distance based on the selected destination, and an accepted booking does not mean that the chosen schedule is sufficient for the trip. Any time used beyond the agreed return time, including time lost because the schedule was underestimated, is treated as a late return and is charged under Late Return & Penalties.",
+  },
+  {
+    num: "10",
     title: "Security Deposit",
     body: "In addition to the reservation deposit, ARL Car Rental may require a separate security deposit prior to vehicle release. The amount depends on the vehicle type and rental duration. It will be refunded in full upon return of the vehicle in satisfactory condition, free of damage, and with no outstanding charges.",
   },
   {
-    num: "10",
+    num: "11",
     title: "Accidents & Incidents",
     body: "In the event of an accident or road incident during the rental period, the renter must: immediately stop the vehicle and ensure the safety of all parties; contact ARL Car Rental as soon as possible; file a report with the nearest PNP station and obtain a copy; and not admit fault or make settlements with third parties without prior written consent from ARL Car Rental.",
   },
   {
-    num: "11",
+    num: "12",
     title: "Damages & Repair Liability",
     body: "The renter is responsible for any damages that occur during the rental period, whether caused by accident, negligence, or misuse. Charges may apply for major or minor vehicle damages, repair or replacement costs, and administrative fees. ARL Car Rental's assessment of damages shall be final and binding.",
   },
   {
-    num: "12",
+    num: "13",
     title: "Fuel Policy",
     body: "ARL Car Rental operates on an unlimited mileage basis. However, fuel and toll fees are the full responsibility of the renter. Vehicles must be returned with the same fuel level as when released. If returned with less fuel, the renter will be charged for the difference at current pump prices plus an administrative handling fee.",
   },
   {
-    num: "13",
+    num: "14",
     title: "Late Return & Penalties",
     highlight: "₱100.00 per hour beyond the agreed return time",
     body: "Vehicles must be returned on the agreed date and time. If the vehicle is not returned within 12 hours of the agreed return time without prior communication, ARL Car Rental reserves the right to treat the unit as unreturned and pursue appropriate legal action. Extensions must be confirmed in advance.",
   },
   {
-    num: "14",
+    num: "15",
     title: "Number Coding Scheme (Metro Manila – UVVRP)",
     body: "The Number Coding Scheme is strictly enforced in most Metro Manila cities from 7:00 AM to 7:00 PM on weekdays.",
     list: [
@@ -94,17 +99,17 @@ const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, full
     ],
   },
   {
-    num: "15",
+    num: "16",
     title: "Vehicle Security & Renter Responsibility",
     body: "The renter assumes full responsibility for the vehicle and its contents during the entire rental period. ARL Car Rental shall not be held liable for any loss of personal belongings left inside the vehicle. Failure to return the vehicle or intentional damage may result in legal action under applicable Philippine laws.",
   },
   {
-    num: "16",
+    num: "17",
     title: "Force Majeure",
     body: "Neither party shall be held liable for failure or delay in fulfilling obligations due to circumstances beyond reasonable control, including natural disasters, typhoons, floods, government-imposed restrictions, road closures, or civil unrest. Both parties shall communicate promptly to agree on a fair resolution.",
   },
   {
-    num: "17",
+    num: "18",
     title: "Governing Law & Dispute Resolution",
     body: "This agreement shall be governed by and construed in accordance with the laws of the Republic of the Philippines. Any disputes that cannot be resolved amicably shall be submitted to the proper courts of competent jurisdiction in the city or municipality where ARL Car Rental's principal office is located.",
   },
