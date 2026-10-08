@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info, Clock } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
 import { useToast } from '../context/ToastContext';
@@ -182,7 +182,7 @@ const clockPolar = (i, r) => {
 const clockPad = (n) => String(n).padStart(2, '0');
 const clockTo24 = (h12, m, ap) => `${clockPad((h12 % 12) + (ap === 'PM' ? 12 : 0))}:${clockPad(m)}`;
 
-const ClockTimePicker = ({ value, onChange }) => {
+const ClockTimePicker = ({ value, onChange, onMinutePicked }) => {
   const parsed = /^\d{1,2}:\d{2}$/.test(value || '')
     ? (() => { const [h, m] = value.split(':').map(Number); return { h12: (h % 12) || 12, minute: m, ap: h >= 12 ? 'PM' : 'AM' }; })()
     : null;
@@ -198,7 +198,7 @@ const ClockTimePicker = ({ value, onChange }) => {
   const minute = parsed ? parsed.minute : 0;
 
   const pickHour   = (h) => { onChange(clockTo24(h, minute, ap)); setMode('minute'); };
-  const pickMinute = (m) => { if (h12 !== null) onChange(clockTo24(h12, m, ap)); };
+  const pickMinute = (m) => { if (h12 !== null) { onChange(clockTo24(h12, m, ap)); if (onMinutePicked) onMinutePicked(); } };
   const pickAp     = (p) => { setAp(p); if (h12 !== null) onChange(clockTo24(h12, minute, p)); };
 
   let handIndex = null;
@@ -269,6 +269,59 @@ const ClockTimePicker = ({ value, onChange }) => {
         {mode === 'hour' ? 'Tap the hour on the clock, then choose the minutes.' : 'Now choose the minutes. Tap the hour above to change it.'}
       </p>
     </div>
+  );
+};
+
+// ── Time field: looks like the old dropdown; clicking it opens the clock ──
+const ClockTimeField = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm bg-white focus:border-arl-primary focus:outline-none cursor-pointer flex items-center justify-between text-left"
+      >
+        <span className={value ? 'text-gray-700' : 'text-gray-400'}>{value ? fmt12(value) : 'Select a time…'}</span>
+        <Clock size={18} className="text-arl-primary flex-shrink-0" />
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-label="Select pickup time"
+            className="bg-white rounded-3xl shadow-2xl p-5 sm:p-6 w-full max-w-[340px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-xs font-bold tracking-[0.15em] text-arl-secondary uppercase text-center mb-3">Select pickup time</p>
+            <ClockTimePicker value={value} onChange={onChange} onMinutePicked={() => setOpen(false)} />
+            <div className="flex gap-3 mt-4">
+              <button type="button" onClick={() => setOpen(false)}
+                className="flex-1 border border-gray-200 text-gray-500 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+                Close
+              </button>
+              <button type="button" onClick={() => setOpen(false)} disabled={!value}
+                className="flex-1 bg-arl-cta text-white py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition disabled:opacity-40">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -1748,7 +1801,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <p className="text-xs text-gray-400 mb-3">
                         {startDate ? `Pickup on ${fmt(startDate)}` : 'Select a date above first.'}
                       </p>
-                      <ClockTimePicker value={startTime || ''} onChange={handleStartTimeChange} />
+                      <ClockTimeField value={startTime || ''} onChange={handleStartTimeChange} />
                       {errors.startTime && <p className="text-arl-cta text-xs mt-2">{errors.startTime}</p>}
 
                       {/* Auto-end banner */}
