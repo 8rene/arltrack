@@ -170,6 +170,108 @@ const defaultNextDay = (dateStr) => toLocalDateStr(addDays(new Date(dateStr + 'T
 // whatever POST /bookings/quote returns (see the `quote` state + the
 // debounced fetch effect below).
 
+// ── Round clock time picker ─────────────────────────────────────
+// Tap the hour on the clock, then tap the minutes (00/15/30/45).
+// `value` / `onChange` use 24-hour "HH:MM" — same format the old
+// dropdown used, so everything downstream stays unchanged.
+const CLOCK_SIZE = 240, CLOCK_C = 120, CLOCK_LABEL_R = 90, CLOCK_FACE_R = 114, CLOCK_BUBBLE_R = 19;
+const clockPolar = (i, r) => {
+  const a = (i * 30 * Math.PI) / 180;
+  return { x: CLOCK_C + r * Math.sin(a), y: CLOCK_C - r * Math.cos(a) };
+};
+const clockPad = (n) => String(n).padStart(2, '0');
+const clockTo24 = (h12, m, ap) => `${clockPad((h12 % 12) + (ap === 'PM' ? 12 : 0))}:${clockPad(m)}`;
+
+const ClockTimePicker = ({ value, onChange }) => {
+  const parsed = /^\d{1,2}:\d{2}$/.test(value || '')
+    ? (() => { const [h, m] = value.split(':').map(Number); return { h12: (h % 12) || 12, minute: m, ap: h >= 12 ? 'PM' : 'AM' }; })()
+    : null;
+  const [mode, setMode] = useState('hour');
+  const [ap, setAp] = useState(parsed ? parsed.ap : 'AM');
+
+  useEffect(() => {
+    if (parsed) setAp(parsed.ap); else setMode('hour');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const h12 = parsed ? parsed.h12 : null;
+  const minute = parsed ? parsed.minute : 0;
+
+  const pickHour   = (h) => { onChange(clockTo24(h, minute, ap)); setMode('minute'); };
+  const pickMinute = (m) => { if (h12 !== null) onChange(clockTo24(h12, m, ap)); };
+  const pickAp     = (p) => { setAp(p); if (h12 !== null) onChange(clockTo24(h12, minute, p)); };
+
+  let handIndex = null;
+  if (mode === 'hour' && h12 !== null) handIndex = h12 % 12;
+  if (mode === 'minute' && parsed) handIndex = minute / 5;
+  const handEnd = handIndex !== null ? clockPolar(handIndex, CLOCK_LABEL_R - CLOCK_BUBBLE_R) : null;
+
+  const seg = 'px-2 py-1 rounded-lg text-3xl sm:text-4xl font-black leading-none transition';
+  const renderMark = (key, idx, label, selected, onClick) => {
+    const { x, y } = clockPolar(idx, CLOCK_LABEL_R);
+    return (
+      <g key={key} onClick={onClick} style={{ cursor: 'pointer' }}>
+        <circle cx={x} cy={y} r={CLOCK_BUBBLE_R} fill={selected ? '#1a5f7a' : 'transparent'} />
+        <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="700"
+          fill={selected ? '#ffffff' : '#374151'} style={{ pointerEvents: 'none' }}>{label}</text>
+      </g>
+    );
+  };
+
+  return (
+    <div className="mx-auto w-full max-w-[280px] select-none">
+      <div className="flex items-center justify-center gap-3 mb-3">
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => setMode('hour')} aria-label="Choose hour"
+            className={`${seg} ${mode === 'hour' ? 'bg-arl-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+            {h12 !== null ? h12 : '--'}
+          </button>
+          <span className="text-3xl sm:text-4xl font-black text-gray-400 leading-none">:</span>
+          <button type="button" onClick={() => h12 !== null && setMode('minute')} aria-label="Choose minutes"
+            className={`${seg} ${mode === 'minute' ? 'bg-arl-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+            {parsed ? clockPad(minute) : '--'}
+          </button>
+        </div>
+        <div className="flex flex-col gap-1">
+          {['AM', 'PM'].map((p) => (
+            <button key={p} type="button" onClick={() => pickAp(p)} aria-pressed={ap === p}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${ap === p ? 'bg-arl-cta text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <svg viewBox={`0 0 ${CLOCK_SIZE} ${CLOCK_SIZE}`} className="w-full h-auto" role="group"
+        aria-label={mode === 'hour' ? 'Select hour' : 'Select minutes'}>
+        <circle cx={CLOCK_C} cy={CLOCK_C} r={CLOCK_FACE_R} fill="#f3f4f6" stroke="#e5e7eb" strokeWidth="2" />
+        {handEnd && <line x1={CLOCK_C} y1={CLOCK_C} x2={handEnd.x} y2={handEnd.y} stroke="#1a5f7a" strokeWidth="2.5" strokeLinecap="round" />}
+        <circle cx={CLOCK_C} cy={CLOCK_C} r="4" fill={handEnd ? '#1a5f7a' : '#9ca3af'} />
+
+        {mode === 'hour' && Array.from({ length: 12 }, (_, i) => {
+          const hour = i === 0 ? 12 : i;
+          return renderMark(hour, i, hour, h12 === hour, () => pickHour(hour));
+        })}
+
+        {mode === 'minute' && (
+          <>
+            {Array.from({ length: 12 }, (_, i) => {
+              if (i % 3 === 0) return null;
+              const { x, y } = clockPolar(i, CLOCK_LABEL_R);
+              return <circle key={`t${i}`} cx={x} cy={y} r="2.5" fill="#d1d5db" />;
+            })}
+            {[0, 15, 30, 45].map((m) => renderMark(m, m / 5, clockPad(m), !!parsed && minute === m, () => pickMinute(m)))}
+          </>
+        )}
+      </svg>
+
+      <p className="text-[11px] text-gray-400 text-center mt-2">
+        {mode === 'hour' ? 'Tap the hour on the clock, then choose the minutes.' : 'Now choose the minutes. Tap the hour above to change it.'}
+      </p>
+    </div>
+  );
+};
+
 // ── Skeleton card ──────────────────────────────────────────────
 const SkeletonCard = () => (
   <div className="rounded-2xl bg-white border border-gray-100 shadow-md overflow-hidden animate-pulse">
@@ -1646,19 +1748,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <p className="text-xs text-gray-400 mb-3">
                         {startDate ? `Pickup on ${fmt(startDate)}` : 'Select a date above first.'}
                       </p>
-                      <input
-                        type="time"
-                        step="900"
-                        value={startTime || ''}
-                        onChange={e => {
-                          // Snap to 15-minute steps (some clock dials ignore `step`)
-                          const v = e.target.value;
-                          if (!v) return handleStartTimeChange('');
-                          const [h, m] = v.split(':').map(Number);
-                          handleStartTimeChange(`${String(h).padStart(2,'0')}:${String(m - (m % 15)).padStart(2,'0')}`);
-                        }}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm text-gray-700 bg-white focus:border-arl-primary focus:outline-none cursor-pointer"
-                      />
+                      <ClockTimePicker value={startTime || ''} onChange={handleStartTimeChange} />
                       {errors.startTime && <p className="text-arl-cta text-xs mt-2">{errors.startTime}</p>}
 
                       {/* Auto-end banner */}
