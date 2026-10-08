@@ -117,7 +117,13 @@ function App() {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) {
-          localStorage.removeItem("arl_token");
+          // Only drop the token when the server says it's genuinely invalid
+          // (bad/expired token, locked account, user gone). A 5xx / 429 is a
+          // temporary hiccup — wiping the token there silently logged people
+          // out and left forms like Booking step 3 with no account data.
+          if (res.status === 401 || res.status === 403 || res.status === 404) {
+            localStorage.removeItem("arl_token");
+          }
           return;
         }
         const details = await res.json();

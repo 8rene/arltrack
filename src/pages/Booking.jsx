@@ -510,6 +510,58 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [contact,           setContact]            = useState(userDetails?.phone || user?.phone || "");
   const [email,             setEmail]              = useState(userDetails?.email || user?.email || "");
   const [specialNotes,      setSpecialNotes]       = useState(initValNoDraft('specialNotes'));
+
+  // ── Keep the (read-only) account fields in sync with the account ──
+  // These four fields are seeded from useState() only ONCE, on first render.
+  // If userDetails/user arrive AFTER that (page refresh on /booking, slow
+  // network, logging in mid-booking, or the profile being edited elsewhere)
+  // the form stayed blank forever — and since the inputs are read-only for
+  // logged-in users, the customer was stuck. So re-sync whenever the account
+  // data changes. Guests (user === null) type their own values; leave those.
+  useEffect(() => {
+    if (!user) return;
+    setFirstName(userDetails?.firstName || '');
+    setLastName(userDetails?.lastName   || '');
+    setContact(userDetails?.phone || user?.phone || '');
+    setEmail(userDetails?.email   || user?.email || '');
+    // Clear any stale "Required / No email saved" errors for these fields;
+    // they get re-validated on the next click of "Next".
+    setErrors(prev => {
+      if (!prev.firstName && !prev.lastName && !prev.contact && !prev.email) return prev;
+      const { firstName: _f, lastName: _l, contact: _c, email: _e, ...rest } = prev;
+      return rest;
+    });
+  }, [user, userDetails]);
+
+  // ── Re-fetch the account when the customer reaches the Details step ──
+  // App.jsx only loads userDetails at login/refresh, so if the customer fixed
+  // their profile in the meantime (another tab, or Profile page via in-app
+  // navigation) the app-level copy is stale and this step would still say
+  // "Not set". Pull a fresh copy whenever step 3 opens.
+  useEffect(() => {
+    if (currentStep !== 3 || !user?.userID) return;
+    const token = localStorage.getItem('arl_token');
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/user/details/${user.userID}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) return;
+        const fresh = await res.json();
+        if (cancelled || !onUserDetailsUpdate) return;
+        const changed = ['firstName', 'lastName', 'phone', 'email']
+          .some(k => (fresh?.[k] || '') !== (userDetails?.[k] || ''));
+        if (changed) onUserDetailsUpdate(fresh);
+      } catch (err) {
+        console.error('Could not refresh account details:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, user?.userID]);
   const [paymentAmount,     setPaymentAmount]      = useState('partial');
   const [paymentMethod,     setPaymentMethod]      = useState('gcash');
   const [gcashReference,    setGcashReference]     = useState('');
@@ -1265,7 +1317,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setDropoffLocation(''); setDestination(''); setDriveType('chauffeur');
     setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]);
     preLockPickup.current = { location: '', coords: null };
-    setFirstName(''); setLastName(''); setContact(''); setEmail('');
+    // Logged-in customers can't retype these (read-only), so restore them from
+    // the account instead of blanking them. Guests start empty.
+    setFirstName(user ? (userDetails?.firstName || '') : '');
+    setLastName(user  ? (userDetails?.lastName  || '') : '');
+    setContact(user   ? (userDetails?.phone || user?.phone || '') : '');
+    setEmail(user     ? (userDetails?.email || user?.email || '') : '');
     setSpecialNotes(''); setPaymentAmount('partial'); setPaymentMethod('gcash');
     setGcashReference(''); setPaymentScreenshot(null); setScreenshotPreview(''); setErrors({});
   };
