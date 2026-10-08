@@ -129,11 +129,6 @@ const META_BY_TYPE = {
     badge: { text: "Penalty", className: "bg-red-50 text-red-700" },
     action: "View Breakdown",
   },
-  penalty_paid: {
-    bg: "bg-emerald-100", title: "Penalty Payment Received",
-    badge: { text: "Paid", className: "bg-emerald-50 text-emerald-700" },
-    action: "View Details",
-  },
   PenaltyWaived: {
     bg: "bg-emerald-100", title: "Penalty Waived",
     badge: { text: "Waived", className: "bg-emerald-50 text-emerald-700" },
@@ -176,7 +171,17 @@ function NotifRow({ n, onAction, onDelete }) {
           </span>
         </div>
         <p className="text-xs text-gray-500 mt-1 leading-relaxed">{n.message}</p>
-        <p className="text-xs text-gray-400 mt-2">{timeAgo(n.createdAt)}</p>
+        <div className="flex items-center justify-between gap-2 mt-2">
+          <p className="text-xs text-gray-400">{timeAgo(n.createdAt)}</p>
+          {clickable && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(n); }}
+              className="text-xs font-bold text-arl-primary hover:underline shrink-0"
+            >
+              {meta.action} →
+            </button>
+          )}
+        </div>
       </div>
 
       <button
