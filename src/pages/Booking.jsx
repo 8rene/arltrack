@@ -325,6 +325,97 @@ const ClockTimeField = ({ value, onChange }) => {
   );
 };
 
+// ── Trip step, split into focused parts ─────────────────────────
+// Only one part is visible at a time. Each part opens with a short
+// description and the Terms & Conditions that apply to it, so the
+// customer reads the rules right where they make the choice.
+const TRIP_PARTS = [
+  {
+    key: 'service', label: 'Service',
+    title: 'What is your trip for?',
+    description: 'Pick the purpose of your rental. If it is not listed, choose Others and describe it.',
+    terms: [
+      { section: 'Rental Inquiries and Approval', text: 'ARL checks your dates, vehicle, rental duration and whether the rental is self-drive or with a driver before approving the booking.' },
+      { section: 'Vehicle Usage', text: 'The vehicle may only be used for lawful purposes within the rental period. Not allowed: subletting or transferring it, illegal transport, off-road use (unless authorized in writing), smoking inside, and hazardous or prohibited materials.' },
+    ],
+  },
+  {
+    key: 'duration', label: 'Duration',
+    title: 'How long do you need the car?',
+    description: '12 Hours: your return time is set automatically 12 hours after pickup. 22 Hours: you choose your pickup and return dates.',
+    terms: [
+      { section: 'Rental Time & Destination Selection', highlight: true, text: 'You are responsible for choosing a duration long enough to cover your whole trip, including travel, traffic and rest stops.' },
+      { section: 'Late Return & Penalties', text: 'Time used beyond the agreed return time is charged per hour as a late return.' },
+    ],
+  },
+  {
+    key: 'pickup', label: 'Pickup',
+    title: 'Where will you get the car?',
+    description: 'Choose where we hand over the vehicle. Drop-off is always the same as your pickup location.',
+    terms: [
+      { section: 'Vehicle Pickup & Customer Identification', text: 'A valid government-issued ID must be presented on the pickup date. Without a valid ID the booking may be cancelled without refund of the deposit.' },
+      { section: 'Booking Guidelines: Pickup & Vehicle Release', text: 'Our team verifies your booking, inspects the vehicle with you, and releases it only after full payment is confirmed. Existing damage is documented first.' },
+    ],
+  },
+  {
+    key: 'destination', label: 'Destination',
+    title: 'Where are you going?',
+    description: 'Your destination is saved for documentation purposes only. Our system cannot calculate or estimate travel time from the location you select. A destination outside our service area may add an extra fee, shown in your price breakdown.',
+    terms: [
+      { section: 'Rental Time & Destination Selection', highlight: true, text: 'The destination is recorded for documentation only. An accepted booking does not mean your schedule is enough for the trip. Choosing enough time is your responsibility.' },
+      { section: 'Number Coding Scheme', text: 'Metro Manila number coding is enforced on weekdays from 7:00 AM to 7:00 PM. If your vehicle\'s plate is restricted on your trip dates, you will be asked to pick another date or vehicle.' },
+      { section: 'Fuel Policy', text: 'Fuel and toll fees are the renter\'s full responsibility, and the vehicle must be returned with the same fuel level.' },
+    ],
+  },
+  {
+    key: 'schedule', label: 'Date & Time',
+    title: 'When do you need it?',
+    description: 'Pick your pickup date and time. Your return date and time are calculated from the duration you chose.',
+    terms: [
+      { section: 'Rental Time & Destination Selection', highlight: true, text: 'Choose your pickup time carefully. You are responsible for making sure your schedule covers the entire trip, because the system does not estimate travel time from your destination.' },
+      { section: 'Late Return & Penalties', text: 'Late returns are charged per hour beyond the agreed return time.' },
+      { section: 'Cancellation & Refund Policy', text: 'Rescheduling is allowed with at least 24 hours\' notice, subject to vehicle availability.' },
+    ],
+  },
+  {
+    key: 'drive', label: 'Driver',
+    title: 'Who will drive?',
+    description: 'Choose a chauffeur-driven rental or self-drive. Tap the ? beside each option for details.',
+    terms: [
+      { section: 'Driver Requirements (Self-Drive)', text: 'Minimum age 21, a valid Philippine driver\'s license, and a valid government-issued ID. Only the registered renter may drive; unauthorized drivers are strictly prohibited.' },
+      { section: 'Fuel Policy', text: 'For both options, fuel and toll fees are the renter\'s full responsibility. If a Driver\'s Fee applies, it shows as its own line in your price breakdown.' },
+    ],
+  },
+];
+
+const TripPartIntro = ({ part, index, total }) => (
+  <div className="mb-5">
+    {/* Part progress */}
+    <div className="flex items-center gap-1.5 mb-3" aria-label={`Trip details, part ${index + 1} of ${total}`}>
+      {Array.from({ length: total }, (_, i) => (
+        <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= index ? 'bg-arl-primary' : 'bg-gray-200'}`} />
+      ))}
+    </div>
+    <p className="text-[11px] sm:text-xs font-bold tracking-wide uppercase text-arl-secondary mb-1">
+      Trip details · Part {index + 1} of {total} · {part.label}
+    </p>
+    <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">{part.title}</h3>
+    <p className="text-sm sm:text-base text-gray-600 mb-4">{part.description}</p>
+
+    {/* Terms & Conditions that apply to this part */}
+    <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 sm:px-4 py-3">
+      <p className="text-[11px] sm:text-xs font-bold text-arl-primary uppercase tracking-wide mb-2">Terms &amp; Conditions for this step</p>
+      <ul className="space-y-2">
+        {part.terms.map((t) => (
+          <li key={t.section} className={`text-xs sm:text-sm text-gray-700 leading-relaxed ${t.highlight ? 'bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2' : ''}`}>
+            <span className="font-bold text-arl-primary">{t.section}.</span> {t.text}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+);
+
 // ── Skeleton card ──────────────────────────────────────────────
 const SkeletonCard = () => (
   <div className="rounded-2xl bg-white border border-gray-100 shadow-md overflow-hidden animate-pulse">
@@ -580,6 +671,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const inboundStartDateIsPast = !!inboundStartDate && inboundStartDate < todayStrInit;
 
   const [currentStep,       setCurrentStep]       = useState(1);
+  const [tripPart,          setTripPart]          = useState(1); // 1..TRIP_PARTS.length — which part of the Trip step is shown
   const [serviceType,       setServiceType]        = useState('');
   // FK into the serviceType collection, sent alongside the label so admin
   // can resolve/display it (see admin-backend's resolveServiceType()).
@@ -1163,7 +1255,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   const canProceed = () => {
     if (currentStep === 1) return !!selectedCar;
-    if (currentStep === 2) return !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && dropoffLocation && destination && !codingError && !maxDaysError);
+    if (currentStep === 2) {
+      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && dropoffLocation && destination && !codingError && !maxDaysError);
+      if (tripPart === 1) return !!serviceType && !(serviceType === 'Others' && !otherServiceNote.trim());
+      if (tripPart === 2) return !!duration;
+      if (tripPart === 3) return !!(pickupLocation && dropoffLocation);
+      if (tripPart === 4) return !!destination;
+      if (tripPart === 5) return !!(startDate && startTime && endDate && endTime && !codingError && !maxDaysError);
+      return allOk; // last part: everything must be complete
+    }
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
     if (currentStep === 4) {
       if (isPaymongoMethod(paymentMethod)) return true;
@@ -1181,15 +1281,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (currentStep === 1) {
       if (!selectedCar) missing.push('a vehicle');
     } else if (currentStep === 2) {
-      if (!serviceType)            missing.push('a service type');
-      if (!duration)                missing.push('a duration');
-      if (!startDate || !startTime) missing.push('a pickup date & time');
-      if (!endDate || !endTime)     missing.push('an end date & time');
-      if (!pickupLocation)          missing.push('a pickup location');
-      if (!dropoffLocation)         missing.push('a drop-off location');
-      if (!destination)             missing.push('a destination');
-      if (codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
-      if (maxDaysError)             missing.push('a shorter rental period (under 10 days)');
+      const last = tripPart === TRIP_PARTS.length;
+      if ((last || tripPart === 1) && !serviceType)            missing.push('a service type');
+      if ((last || tripPart === 1) && serviceType === 'Others' && !otherServiceNote.trim()) missing.push('a description of the service');
+      if ((last || tripPart === 2) && !duration)                missing.push('a duration');
+      if ((last || tripPart === 5) && (!startDate || !startTime)) missing.push('a pickup date & time');
+      if ((last || tripPart === 5) && (!endDate || !endTime))     missing.push('an end date & time');
+      if ((last || tripPart === 3) && !pickupLocation)          missing.push('a pickup location');
+      if ((last || tripPart === 3) && !dropoffLocation)         missing.push('a drop-off location');
+      if ((last || tripPart === 4) && !destination)             missing.push('a destination');
+      if (tripPart >= 5 && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
+      if (tripPart >= 5 && maxDaysError)             missing.push('a shorter rental period (under 10 days)');
     } else if (currentStep === 3) {
       if (!firstName) missing.push('your first name');
       if (!lastName)  missing.push('your last name');
@@ -1215,17 +1317,20 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     const e = {};
     if (currentStep === 1 && !selectedCar)  e.vehicle = 'Please select a vehicle.';
     if (currentStep === 2) {
-      if (!serviceType)     e.serviceType     = 'Choose a service.';
-      if (serviceType === 'Others' && !otherServiceNote.trim()) e.serviceType = 'Please describe the service.';
-      if (!duration)        e.duration        = 'Choose a duration.';
-      if (!startDate)       e.startDate       = 'Select a start date.';
-      if (!startTime)       e.startTime       = 'Set a pickup time.';
-      if (!endDate || !endTime) e.endDate     = 'End date/time is required.';
-      if (!pickupLocation)  e.pickupLocation  = 'Enter a pickup location.';
-      if (!dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
-      if (!destination)     e.destination     = 'Please enter a destination.';
-      if (codingError)      e.coding          = codingError;
-      if (maxDaysError)     e.maxDays         = maxDaysError;
+      // Only the part currently on screen is validated (the last part
+      // re-checks everything, as a safety net before leaving the step).
+      const last = tripPart === TRIP_PARTS.length;
+      if ((last || tripPart === 1) && !serviceType)     e.serviceType     = 'Choose a service.';
+      if ((last || tripPart === 1) && serviceType === 'Others' && !otherServiceNote.trim()) e.serviceType = 'Please describe the service.';
+      if ((last || tripPart === 2) && !duration)        e.duration        = 'Choose a duration.';
+      if ((last || tripPart === 5) && !startDate)       e.startDate       = 'Select a start date.';
+      if ((last || tripPart === 5) && !startTime)       e.startTime       = 'Set a pickup time.';
+      if ((last || tripPart === 5) && (!endDate || !endTime)) e.endDate     = 'End date/time is required.';
+      if ((last || tripPart === 3) && !pickupLocation)  e.pickupLocation  = 'Enter a pickup location.';
+      if ((last || tripPart === 3) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
+      if ((last || tripPart === 4) && !destination)     e.destination     = 'Please enter a destination.';
+      if (tripPart >= 5 && codingError)      e.coding          = codingError;
+      if (tripPart >= 5 && maxDaysError)     e.maxDays         = maxDaysError;
     }
     if (currentStep === 3) {
       if (!firstName) e.firstName = 'Required.';
@@ -1338,6 +1443,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       return;
     }
 
+    // ── Trip step is split into parts — advance within it first ──
+    if (currentStep === 2 && tripPart < TRIP_PARTS.length) {
+      setTripPart(tripPart + 1);
+      setTimeout(() => stepTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+      return;
+    }
+
 
     // ── Coding rule check when leaving Step 2 ────────────────
     if (currentStep === 2) {
@@ -1352,6 +1464,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
 
     if (currentStep < 5) {
+      if (currentStep === 1) setTripPart(1); // always start the Trip step from its first part
       setCurrentStep(currentStep + 1);
       return;
     }
@@ -1464,11 +1577,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       setLoading(false);
     }
   };
-  const handleBack = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
+  const handleBack = () => {
+    if (currentStep === 2 && tripPart > 1) {
+      setTripPart(tripPart - 1);
+      setTimeout(() => stepTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+      return;
+    }
+    if (currentStep === 3) setTripPart(TRIP_PARTS.length); // coming back lands on the last Trip part
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
 
   const resetBooking = () => {
     clearDraft();
-    setShowConfirmModal(false); setCurrentStep(1); setSelectedCar(null);
+    setShowConfirmModal(false); setCurrentStep(1); setTripPart(1); setSelectedCar(null);
     setServiceType(''); setOtherServiceNote(''); setDuration(''); setStartDate(''); setStartTime('');
     setEndDate(''); setEndTime(''); setPickupLocation(''); setPickupInStore(false);
     setDropoffLocation(''); setDestination(''); setDriveType('chauffeur');
@@ -1577,7 +1698,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               {currentStep === 2 && (
                 <div>
                   {/* Selected car banner */}
-                  {selectedCar && (
+                  {tripPart === 1 && selectedCar && (
                     <div className="flex items-center gap-4 bg-arl-primary/5 border border-arl-primary/20 rounded-xl p-4 mb-6">
                       {selectedCar.imageURL
                         ? <img src={selectedCar.imageURL} alt={selectedCar.name} className="w-20 h-14 object-cover rounded-lg" onError={e => e.target.style.display='none'} />
@@ -1590,11 +1711,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                   )}
 
-                  <h3 className="text-2xl font-bold text-arl-dark mb-2">Trip Details</h3>
-                  <p className="text-gray-600 mb-6">Choose your service, duration, and dates.</p>
+                  <TripPartIntro part={TRIP_PARTS[tripPart - 1]} index={tripPart - 1} total={TRIP_PARTS.length} />
 
                   {/* Draft restored notice */}
-                  {(duration || startDate || startTime || destination) && (
+                  {tripPart === 1 && (duration || startDate || startTime || destination) && (
                     <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 text-sm">
                       <span className="text-lg">💾</span>
                       <span className="text-green-700 font-medium">Your previous selections were restored. You can change them below.</span>
@@ -1606,6 +1726,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                   )}
 
+                  {tripPart === 1 && (<>
                   {/* Service type — from Firestore */}
                   <div className="mb-6">
                     <div className="flex items-center gap-2 mb-3">
@@ -1654,6 +1775,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     {errors.serviceType && <p className="text-arl-cta text-xs mt-2">{errors.serviceType}</p>}
                   </div>
 
+                  </>)}
+
+                  {tripPart === 2 && (<>
                   {/* Duration — from car's pricing */}
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-arl-dark mb-3">Duration per Day</label>
@@ -1678,7 +1802,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     {errors.duration && <p className="text-arl-cta text-xs mt-2">{errors.duration}</p>}
                   </div>
 
-                  {/* ── LOCATIONS — always visible ── */}
+                  </>)}
+
+                  {/* ── LOCATIONS ── */}
+                  {tripPart === 3 && (
                   <div className="space-y-4 mb-6">
                     {storeInfo.configured && (
                       <div className="flex items-center gap-2">
@@ -1731,6 +1858,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                     {errors.dropoffLocation && <p className="text-arl-cta text-xs mt-1">{errors.dropoffLocation}</p>}
 
+                  </div>
+                  )}
+
+                  {tripPart === 4 && (
+                  <div className="space-y-4 mb-6">
                     <LocationInput
                       label="Destination"
                       labelAddon={<InfoButton open={openInfo === 'destination'} onClick={() => toggleInfo('destination')} label="About your destination" />}
@@ -1769,7 +1901,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       + Add another destination
                     </button>
                   </div>
+                  )}
 
+                  {tripPart === 5 && (<>
                   {/* ── CALENDAR ── */}
                   {duration && (
                     <div className="mb-6">
@@ -1783,9 +1917,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             : 'Left calendar picks your start date, right calendar picks your end date.'
                           : 'Click any available date. End time auto-calculated.'
                         }
-                      </p>
-                      <p className="text-[11px] sm:text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-                        You are responsible for carefully choosing your pickup time and rental duration so they cover your whole trip. Time beyond the agreed return is charged as a late return. (T&amp;C: Rental Time &amp; Destination Selection)
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                         {calViews.map((v, i) => renderCalendar(v, i))}
@@ -1830,6 +1961,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                   )}
 
+                  </>)}
+
+                  {tripPart === 6 && (<>
                   {/* Drive type — each option has its own "?" with the T&C details */}
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                     {['chauffeur','self-drive'].map(type => (
@@ -1847,6 +1981,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </div>
                   {(openInfo === 'chauffeur' || openInfo === 'self-drive') && <InfoPanel {...INFO[openInfo]} />}
 
+                  </>)}
+
+                  {tripPart >= 5 && (<>
                   {/* ── Max rental length error ── */}
                   {maxDaysError && (
                     <div className="mt-6 flex gap-3 items-start bg-red-50 border-2 border-red-300 rounded-2xl p-4">
@@ -1869,6 +2006,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       </div>
                     </div>
                   )}
+                  </>)}
                 </div>
               )}
 
