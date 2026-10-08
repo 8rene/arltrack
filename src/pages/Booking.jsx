@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, CheckCircle, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
 import { useToast } from '../context/ToastContext';
@@ -226,13 +226,101 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
   );
 };
 
+// ── Info "?" buttons + panels ─────────────────────────────────
+// What each panel says comes from the Terms & Conditions and Booking
+// Guidelines pages (the section is noted in the comment on each line) —
+// keep these in sync by hand if those pages change. Lines marked "app"
+// describe what this booking page itself does (fee lines in the price
+// breakdown) rather than a T&C clause.
+const INFO = {
+  service: {
+    title: 'About service types',
+    items: [
+      'Pick what your trip is for. If it is not listed, choose Others and describe it.',
+      'ARL checks your dates, vehicle, rental duration and whether the rental is self-drive or with a driver before approving the booking. (T&C: Rental Inquiries and Approval)',
+      'The vehicle may only be used for lawful purposes within the rental period. Not allowed: subletting or transferring it, illegal transport, off-road use (unless authorized in writing), smoking inside, and hazardous or prohibited materials. (T&C: Vehicle Usage)',
+    ],
+  },
+  chauffeur: {
+    title: 'With Chauffeur',
+    items: [
+      'ARL provides a professional driver for your trip. (Booking Guidelines: Service Types)',
+      'ARL checks that your booking is self-drive or with a driver before approving it. (T&C: Rental Inquiries and Approval)',
+      "If a Driver's Fee applies, it shows as its own line in your price breakdown. (app)",
+      'Fuel and toll fees are the renter\'s full responsibility, and the vehicle must be returned with the same fuel level. (T&C: Fuel Policy)',
+    ],
+  },
+  'self-drive': {
+    title: 'Self-Drive requirements',
+    items: [
+      'Minimum age: 21 years old.',
+      "A valid Philippine driver's license.",
+      'A valid government-issued ID, presented on the pickup date.',
+      'Only the registered renter may drive. Unauthorized drivers are strictly prohibited.',
+      'If a requirement is not met at pickup, the booking may be cancelled without refund of the deposit. (Booking Guidelines: Self-Drive Requirements)',
+    ],
+  },
+  destination: {
+    title: 'About your destination',
+    items: [
+      'Metro Manila number coding is enforced on weekdays from 7:00 AM to 7:00 PM. If your vehicle\'s plate is restricted on your trip dates, you will be asked to pick another date or vehicle. (T&C: Number Coding Scheme)',
+      'Use the vehicle for lawful purposes only. Off-road use is not allowed unless authorized in writing. (T&C: Vehicle Usage)',
+      'Fuel and toll fees are the renter\'s full responsibility. (T&C: Fuel Policy)',
+      'A destination outside our service area may add an extra fee, shown in your price breakdown. (app)',
+    ],
+  },
+};
+
+const pickupInfo = (storeConfigured) => ({
+  title: 'About pickup & drop-off',
+  items: [
+    ...(storeConfigured ? ['Tick "Pick up in-store" to use our store as your pickup point.'] : []),
+    'Drop-off is always the same as your pickup location.',
+    'Present a valid government-issued ID on the pickup date. Without valid ID the booking may be cancelled without refund of the deposit. (T&C: Vehicle Pickup & Customer Identification)',
+    'Our team verifies your booking, inspects the vehicle with you, and releases it only after full payment is confirmed. Existing damage is documented first. (Booking Guidelines: Pickup & Vehicle Release)',
+    'Return the vehicle on the agreed date and time. Late returns are charged per hour. (T&C: Late Return & Penalties)',
+  ],
+});
+
+const InfoButton = ({ open, onClick, label, text }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    aria-expanded={!!open}
+    className={`inline-flex items-center gap-1 rounded-full text-[11px] font-semibold transition ${text ? 'px-2 py-0.5' : 'p-0.5'} ${open ? 'bg-arl-primary text-white' : 'text-arl-primary hover:bg-arl-light'}`}
+  >
+    <Info size={15} />
+    {text}
+  </button>
+);
+
+const InfoPanel = ({ title, items }) => (
+  <div className="mt-2 mb-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-gray-700">
+    <p className="font-bold text-arl-primary mb-1.5">{title}</p>
+    <ul className="space-y-1 list-disc pl-4">
+      {items.map((it, idx) => <li key={idx}>{it}</li>)}
+    </ul>
+    <p className="mt-2 text-[11px] text-gray-500">
+      Full details: <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-arl-primary">Terms &amp; Conditions</a>
+      {' '}·{' '}
+      <a href="/booking-guidelines" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-arl-primary">Booking Guidelines</a>
+    </p>
+  </div>
+);
+
+
 // ── Location input with map button ────────────────────────────
-const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null }) => {
+const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   return (
     <div>
-      <label className="block text-xs text-gray-600 mb-1 font-medium">{label}</label>
+      <div className="flex items-center gap-1.5 mb-1">
+        <label className="block text-xs text-gray-600 font-medium">{label}</label>
+        {labelAddon}
+      </div>
+      {infoPanel}
       <div className="flex gap-2">
         <input
           type="text"
@@ -410,6 +498,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     setExtraDestinations(prev => prev.filter(d => d.id !== id));
   };
   const [driveType,         setDriveType]          = useState(initValNoDraft('driveType', 'chauffeur'));
+  // Which "?" info panel is open on the Trip step (only one at a time).
+  const [openInfo, setOpenInfo] = useState(null);
+  const toggleInfo = (key) => setOpenInfo((cur) => (cur === key ? null : key));
   const [firstName,         setFirstName]          = useState(() => {
     return userDetails?.firstName || "";
   });
@@ -424,19 +515,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [gcashReference,    setGcashReference]     = useState('');
   const [paymentScreenshot, setPaymentScreenshot]  = useState(null);
   const [screenshotPreview, setScreenshotPreview]  = useState('');
-
-  // ── Keep account-derived fields in sync with the logged-in user ──
-  // These are seeded by useState only on first render. App.jsx loads
-  // userDetails asynchronously (session restore / login), so on a fresh load
-  // the form mounted with empty values and never picked them up — leaving the
-  // read-only fields blank and the Next button permanently disabled.
-  useEffect(() => {
-    if (!user) return;
-    setFirstName(userDetails?.firstName || "");
-    setLastName(userDetails?.lastName || "");
-    setContact(userDetails?.phone || user?.phone || "");
-    setEmail(userDetails?.email || user?.email || "");
-  }, [user, userDetails]);
 
   const [codingError,      setCodingError]      = useState("");
   const [codingChecking,   setCodingChecking]   = useState(false);
@@ -1316,7 +1394,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                   {/* Service type — from Firestore */}
                   <div className="mb-6">
-                    <label className="block text-sm font-semibold text-arl-dark mb-3">Service Type</label>
+                    <div className="flex items-center gap-2 mb-3">
+                      <label className="block text-sm font-semibold text-arl-dark">Service Type</label>
+                      <InfoButton open={openInfo === 'service'} onClick={() => toggleInfo('service')} label="About service types" />
+                    </div>
+                    {openInfo === 'service' && <InfoPanel {...INFO.service} />}
                     {serviceTypesLoading
                       ? <div className="text-sm text-gray-400 animate-pulse">Loading services…</div>
                       : (
@@ -1401,6 +1483,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                     <LocationInput
                       label="Pickup Location"
+                      labelAddon={<InfoButton open={openInfo === 'pickup'} onClick={() => toggleInfo('pickup')} label="About pickup and drop-off" />}
+                      infoPanel={openInfo === 'pickup' && <InfoPanel {...pickupInfo(storeInfo.configured)} />}
                       value={pickupLocation}
                       onValueChange={setPickupLocation}
                       onCoordsChange={setPickupCoords}
@@ -1435,6 +1519,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                     <LocationInput
                       label="Destination"
+                      labelAddon={<InfoButton open={openInfo === 'destination'} onClick={() => toggleInfo('destination')} label="About your destination" />}
+                      infoPanel={openInfo === 'destination' && <InfoPanel {...INFO.destination} />}
                       value={destination}
                       onValueChange={(v) => { setDestination(v); setCodingError(''); }}
                       onCoordsChange={setDestinationCoords}
@@ -1538,18 +1624,22 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                   )}
 
-                  {/* Drive type */}
-                  <div className="flex items-center gap-6">
+                  {/* Drive type — each option has its own "?" with the T&C details */}
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                     {['chauffeur','self-drive'].map(type => (
-                      <label key={type} className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="driveType" value={type}
-                          checked={driveType === type}
-                          onChange={e => setDriveType(e.target.value)}
-                          className="w-4 h-4 text-arl-cta accent-arl-primary" />
-                        <span className="text-sm font-medium">{type === 'chauffeur' ? 'With Chauffeur' : 'Self-Drive'}</span>
-                      </label>
+                      <div key={type} className="flex items-center gap-1.5">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" name="driveType" value={type}
+                            checked={driveType === type}
+                            onChange={e => setDriveType(e.target.value)}
+                            className="w-4 h-4 text-arl-cta accent-arl-primary" />
+                          <span className="text-sm font-medium">{type === 'chauffeur' ? 'With Chauffeur' : 'Self-Drive'}</span>
+                        </label>
+                        <InfoButton open={openInfo === type} onClick={() => toggleInfo(type)} label={type === 'chauffeur' ? 'About the chauffeur service' : 'About self-drive requirements'} />
+                      </div>
                     ))}
                   </div>
+                  {(openInfo === 'chauffeur' || openInfo === 'self-drive') && <InfoPanel {...INFO[openInfo]} />}
 
                   {/* ── Max rental length error ── */}
                   {maxDaysError && (
@@ -1891,6 +1981,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 </div>
               )}
 
+              {/* Step 5 — consent notice. There is no separate checkbox: pressing Confirm is the agreement. */}
+              {currentStep === 5 && (
+                <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700">
+                  By clicking <strong>Confirm</strong>, you automatically agree to our{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-arl-primary">Terms &amp; Conditions</a>
+                  {isPaymongoMethod(paymentMethod)
+                    ? ' and will be redirected to PayMongo to complete your payment.'
+                    : ' and your booking will be submitted.'}
+                </div>
+              )}
+
               {/* Navigation */}
               <div className="flex justify-between items-start mt-6 sm:mt-8 gap-2">
                 <button onClick={handleBack}
@@ -1903,7 +2004,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     className={`px-4 sm:px-8 py-2.5 sm:py-3 rounded-full font-medium transition flex items-center gap-1 sm:gap-2 text-sm sm:text-base ${
                       (canProceed() && !codingChecking) ? 'bg-arl-cta text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
                     {currentStep === 5
-                      ? (loading ? 'Submitting…' : 'Confirm Booking')
+                      ? (loading ? 'Submitting…' : isPaymongoMethod(paymentMethod) ? 'Confirm & Pay' : 'Confirm Booking')
                       : codingChecking
                       ? 'Checking coding…'
                       : 'Next'}
