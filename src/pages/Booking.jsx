@@ -861,7 +861,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [paymentScreenshot, setPaymentScreenshot]  = useState(null);
   const [screenshotPreview, setScreenshotPreview]  = useState('');
 
-  const [codingError,      setCodingError]      = useState("");
+  // Result of the last Number Coding check, tagged with the exact inputs it was
+  // computed for. `codingError` (below) is DERIVED from this: it only counts if the
+  // key still matches the current car/date/time/destination. That way a stale
+  // result can never show up, and a clear can never "hide" a restriction that was
+  // not re-checked.
+  const [codingState,      setCodingState]      = useState({ key: '', error: '' });
   const [codingChecking,   setCodingChecking]   = useState(false);
 
   const [errors,           setErrors]           = useState({});
@@ -979,14 +984,22 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const handleDurationSelect = (dur) => {
     setDuration(dur);
     setStartDate(''); setStartTime(''); setEndDate(''); setEndTime('');
-    setCodingError('');
   };
 
   // ── Live coding check — fires whenever destination or schedule changes ──
+  // The key is everything the backend's answer depends on. The result is only
+  // trusted while its key still equals the current key, and every request gets a
+  // number so a slow, older response can never overwrite a newer one.
+  const codingKey = [selectedCar?.carID, startDate, startTime, endDate, endTime, destination, destinationCoords?.city || ''].join('|');
+  const codingReqRef = useRef(0);
+  const codingError  = codingState.key === codingKey ? codingState.error : '';
+  const codingNeeded = currentStep === 2 && !!(selectedCar?.carID && startDate && startTime && destination);
+  const codingPending = codingNeeded && codingState.key !== codingKey; // inputs changed, answer not back yet
+
   useEffect(() => {
-    if (currentStep !== 2) return;
-    if (!selectedCar?.carID || !startDate || !startTime || !destination) {
-      setCodingError("");
+    const reqId = ++codingReqRef.current; // anything still in flight is now stale
+    if (!codingNeeded) {
+      setCodingChecking(false);
       return;
     }
     // Debounce slightly so we don't fire on every keystroke
@@ -995,14 +1008,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         carID: selectedCar.carID,
         startDate, startTime, endDate, endTime, destination,
         destinationCity: destinationCoords?.city || "",
+        key: codingKey, reqId,
       });
     }, 400);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination, destinationCoords, startDate, startTime, endDate, endTime, selectedCar?.carID, currentStep]);
+  }, [codingKey, currentStep]);
 
   const handleStartTimeChange = (time) => {
-    setCodingError("");
     setStartTime(time);
     if (duration === '12 Hours' && startDate && time) {
       const { endDate: ed, endTime: et } = calcEnd(startDate, time, 12);
@@ -1126,7 +1139,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     const status = dateStatuses[key] || 'available';
     if (BLOCKED_STATUSES.has(status) || date < today) return;
-    setCodingError("");
 
     if (duration === '12 Hours') {
       // 12 hours: end is always auto-calculated from start+time, never
@@ -1300,12 +1312,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const canProceed = () => {
     if (currentStep === 1) return !!selectedCar;
     if (currentStep === 2) {
-      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && dropoffLocation && destination && !codingError && !maxDaysError);
+      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError);
       if (tripPart === 1) return !!serviceType && !(serviceType === 'Others' && !otherServiceNote.trim());
       if (tripPart === 2) return !!duration;
       if (tripPart === 3) return !!(pickupLocation && dropoffLocation);
       if (tripPart === 4) return !!destination;
-      if (tripPart === 5) return !!(startDate && startTime && endDate && endTime && !codingError && !maxDaysError);
+      if (tripPart === 5) return !!(startDate && startTime && endDate && endTime && !codingError && !codingPending && !maxDaysError);
       return allOk; // last part: everything must be complete
     }
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
@@ -1336,6 +1348,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === 3) && !dropoffLocation)         missing.push('a drop-off location');
       if ((last || tripPart === 4) && !destination)             missing.push('a destination');
       if (tripPart >= 5 && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
+      if (tripPart >= 5 && !codingError && codingPending) missing.push('a moment while we check Number Coding');
       if (tripPart >= 5 && maxDaysError)             missing.push('a shorter rental period (under 10 days)');
     } else if (currentStep === 3) {
       if (!firstName) missing.push('your first name');
@@ -1412,10 +1425,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   };
 
   // ── Shared coding rule checker ─────────────────────────────
-  const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination, destinationCity }) => {
-    if (!carID || !startDate || !startTime) return; // not enough info yet
+  // Returns true when the booking is blocked (or could not be verified).
+  // `reqId` = null forces the result to be applied (used by Next); otherwise a
+  // result is dropped if a newer check has started since.
+  const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination, destinationCity, key, reqId = null }) => {
+    if (!carID || !startDate || !startTime) return false; // not enough info yet
+    const isLatest = () => reqId === null || reqId === codingReqRef.current;
     setCodingChecking(true);
-    setCodingError("");
+    let blocked = false;
+    let error   = '';
     try {
       const startDT = new Date(`${startDate}T${startTime}:00`);
       const endDT   = endDate && endTime ? new Date(`${endDate}T${endTime}:00`) : null;
@@ -1432,24 +1450,29 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           destinationCity: destinationCity || "",
         }),
       });
-      const data = await res.json();
-      if (data.holiday) {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // A server error used to fall through as "not blocked" — the restriction
+        // silently disappeared. Treat it like a failed check instead.
+        blocked = true;
+        error   = "Could not verify Number Coding rules. Please check your connection and try again.";
+      } else if (data.holiday) {
         // Holiday detected — coding rules are suspended, allow booking
-        setCodingError(""); 
-        return false; // not blocked
+        blocked = false;
+      } else if (data.blocked) {
+        blocked = true;
+        error   = data.reason || "This vehicle is not allowed due to Number Coding Scheme on the selected date/time.";
       }
-      if (data.blocked) {
-        setCodingError(data.reason || "This vehicle is not allowed due to Number Coding Scheme on the selected date/time.");
-        return true; // blocked
-      }
-      return false; // clear
     } catch (err) {
       console.warn("Coding rule check failed:", err);
-      setCodingError("Could not verify Number Coding rules. Please check your connection and try again.");
-      return true; // block on error to be safe
-    } finally {
+      blocked = true; // block on error to be safe
+      error   = "Could not verify Number Coding rules. Please check your connection and try again.";
+    }
+    if (isLatest()) {
+      setCodingState({ key, error });
       setCodingChecking(false);
     }
+    return blocked;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1512,6 +1535,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           carID: selectedCar.carID,
           startDate, startTime, endDate, endTime, destination,
           destinationCity: destinationCoords?.city || "",
+          key: codingKey, // reqId omitted → this result is always applied
         });
         if (blocked) return; // stop — don't advance to step 3
       }
@@ -1995,7 +2019,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       labelAddon={<InfoButton open={openInfo === 'destination'} onClick={() => toggleInfo('destination')} label="About your destination" />}
                       infoPanel={openInfo === 'destination' && <InfoPanel {...INFO.destination} />}
                       value={destination}
-                      onValueChange={(v) => { setDestination(v); setCodingError(''); }}
+                      onValueChange={(v) => { setDestination(v); }}
                       onCoordsChange={setDestinationCoords}
                       placeholder="Search for a destination…"
                     />
