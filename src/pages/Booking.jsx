@@ -161,6 +161,18 @@ const calc22EndTime = (startTimeStr) => {
 // came from — clicking the same day as Start looked valid but wasn't).
 const defaultNextDay = (dateStr) => toLocalDateStr(addDays(new Date(dateStr + 'T00:00:00'), 1));
 
+// A 22-hour rental ends at (pickup time - 2h) on its last day, i.e. it lasts
+// 24 * N - 2 hours for N days. For a pickup between 12:00 AM and 1:59 AM that
+// moment is still on the SAME calendar day (1:00 AM + 22h = 11:00 PM), so the
+// return date is the pickup date for 1 day, +1 for 2 days, and so on. For any
+// later pickup it is the next day for 1 day, and so on.
+const wraps22 = (timeStr) => {
+  if (!timeStr) return false;
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m < 120;
+};
+const dayDiff = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+
 // ── Pricing/day-count/fee math used to live here (calcDays, isBaseArea,
 // extraFee/driversFee/serviceFee/gatewayFee/grandTotal) and was simply
 // trusted by the backend when the booking was submitted — meaning the
@@ -374,7 +386,6 @@ const TRIP_PARTS = [
     title: 'What is your trip for?',
     description: 'Pick the purpose of your rental. Choose Others if it is not listed.',
     points: [
-      { icon: '🔍', headline: 'We review every booking', detail: 'We check your dates, vehicle and driver type before approving.', ref: 'Rental Inquiries and Approval' },
       { icon: '🚫', level: 'must', headline: 'Lawful use only', detail: 'No subletting, illegal transport, off-road driving, smoking inside, or hazardous items.', ref: 'Vehicle Usage' },
     ],
   },
@@ -388,11 +399,13 @@ const TRIP_PARTS = [
     ],
   },
   {
-    key: 'pickup', label: 'Pickup',
-    title: 'Where will you get the car?',
-    description: 'Choose where we hand over the car. Drop-off is the same place.',
+    key: 'pickup', label: 'Pickup & Driver',
+    title: 'Pickup and driver',
+    description: 'Choose where we hand over the car (drop-off is the same place) and who will drive.',
     points: [
       { icon: '🪪', level: 'must', headline: 'Bring a valid government ID', detail: 'No valid ID on pickup day means the booking may be cancelled and the deposit is not refunded.', ref: 'Vehicle Pickup & Customer Identification' },
+      { icon: '🚗', level: 'must', headline: 'Without Driver: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license on pickup day.', ref: 'Driver Requirements (Self-Drive)' },
+      { icon: '🧑‍✈️', headline: "With Driver: driver's fee applies", detail: 'The amount is shown on the option below and as its own line in your price breakdown.' },
       { icon: '🔑', headline: 'We inspect the car with you', detail: 'Existing damage is noted first. The car is released once your payment is confirmed.', ref: 'Booking Guidelines' },
     ],
   },
@@ -414,16 +427,6 @@ const TRIP_PARTS = [
       { icon: '⏰', level: 'must', headline: 'Choose your pickup time carefully', detail: 'The system will not estimate your travel time, so make sure your schedule fits the whole trip.', ref: 'Rental Time & Destination Selection' },
       { icon: '💸', level: 'must', headline: 'Late return is charged per hour', detail: 'Time past your agreed return is billed hourly.', ref: 'Late Return & Penalties' },
       { icon: '🔁', headline: 'Reschedule 24 hours ahead', detail: 'Subject to vehicle availability.', ref: 'Cancellation & Refund Policy' },
-    ],
-  },
-  {
-    key: 'drive', label: 'Driver',
-    title: 'Who will drive?',
-    description: 'Choose a chauffeur-driven rental or self-drive.',
-    points: [
-      { icon: '🪪', level: 'must', headline: 'Self-drive: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license and a valid government ID.', ref: 'Driver Requirements (Self-Drive)' },
-      { icon: '🧑‍✈️', headline: "Chauffeur: driver's fee applies", detail: 'It shows as its own line in your price breakdown.' },
-      { icon: '⛽', headline: 'Fuel and tolls are yours either way', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
     ],
   },
 ];
@@ -517,7 +520,7 @@ const INFO = {
     ],
   },
   chauffeur: {
-    title: 'With Chauffeur',
+    title: 'With Driver',
     items: [
       'ARL provides a professional driver for your trip. (Booking Guidelines: Service Types)',
       'ARL checks that your booking is self-drive or with a driver before approving it. (T&C: Rental Inquiries and Approval)',
@@ -526,7 +529,7 @@ const INFO = {
     ],
   },
   'self-drive': {
-    title: 'Self-Drive requirements',
+    title: 'Without Driver requirements',
     items: [
       'Minimum age: 21 years old.',
       "A valid Philippine driver's license.",
@@ -1008,17 +1011,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       const { endDate: ed, endTime: et } = calcEnd(startDate, time, 12);
       setEndDate(ed); setEndTime(et);
     } else if (duration === '22 Hours' && startDate && time) {
-      // Auto-fill End as soon as Start date + time are both known, instead
-      // of leaving the right calendar blank and waiting for a manual click
-      // (which was easy to get wrong — e.g. clicking the same day as Start,
-      // which silently produced "0 day(s) billed"). Default End = the day
-      // after Start; if the customer already picked a later End date
-      // themselves (extending the rental), keep that date and just
-      // recalculate its time. IMPORTANT: only trust `prev` if it's actually
-      // valid (strictly after Start) — a same-day/earlier value can survive
-      // here from a stale localStorage draft saved before this fix existed,
-      // or from switching duration types, and must not be blindly kept.
-      setEndDate(prev => (prev && prev > startDate) ? prev : defaultNextDay(startDate));
+      // Keep the SAME number of rental days when the pickup time changes —
+      // including across the 2:00 AM line, where the return date shifts by one
+      // day (1:00 AM + 22h ends the same day; 10:00 AM + 22h ends the next day).
+      // A missing/stale end date (blank, or on/before the start) falls back to 1 day.
+      const prevDays = (startDate && endDate)
+        ? Math.max(1, dayDiff(startDate, endDate) + (wraps22(startTime) ? 1 : 0))
+        : 1;
+      const newEnd = toLocalDateStr(addDays(new Date(startDate + 'T00:00:00'), prevDays - (wraps22(time) ? 1 : 0)));
+      setEndDate(newEnd);
       setEndTime(calc22EndTime(time));
     }
   };
@@ -1035,6 +1036,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // checkout both recompute their own authoritative totals independently).
   const [quote, setQuote] = useState({
     days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0,
+    driversFeeBaseArea: null, driversFeeOutsideArea: null, // what "With Driver" costs (null = not known yet)
     serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0,
     grandTotal: 0, payNow: 0, balance: 0,
   });
@@ -1042,7 +1044,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   useEffect(() => {
     if (!selectedCar?.carID || !duration) {
-      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
+      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, driversFeeBaseArea: null, driversFeeOutsideArea: null, serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
       return;
     }
     let cancelled = false;
@@ -1070,6 +1072,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             total: data.rentalFee || 0,
             extraFee: data.extraFee || 0,
             driversFee: data.driversFee || 0,
+            driversFeeBaseArea:    data.driversFeeBaseArea    ?? null,
+            driversFeeOutsideArea: data.driversFeeOutsideArea ?? null,
             serviceFee: data.serviceFee || 0,
             gatewayFee: data.gatewayFee || 0,
             serviceFeeRate: data.serviceFeeRate || 0,
@@ -1158,13 +1162,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         if (!startDate) return;
         const clickedDate  = new Date(key);
         const startDateObj = new Date(startDate);
-        if (clickedDate <= startDateObj) {
-          // Can't end on or before the day it starts — a 22-hour block
-          // never fits inside the same calendar day for any realistic
-          // pickup time, so same-day was the exact bug being fixed here.
-          // Ignore rather than silently accepting a same-day End.
-          return;
-        }
+        // The earliest valid return date is the date 22 hours after pickup:
+        // the day after the start, except for pickups before 2:00 AM, which
+        // return later the same day. Anything earlier is ignored.
+        const minDiff = wraps22(startTime) ? 0 : 1;
+        if (dayDiff(startDate, key) < minDiff) return;
         if (rangeCrossesBlocked(dateStatuses, startDateObj, clickedDate)) {
           showToast('That range includes a date that\'s already unavailable. Please choose a shorter range or a different start date.');
           return;
@@ -1231,7 +1233,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             // fits inside the calendar day it starts on for any realistic
             // pickup time. This is the exact cell that produced "0 day(s)
             // billed" when clicked, so it's shown disabled instead.
-            const sameDayEndInvalid = idx === 1 && duration === '22 Hours' && isStart;
+            const sameDayEndInvalid = idx === 1 && duration === '22 Hours' && isStart && !wraps22(startTime);
             const interactionDisabled = isBlocked || endCalendarLocked || sameDayEndInvalid;
 
             let cls = `text-center text-xs sm:text-sm py-1 sm:py-2 rounded-lg sm:rounded-xl transition-all font-medium relative `;
@@ -1305,8 +1307,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if (tripPart === 2) return !!duration;
       if (tripPart === 3) return !!(pickupLocation && dropoffLocation);
       if (tripPart === 4) return !!destination;
-      if (tripPart === 5) return !!(startDate && startTime && endDate && endTime && !codingError && !maxDaysError);
-      return allOk; // last part: everything must be complete
+      return allOk; // last part (Date & Time): everything must be complete
     }
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
     if (currentStep === 4) {
@@ -1707,7 +1708,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       key: 'driver', label: "Driver's Fee", value: peso(driversFee),
       title: "Driver's Fee",
       items: [
-        'Charged for the driver when you book With Chauffeur.',
+        'Charged for the driver when you book With Driver.',
         'The amount depends on whether your trip is inside or outside our base service area.',
         "Fuel and toll fees are still the renter's responsibility.",
       ],
@@ -1988,6 +1989,60 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </div>
                   )}
 
+                  {tripPart === 3 && (
+                  <div className="mt-6">
+                    <p className="text-sm font-semibold text-arl-dark mb-1">Who will drive?</p>
+                    <p className="text-xs text-gray-500 mb-3">Choose one. The extra cost of a driver is shown on the option.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[
+                        { type: 'chauffeur',  icon: '🧑‍✈️', label: 'With Driver' },
+                        { type: 'self-drive', icon: '🚗',      label: 'Without Driver' },
+                      ].map(({ type, icon, label }) => {
+                        const selected = driveType === type;
+                        const base = quote.driversFeeBaseArea;
+                        const outside = quote.driversFeeOutsideArea;
+                        return (
+                          <div key={type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${selected ? 'border-arl-primary bg-blue-50' : 'border-gray-200 bg-white hover:border-arl-primary/50'}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <label className="flex items-start gap-2.5 cursor-pointer flex-1 min-w-0">
+                                <input type="radio" name="driveType" value={type}
+                                  checked={selected}
+                                  onChange={() => setDriveType(type)}
+                                  className="mt-1 w-4 h-4 accent-arl-primary flex-shrink-0" />
+                                <span className="min-w-0">
+                                  <span className="block text-sm sm:text-base font-extrabold text-arl-dark">{icon} {label}</span>
+                                  {type === 'chauffeur' ? (
+                                    base === null || base === undefined ? (
+                                      <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">A professional driver. The driver's fee shows in your price breakdown.</span>
+                                    ) : (
+                                      <>
+                                        <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} inside our service area</span>
+                                        <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} outside our service area</span>
+                                        {selected && driversFee > 0 ? (
+                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">✔ Added to your total: {peso(driversFee)} (based on your destination)</span>
+                                        ) : (
+                                          <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The exact amount depends on your destination, which you choose next.</span>
+                                        )}
+                                      </>
+                                    )
+                                  ) : (
+                                    <>
+                                      <span className="block mt-1 text-xs sm:text-sm font-bold text-green-700">No driver's fee</span>
+                                      <span className="block text-[11px] sm:text-xs text-gray-600">You drive. You must be 21+ with a valid license.</span>
+                                    </>
+                                  )}
+                                </span>
+                              </label>
+                              <InfoButton open={openInfo === type} onClick={() => toggleInfo(type)} label={type === 'chauffeur' ? 'About With Driver' : 'About Without Driver requirements'} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {(openInfo === 'chauffeur' || openInfo === 'self-drive') && <InfoPanel {...INFO[openInfo]} />}
+                  </div>
+                  )}
+
                   {tripPart === 4 && (
                   <div className="space-y-4 mb-6">
                     <LocationInput
@@ -2090,25 +2145,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                   </>)}
 
-                  {tripPart === 6 && (<>
-                  {/* Drive type — each option has its own "?" with the T&C details */}
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                    {['chauffeur','self-drive'].map(type => (
-                      <div key={type} className="flex items-center gap-1.5">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" name="driveType" value={type}
-                            checked={driveType === type}
-                            onChange={e => setDriveType(e.target.value)}
-                            className="w-4 h-4 text-arl-cta accent-arl-primary" />
-                          <span className="text-sm font-medium">{type === 'chauffeur' ? 'With Chauffeur' : 'Self-Drive'}</span>
-                        </label>
-                        <InfoButton open={openInfo === type} onClick={() => toggleInfo(type)} label={type === 'chauffeur' ? 'About the chauffeur service' : 'About self-drive requirements'} />
-                      </div>
-                    ))}
-                  </div>
-                  {(openInfo === 'chauffeur' || openInfo === 'self-drive') && <InfoPanel {...INFO[openInfo]} />}
-
-                  </>)}
 
                   {tripPart >= 5 && (<>
                   {/* ── Max rental length error ── */}
@@ -2508,7 +2544,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Pickup Addr.',  pickupLocation],
                       ['Drop-off',      dropoffLocation],
                       ['Destination',   destination || '-'],
-                      ['Drive Type',    driveType === 'self-drive' ? 'Self-Drive' : 'With Chauffeur'],
+                      ['Drive Type',    driveType === 'self-drive' ? 'Without Driver' : 'With Driver'],
                       ['Passenger',     `${firstName} ${lastName}`],
                       ['Contact',       contact],
                       ['Email',         email],
@@ -2587,7 +2623,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   ['Start',      startDate && startTime ? `${fmt(startDate)} ${fmt12(startTime)}` : '-'],
                   ['End (auto)', endDate && endTime ? `${fmt(endDate)} ${fmt12(endTime)}` : '-'],
                   ['Days',       days ? `${days} day(s)` : '-'],
-                  ['Hire',       driveType === 'self-drive' ? 'Self-Drive' : 'With Chauffeur'],
+                  ['Hire',       driveType === 'self-drive' ? 'Without Driver' : 'With Driver'],
                   ['Destination', destination || '-'],
                   ['Passenger',  firstName && lastName ? `${firstName} ${lastName}` : '-'],
                   ['Payment',    `${paymentAmount} — ${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
