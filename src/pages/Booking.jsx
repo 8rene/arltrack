@@ -325,65 +325,105 @@ const ClockTimeField = ({ value, onChange }) => {
   );
 };
 
+// ── KeyPoints: the rules that matter, as quick-scan cards ───────
+// Replaces long Terms & Conditions paragraphs. Each point is an icon, a
+// bold one-line headline and ONE short sentence. "must" points get an
+// amber highlight + a MUST KNOW tag so they cannot be missed; "info"
+// points are calmer. The full T&C stays one tap away as a link.
+const KeyPoints = ({ title, subtitle, points }) => (
+  <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className="bg-arl-primary px-3 sm:px-4 py-2.5">
+      <p className="text-xs sm:text-sm font-bold text-white">{title}</p>
+      {subtitle && <p className="text-[11px] sm:text-xs text-white/80">{subtitle}</p>}
+    </div>
+    <ul className="divide-y divide-gray-100">
+      {points.map((pt, i) => {
+        const must = pt.level === 'must';
+        return (
+          <li key={i} className={`flex gap-3 px-3 sm:px-4 py-3 border-l-4 ${must ? 'bg-amber-50 border-amber-400' : 'bg-white border-arl-secondary/40'}`}>
+            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-lg sm:text-xl flex-shrink-0 ${must ? 'bg-amber-100' : 'bg-blue-50'}`}>
+              {pt.icon}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <p className="text-sm sm:text-base font-extrabold text-arl-dark leading-snug">{pt.headline}</p>
+                {must && (
+                  <span className="text-[10px] font-black tracking-wide uppercase bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded">Must know</span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-gray-700 mt-0.5 leading-relaxed">{pt.detail}</p>
+              {pt.ref && <p className="text-[10px] sm:text-[11px] text-gray-400 mt-1">T&amp;C: {pt.ref}</p>}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+    <div className="px-3 sm:px-4 py-2 bg-gray-50 text-[10px] sm:text-[11px] text-gray-500">
+      This is the short version. Full wording:{' '}
+      <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-arl-primary">Terms &amp; Conditions</a>
+    </div>
+  </div>
+);
+
 // ── Trip step, split into focused parts ─────────────────────────
-// Only one part is visible at a time. Each part opens with a short
-// description and the Terms & Conditions that apply to it, so the
-// customer reads the rules right where they make the choice.
+// Only one part is visible at a time. Each part opens with a one-line
+// description and the few rules that matter at that exact moment.
 const TRIP_PARTS = [
   {
     key: 'service', label: 'Service',
     title: 'What is your trip for?',
-    description: 'Pick the purpose of your rental. If it is not listed, choose Others and describe it.',
-    terms: [
-      { section: 'Rental Inquiries and Approval', text: 'ARL checks your dates, vehicle, rental duration and whether the rental is self-drive or with a driver before approving the booking.' },
-      { section: 'Vehicle Usage', text: 'The vehicle may only be used for lawful purposes within the rental period. Not allowed: subletting or transferring it, illegal transport, off-road use (unless authorized in writing), smoking inside, and hazardous or prohibited materials.' },
+    description: 'Pick the purpose of your rental. Choose Others if it is not listed.',
+    points: [
+      { icon: '🔍', headline: 'We review every booking', detail: 'We check your dates, vehicle and driver type before approving.', ref: 'Rental Inquiries and Approval' },
+      { icon: '🚫', level: 'must', headline: 'Lawful use only', detail: 'No subletting, illegal transport, off-road driving, smoking inside, or hazardous items.', ref: 'Vehicle Usage' },
     ],
   },
   {
     key: 'duration', label: 'Duration',
     title: 'How long do you need the car?',
-    description: '12 Hours: your return time is set automatically 12 hours after pickup. 22 Hours: you choose your pickup and return dates.',
-    terms: [
-      { section: 'Rental Time & Destination Selection', highlight: true, text: 'You are responsible for choosing a duration long enough to cover your whole trip, including travel, traffic and rest stops.' },
-      { section: 'Late Return & Penalties', text: 'Time used beyond the agreed return time is charged per hour as a late return.' },
+    description: '12 Hours ends automatically after 12 hours. 22 Hours lets you choose your pickup and return dates.',
+    points: [
+      { icon: '⏱️', level: 'must', headline: 'You choose the time, so make it enough', detail: 'Pick a duration that covers the whole trip, including travel, traffic and rest stops.', ref: 'Rental Time & Destination Selection' },
+      { icon: '💸', level: 'must', headline: 'Late return is charged per hour', detail: 'Every hour after your return time is billed.', ref: 'Late Return & Penalties' },
     ],
   },
   {
     key: 'pickup', label: 'Pickup',
     title: 'Where will you get the car?',
-    description: 'Choose where we hand over the vehicle. Drop-off is always the same as your pickup location.',
-    terms: [
-      { section: 'Vehicle Pickup & Customer Identification', text: 'A valid government-issued ID must be presented on the pickup date. Without a valid ID the booking may be cancelled without refund of the deposit.' },
-      { section: 'Booking Guidelines: Pickup & Vehicle Release', text: 'Our team verifies your booking, inspects the vehicle with you, and releases it only after full payment is confirmed. Existing damage is documented first.' },
+    description: 'Choose where we hand over the car. Drop-off is the same place.',
+    points: [
+      { icon: '🪪', level: 'must', headline: 'Bring a valid government ID', detail: 'No valid ID on pickup day means the booking may be cancelled and the deposit is not refunded.', ref: 'Vehicle Pickup & Customer Identification' },
+      { icon: '🔑', headline: 'We inspect the car with you', detail: 'Existing damage is noted first. The car is released once your payment is confirmed.', ref: 'Booking Guidelines' },
     ],
   },
   {
     key: 'destination', label: 'Destination',
     title: 'Where are you going?',
-    description: 'Your destination is saved for documentation purposes only. Our system cannot calculate or estimate travel time from the location you select. A destination outside our service area may add an extra fee, shown in your price breakdown.',
-    terms: [
-      { section: 'Rental Time & Destination Selection', highlight: true, text: 'The destination is recorded for documentation only. An accepted booking does not mean your schedule is enough for the trip. Choosing enough time is your responsibility.' },
-      { section: 'Number Coding Scheme', text: 'Metro Manila number coding is enforced on weekdays from 7:00 AM to 7:00 PM. If your vehicle\'s plate is restricted on your trip dates, you will be asked to pick another date or vehicle.' },
-      { section: 'Fuel Policy', text: 'Fuel and toll fees are the renter\'s full responsibility, and the vehicle must be returned with the same fuel level.' },
+    description: 'Tell us where you are headed. This is saved for our records only.',
+    points: [
+      { icon: '📍', level: 'must', headline: 'We cannot compute your travel time', detail: 'The destination is for documentation only. Choosing enough time for the trip is up to you.', ref: 'Rental Time & Destination Selection' },
+      { icon: '🔢', headline: 'Number coding applies', detail: 'Metro Manila, weekdays 7 AM to 7 PM. If your car is restricted, we will ask you to change the date or the car.', ref: 'Number Coding Scheme' },
+      { icon: '⛽', headline: 'Fuel and tolls are yours', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
     ],
   },
   {
     key: 'schedule', label: 'Date & Time',
     title: 'When do you need it?',
-    description: 'Pick your pickup date and time. Your return date and time are calculated from the duration you chose.',
-    terms: [
-      { section: 'Rental Time & Destination Selection', highlight: true, text: 'Choose your pickup time carefully. You are responsible for making sure your schedule covers the entire trip, because the system does not estimate travel time from your destination.' },
-      { section: 'Late Return & Penalties', text: 'Late returns are charged per hour beyond the agreed return time.' },
-      { section: 'Cancellation & Refund Policy', text: 'Rescheduling is allowed with at least 24 hours\' notice, subject to vehicle availability.' },
+    description: 'Pick your pickup date and time. Your return is calculated from your duration.',
+    points: [
+      { icon: '⏰', level: 'must', headline: 'Choose your pickup time carefully', detail: 'The system will not estimate your travel time, so make sure your schedule fits the whole trip.', ref: 'Rental Time & Destination Selection' },
+      { icon: '💸', level: 'must', headline: 'Late return is charged per hour', detail: 'Time past your agreed return is billed hourly.', ref: 'Late Return & Penalties' },
+      { icon: '🔁', headline: 'Reschedule 24 hours ahead', detail: 'Subject to vehicle availability.', ref: 'Cancellation & Refund Policy' },
     ],
   },
   {
     key: 'drive', label: 'Driver',
     title: 'Who will drive?',
-    description: 'Choose a chauffeur-driven rental or self-drive. Tap the ? beside each option for details.',
-    terms: [
-      { section: 'Driver Requirements (Self-Drive)', text: 'Minimum age 21, a valid Philippine driver\'s license, and a valid government-issued ID. Only the registered renter may drive; unauthorized drivers are strictly prohibited.' },
-      { section: 'Fuel Policy', text: 'For both options, fuel and toll fees are the renter\'s full responsibility. If a Driver\'s Fee applies, it shows as its own line in your price breakdown.' },
+    description: 'Choose a chauffeur-driven rental or self-drive.',
+    points: [
+      { icon: '🪪', level: 'must', headline: 'Self-drive: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license and a valid government ID.', ref: 'Driver Requirements (Self-Drive)' },
+      { icon: '🧑‍✈️', headline: "Chauffeur: driver's fee applies", detail: 'It shows as its own line in your price breakdown.' },
+      { icon: '⛽', headline: 'Fuel and tolls are yours either way', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
     ],
   },
 ];
@@ -401,18 +441,7 @@ const TripPartIntro = ({ part, index, total }) => (
     </p>
     <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">{part.title}</h3>
     <p className="text-sm sm:text-base text-gray-600 mb-4">{part.description}</p>
-
-    {/* Terms & Conditions that apply to this part */}
-    <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 sm:px-4 py-3">
-      <p className="text-[11px] sm:text-xs font-bold text-arl-primary uppercase tracking-wide mb-2">Terms &amp; Conditions for this step</p>
-      <ul className="space-y-2">
-        {part.terms.map((t) => (
-          <li key={t.section} className={`text-xs sm:text-sm text-gray-700 leading-relaxed ${t.highlight ? 'bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2' : ''}`}>
-            <span className="font-bold text-arl-primary">{t.section}.</span> {t.text}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <KeyPoints title="What you need to know" subtitle="The key rules for this step, in short." points={part.points} />
   </div>
 );
 
@@ -2252,14 +2281,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                     {/* Notes: security deposit */}
                     {securityDeposit > 0 && (
-                      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 sm:px-4 py-3">
-                        <p className="text-[11px] sm:text-xs font-bold text-amber-800 uppercase tracking-wide mb-1.5">Notes: Security Deposit</p>
-                        <ul className="space-y-1.5 list-disc pl-4 text-xs sm:text-sm text-gray-700">
-                          <li>Your <strong>{peso(securityDeposit)}</strong> security deposit is part of the total above and is <strong>always paid upfront</strong>, even if you choose Partial Payment.</li>
-                          <li>It is <strong>refundable</strong>. You get it back in full when the vehicle is returned in satisfactory condition with no outstanding charges. (T&amp;C: Security Deposit)</li>
-                          <li>Damage or unpaid charges, such as fuel or a late return, may reduce the amount refunded to you.</li>
-                          <li>If you cancel within the refund window, or do not show up on your pickup date, the deposit is not refunded. (T&amp;C: Cancellation &amp; Refund Policy)</li>
-                        </ul>
+                      <div className="mt-3">
+                        <KeyPoints
+                          title="Notes: Security Deposit"
+                          subtitle="What the deposit is and when you get it back."
+                          points={[
+                            { icon: '💰', level: 'must', headline: `${peso(securityDeposit)} deposit is paid upfront`, detail: 'It is part of your total and is always paid first, even with Partial Payment.', ref: 'Security Deposit' },
+                            { icon: '✅', level: 'must', headline: 'Refundable in full', detail: 'You get it back when the car is returned in good condition with no unpaid charges.', ref: 'Security Deposit' },
+                            { icon: '⚠️', headline: 'Damage or unpaid charges may reduce it', detail: 'For example fuel or a late return.' },
+                            { icon: '❌', headline: 'Not refunded if you cancel late or do not show up', detail: 'Cancelling within the refund window or missing your pickup keeps the deposit.', ref: 'Cancellation & Refund Policy' },
+                          ]}
+                        />
                       </div>
                     )}
                   </div>
@@ -2281,13 +2313,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     ))}
                   </div>
 
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4">
-                    <p className="font-bold text-amber-800 mb-1">Payment must be made online first</p>
-                    <p>
-                      Whether you choose Partial or Full Payment, the <strong>required amount ({peso(getPayNow())})</strong> must be paid <strong>online</strong> before your booking is confirmed.
-                      Your booking is not reserved until that payment is received, and priority goes to the first customer who completes payment.
-                      (T&amp;C: Reservation &amp; Booking Policy, Payment Terms)
-                    </p>
+                  <div className="mb-3 sm:mb-4">
+                    <KeyPoints
+                      title="Before you pay"
+                      subtitle="This applies to both Partial and Full Payment."
+                      points={[
+                        { icon: '🌐', level: 'must', headline: `Pay ${peso(getPayNow())} online to confirm`, detail: 'The required amount must be paid online first. Your booking is not confirmed until payment is received.', ref: 'Reservation & Booking Policy' },
+                        { icon: '🥇', headline: 'First to pay gets the car', detail: 'Bookings without payment are not held. Priority goes to the first customer who completes payment.', ref: 'Payment Terms' },
+                      ]}
+                    />
                   </div>
 
                   <div className="bg-blue-50 text-xs sm:text-sm text-arl-primary p-2.5 sm:p-3 rounded-lg mb-4 sm:mb-6">
