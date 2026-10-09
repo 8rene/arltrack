@@ -558,6 +558,20 @@ const InfoPanel = ({ title, items }) => (
 );
 
 
+// Round "?" button used on each Payment Details row
+const HelpButton = ({ open, onClick, label }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    aria-expanded={!!open}
+    className={`inline-flex items-center justify-center w-5 h-5 rounded-full border text-[11px] font-black leading-none transition flex-shrink-0 ${
+      open ? 'bg-arl-primary border-arl-primary text-white' : 'border-arl-primary/40 text-arl-primary hover:bg-arl-primary/10'
+    }`}
+  >?</button>
+);
+
+
 // ── Location input with map button ────────────────────────────
 const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null }) => {
   const [mapOpen, setMapOpen] = useState(false);
@@ -1618,6 +1632,72 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return r;
   }, [cars, carSearch, filterBody]);
 
+  // ── Payment step: detail rows (each has a "?" explanation) + split amounts ──
+  const peso = (n) => `₱${Number(n || 0).toLocaleString()}`;
+  const depositPaidUpfront = Math.min(Math.max(0, securityDeposit || 0), grandTotal || 0);
+  // Mirrors the server's computePaymentSplit: Partial = full deposit + 50% of everything else.
+  const partialNow     = depositPaidUpfront + Math.floor(((grandTotal || 0) - depositPaidUpfront) * 0.5);
+  const partialBalance = Math.max(0, (grandTotal || 0) - partialNow);
+
+  const payDetailRows = [
+    {
+      key: 'rental', label: 'Rental Fee', value: peso(total),
+      title: 'Rental Fee',
+      items: [
+        'The price of the vehicle for the duration and number of days you selected.',
+        'It is the base amount your service fee is computed from.',
+      ],
+    },
+    ...(extraFee > 0 ? [{
+      key: 'extra', label: 'Extra Fee (Outside Area)', value: peso(extraFee),
+      title: 'Extra Fee (Outside Area)',
+      items: [
+        'Added when your destination is outside our base service area.',
+        'It is shown here so there are no surprises on pickup day.',
+      ],
+    }] : []),
+    ...(driversFee > 0 ? [{
+      key: 'driver', label: "Driver's Fee", value: peso(driversFee),
+      title: "Driver's Fee",
+      items: [
+        'Charged for the driver when you book With Chauffeur.',
+        'The amount depends on whether your trip is inside or outside our base service area.',
+        "Fuel and toll fees are still the renter's responsibility.",
+      ],
+    }] : []),
+    ...(securityDeposit > 0 ? [{
+      key: 'deposit', label: 'Security Deposit (refundable)', value: peso(securityDeposit),
+      title: 'Security Deposit (refundable)',
+      items: [
+        'A refundable amount held to protect the vehicle during your rental.',
+        'It is included in your total and is always paid upfront, even with Partial Payment.',
+        'Refunded in full when the vehicle is returned in satisfactory condition with no outstanding charges. (T&C: Security Deposit)',
+      ],
+    }] : []),
+    {
+      key: 'service', label: serviceFeeRate > 0 ? `Service Fee (${serviceFeeRate}% of rental)` : 'Service Fee', value: peso(serviceFee),
+      title: 'Service Fee',
+      items: [
+        serviceFeeRate > 0
+          ? `ARL's service fee, computed as ${serviceFeeRate}% of the rental fee only.`
+          : "ARL's service fee, computed from the rental fee only.",
+        "It is not charged on the extra fee, driver's fee, or security deposit.",
+        'It is refunded together with your booking amount when a refund applies. (T&C: Cancellation & Refund Policy)',
+      ],
+    },
+    {
+      key: 'gateway', label: gatewayFeeRate > 0 ? `Online Gateway Fee (${gatewayFeeRate}% of total)` : 'Online Gateway Fee', value: peso(gatewayFee),
+      title: 'Online Gateway Fee',
+      items: [
+        'The fee for processing your payment online through our secure payment gateway (GCash, Maya, or QRPH checkout).',
+        gatewayFeeRate > 0
+          ? `Computed as ${gatewayFeeRate}% of everything else on your booking: rental fee, extra fee, driver's fee, service fee, and security deposit.`
+          : "Computed from everything else on your booking: rental fee, extra fee, driver's fee, service fee, and security deposit.",
+        'It is refunded together with your booking amount when a refund applies. (T&C: Payment Terms)',
+      ],
+    },
+  ];
+
   // ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-arl-primary/10 to-arl-secondary/10 py-12">
@@ -2145,26 +2225,73 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               {currentStep === 4 && (
                 <div>
                   <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">Payment</h3>
-                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose how much to pay now.</p>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Review your payment details first, then choose how much to pay now.</p>
 
-                  {/* Amount options */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                  {/* ── 1. Payment details (shown first) ── */}
+                  <div className="mb-4 sm:mb-6">
+                    <p className="text-xs sm:text-sm font-semibold text-arl-dark mb-1">Payment Details</p>
+                    <p className="text-[11px] sm:text-xs text-gray-500 mb-2">Tap the <span className="font-bold text-arl-primary">?</span> beside any item to see what it is for.</p>
+                    <div className="rounded-2xl border border-gray-200 bg-white px-3 sm:px-4">
+                      {payDetailRows.map((row) => (
+                        <div key={row.key} className="border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center justify-between gap-2 py-2.5 sm:py-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xs sm:text-sm font-medium text-arl-dark">{row.label}</span>
+                              <HelpButton open={openInfo === `pay-${row.key}`} onClick={() => toggleInfo(`pay-${row.key}`)} label={`About ${row.title}`} />
+                            </div>
+                            <span className="text-xs sm:text-sm font-bold text-gray-700 flex-shrink-0">{quoteLoading ? '…' : row.value}</span>
+                          </div>
+                          {openInfo === `pay-${row.key}` && <InfoPanel title={row.title} items={row.items} />}
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between gap-2 py-3 border-t-2 border-arl-primary">
+                        <span className="text-sm sm:text-base font-black text-arl-dark">Total</span>
+                        <span className="text-base sm:text-lg font-black text-arl-cta">{quoteLoading ? 'Computing…' : peso(grandTotal)}</span>
+                      </div>
+                    </div>
+
+                    {/* Notes: security deposit */}
+                    {securityDeposit > 0 && (
+                      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 sm:px-4 py-3">
+                        <p className="text-[11px] sm:text-xs font-bold text-amber-800 uppercase tracking-wide mb-1.5">Notes: Security Deposit</p>
+                        <ul className="space-y-1.5 list-disc pl-4 text-xs sm:text-sm text-gray-700">
+                          <li>Your <strong>{peso(securityDeposit)}</strong> security deposit is part of the total above and is <strong>always paid upfront</strong>, even if you choose Partial Payment.</li>
+                          <li>It is <strong>refundable</strong>. You get it back in full when the vehicle is returned in satisfactory condition with no outstanding charges. (T&amp;C: Security Deposit)</li>
+                          <li>Damage or unpaid charges, such as fuel or a late return, may reduce the amount refunded to you.</li>
+                          <li>If you cancel within the refund window, or do not show up on your pickup date, the deposit is not refunded. (T&amp;C: Cancellation &amp; Refund Policy)</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── 2. Payment option (Partial / Full) ── */}
+                  <p className="text-xs sm:text-sm font-semibold text-arl-dark mb-2 sm:mb-3">Payment Option</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                     {[
-                      { key:'partial', label:'Partial (50%)', amount: Math.floor(grandTotal*0.5), note: `Balance ₱${Math.ceil(grandTotal*0.5).toLocaleString()} on pickup (or pay it online anytime from My Bookings).` },
-                      { key:'full',    label:'Full Payment',  amount: grandTotal,                 note: 'No balance on pickup.' },
+                      { key:'partial', label:'Partial Payment', amount: partialNow, note: `${securityDeposit > 0 ? 'Security deposit + 50% of the rest. ' : '50% of the total. '}Balance ${peso(partialBalance)} on pickup (or pay it online anytime from My Bookings).` },
+                      { key:'full',    label:'Full Payment',    amount: grandTotal,  note: 'Pay everything now. No balance on pickup.' },
                     ].map(({ key, label, amount, note }) => (
                       <button key={key} type="button"
                         onClick={() => setPaymentAmount(key)}
                         className={`p-3 sm:p-4 rounded-xl border-2 text-left transition-colors ${paymentAmount === key ? 'border-arl-secondary bg-blue-50' : 'border-gray-300 hover:border-arl-primary'}`}>
                         <div className="text-xs sm:text-sm font-medium mb-1">{label}</div>
-                        <div className="text-arl-cta text-lg sm:text-xl font-black">₱{Number(amount).toLocaleString()}</div>
+                        <div className="text-arl-cta text-lg sm:text-xl font-black">{peso(amount)}</div>
                         <div className="text-[11px] sm:text-xs text-gray-500 mt-1">{note}</div>
                       </button>
                     ))}
                   </div>
 
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4">
+                    <p className="font-bold text-amber-800 mb-1">Payment must be made online first</p>
+                    <p>
+                      Whether you choose Partial or Full Payment, the <strong>required amount ({peso(getPayNow())})</strong> must be paid <strong>online</strong> before your booking is confirmed.
+                      Your booking is not reserved until that payment is received, and priority goes to the first customer who completes payment.
+                      (T&amp;C: Reservation &amp; Booking Policy, Payment Terms)
+                    </p>
+                  </div>
+
                   <div className="bg-blue-50 text-xs sm:text-sm text-arl-primary p-2.5 sm:p-3 rounded-lg mb-4 sm:mb-6">
-                    Remaining balance on pickup: <strong>₱{getBalance().toLocaleString()}</strong>
+                    Remaining balance on pickup: <strong>{peso(getBalance())}</strong>
                   </div>
 
                   {/* Payment method — GCash, Maya, and PayMongo */}
