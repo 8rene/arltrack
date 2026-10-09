@@ -715,6 +715,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   const [currentStep,       setCurrentStep]       = useState(1);
   const [tripPart,          setTripPart]          = useState(1); // 1..TRIP_PARTS.length — which part of the Trip step is shown
+  const [payPart,           setPayPart]           = useState(1); // 1 = payment details & total, 2 = payment option + method
   const [serviceType,       setServiceType]        = useState('');
   // FK into the serviceType collection, sent alongside the label so admin
   // can resolve/display it (see admin-backend's resolveServiceType()).
@@ -1309,6 +1310,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
     if (currentStep === 4) {
+      if (payPart === 1) return !quoteLoading && grandTotal > 0; // details are read-only; wait for the total
       if (isPaymongoMethod(paymentMethod)) return true;
       return !!(gcashReference && paymentScreenshot);
     }
@@ -1345,7 +1347,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         missing.push(user ? 'a valid email on your account' : 'a valid email');
       }
     } else if (currentStep === 4) {
-      if (!isPaymongoMethod(paymentMethod)) {
+      if (payPart === 1) {
+        if (quoteLoading || !(grandTotal > 0)) return 'Please wait while your total is computed.';
+      } else if (!isPaymongoMethod(paymentMethod)) {
         if (!gcashReference)    missing.push('a reference number');
         if (!paymentScreenshot) missing.push('a payment screenshot');
       }
@@ -1397,7 +1401,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           : 'Invalid email.';
       }
     }
-    if (currentStep === 4) {
+    if (currentStep === 4 && payPart === 2) {
       if (!isPaymongoMethod(paymentMethod)) {
         if (!gcashReference)    e.gcashReference    = 'Reference number required.';
         if (!paymentScreenshot) e.paymentScreenshot = 'Please upload your payment screenshot.';
@@ -1486,6 +1490,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       return;
     }
 
+    // ── Pay step: details first, then option + method ──
+    if (currentStep === 4 && payPart === 1) {
+      setPayPart(2);
+      setTimeout(() => stepTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+      return;
+    }
+
     // ── Trip step is split into parts — advance within it first ──
     if (currentStep === 2 && tripPart < TRIP_PARTS.length) {
       setTripPart(tripPart + 1);
@@ -1508,6 +1519,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
     if (currentStep < 5) {
       if (currentStep === 1) setTripPart(1); // always start the Trip step from its first part
+      if (currentStep === 3) setPayPart(1);  // always open Payment on the details/total first
       setCurrentStep(currentStep + 1);
       return;
     }
@@ -1626,13 +1638,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       setTimeout(() => stepTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
       return;
     }
+    if (currentStep === 4 && payPart > 1) {
+      setPayPart(payPart - 1);
+      setTimeout(() => stepTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+      return;
+    }
+    if (currentStep === 5) setPayPart(2);                  // coming back from Review lands on the payment choice
     if (currentStep === 3) setTripPart(TRIP_PARTS.length); // coming back lands on the last Trip part
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
   const resetBooking = () => {
     clearDraft();
-    setShowConfirmModal(false); setCurrentStep(1); setTripPart(1); setSelectedCar(null);
+    setShowConfirmModal(false); setCurrentStep(1); setTripPart(1); setPayPart(1); setSelectedCar(null);
     setServiceType(''); setOtherServiceNote(''); setDuration(''); setStartDate(''); setStartTime('');
     setEndDate(''); setEndTime(''); setPickupLocation(''); setPickupInStore(false);
     setDropoffLocation(''); setDestination(''); setDriveType('chauffeur');
@@ -2253,12 +2271,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               {/* ══ STEP 4 — PAYMENT ════════════════════════════════ */}
               {currentStep === 4 && (
                 <div>
-                  <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">Payment</h3>
-                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Review your payment details first, then choose how much to pay now.</p>
+                  <div className="flex items-center gap-1.5 mb-3" aria-label={`Payment, part ${payPart} of 2`}>
+                    {[1, 2].map((n) => (
+                      <div key={n} className={`h-1.5 flex-1 rounded-full ${n <= payPart ? 'bg-arl-primary' : 'bg-gray-200'}`} />
+                    ))}
+                  </div>
+                  <p className="text-[11px] sm:text-xs font-bold tracking-wide uppercase text-arl-secondary mb-1">
+                    Payment · Part {payPart} of 2 · {payPart === 1 ? 'Details & total' : 'How to pay'}
+                  </p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-arl-dark mb-1 sm:mb-2">{payPart === 1 ? 'Payment Details' : 'Choose How to Pay'}</h3>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+                    {payPart === 1
+                      ? 'This is how your total is computed. Review it first, then you will choose how to pay.'
+                      : 'Pick how much to pay now, then your payment method.'}
+                  </p>
 
-                  {/* ── 1. Payment details (shown first) ── */}
+                  {/* ── Part 1: payment details & computation (shown first) ── */}
+                  {payPart === 1 && (
                   <div className="mb-4 sm:mb-6">
-                    <p className="text-xs sm:text-sm font-semibold text-arl-dark mb-1">Payment Details</p>
                     <p className="text-[11px] sm:text-xs text-gray-500 mb-2">Tap the <span className="font-bold text-arl-primary">?</span> beside any item to see what it is for.</p>
                     <div className="rounded-2xl border border-gray-200 bg-white px-3 sm:px-4">
                       {payDetailRows.map((row) => (
@@ -2294,9 +2324,25 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         />
                       </div>
                     )}
+
+                    <p className="mt-4 text-xs sm:text-sm text-gray-500 text-center">
+                      Next, you will choose how much to pay now and your payment method.
+                    </p>
+                  </div>
+                  )}
+
+                  {/* ── Part 2: payment option, then payment method ── */}
+                  {payPart === 2 && (<>
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-arl-primary/5 border border-arl-primary/20 px-3 sm:px-4 py-2.5 mb-4 sm:mb-6">
+                    <div>
+                      <p className="text-[11px] sm:text-xs text-gray-500 font-semibold uppercase tracking-wide">Your total</p>
+                      <p className="text-lg sm:text-xl font-black text-arl-cta">{quoteLoading ? 'Computing…' : peso(grandTotal)}</p>
+                    </div>
+                    <button type="button" onClick={() => setPayPart(1)} className="text-xs font-bold text-arl-primary underline">
+                      View breakdown
+                    </button>
                   </div>
 
-                  {/* ── 2. Payment option (Partial / Full) ── */}
                   <p className="text-xs sm:text-sm font-semibold text-arl-dark mb-2 sm:mb-3">Payment Option</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                     {[
@@ -2433,6 +2479,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                   </div>
                   )}
+                  </>)}
                 </div>
               )}
 
