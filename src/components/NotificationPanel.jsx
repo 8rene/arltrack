@@ -171,17 +171,7 @@ function NotifRow({ n, onAction, onDelete }) {
           </span>
         </div>
         <p className="text-xs text-gray-500 mt-1 leading-relaxed">{n.message}</p>
-        <div className="flex items-center justify-between gap-2 mt-2">
-          <p className="text-xs text-gray-400">{timeAgo(n.createdAt)}</p>
-          {clickable && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onAction(n); }}
-              className="text-xs font-bold text-arl-primary hover:underline shrink-0"
-            >
-              {meta.action} →
-            </button>
-          )}
-        </div>
+        <p className="text-xs text-gray-400 mt-2">{timeAgo(n.createdAt)}</p>
       </div>
 
       <button
