@@ -432,7 +432,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 {/* Request Refund — "upcoming" (fully paid) bookings only.
                     A "to pay" booking never qualifies anymore, even once
                     its deposit has cleared (Partial) — see requestRefund()
-                    in refundRequest.controller.js: a booking that isn't
+                    in controllers/paymongo/paymongo.controller.js: a booking that isn't
                     fully confirmed yet isn't something to refund, it's
                     something to finish paying or to cancel outright. No
                     active refund request already in flight. A past

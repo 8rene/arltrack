@@ -755,10 +755,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [dropoffCoords,     setDropoffCoords]      = useState(null);
   const [destinationCoords, setDestinationCoords]  = useState(null);
   const [sameAsPickup]                             = useState(true); // permanent — no path to uncheck this
-  // Additional destination pins beyond the primary Destination field —
-  // purely for geofencing multiple stops, not part of the coding-rule/
-  // extra-fee logic (that stays keyed to the single primary `destination`,
-  // which is a business rule about one city/area, not a per-stop thing).
+  // Additional destination pins beyond the primary Destination field — used for
+  // geofencing multiple stops AND for the Number Coding check (every location is
+  // checked). The extra-fee logic stays keyed to the single primary `destination`
+  // (a business rule about one city/area, not a per-stop thing).
   const [extraDestinations, setExtraDestinations]  = useState([]);
 
   const handleTogglePickupInStore = (checked) => {
@@ -868,7 +868,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // computed for. `codingError` (derived below) only counts while that key still
   // matches the current car/date/time/destination, so a stale answer can never
   // show up and nothing can "hide" a restriction without it being re-checked.
-  const [codingState,      setCodingState]      = useState({ key: '', error: '' });
+  const [codingState,      setCodingState]      = useState({ key: '', error: '', violations: [] });
   const [codingChecking,   setCodingChecking]   = useState(false);
 
   const [errors,           setErrors]           = useState({});
@@ -992,10 +992,16 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // The key is everything the backend's answer depends on. A result is trusted only
   // while its key equals the current key, and every request carries a number so a
   // slow, older response can never overwrite a newer one.
-  const codingKey = [selectedCar?.carID, startDate, startTime, endDate, endTime, destination, destinationCoords?.city || ''].join('|');
+  // Number Coding applies to EVERY location, so every additional stop that has an
+  // address or a city is part of the check (and of the key below).
+  const codingStops = extraDestinations
+    .filter(d => (d.address || '').trim() || d.city)
+    .map(d => ({ id: d.id, address: d.address || '', city: d.city || '' }));
+  const codingKey = [selectedCar?.carID, startDate, startTime, endDate, endTime, destination, destinationCoords?.city || '', JSON.stringify(codingStops)].join('|');
   const codingReqRef   = useRef(0);
   const codingAlertRef = useRef(null);
   const codingError    = codingState.key === codingKey ? codingState.error : '';
+  const codingViolations = codingState.key === codingKey ? (codingState.violations || []) : []; // which locations are restricted
   const codingNeeded   = currentStep === 2 && !!(selectedCar?.carID && startDate && startTime && destination);
   const codingPending  = codingNeeded && codingState.key !== codingKey; // inputs changed, answer not back yet
 
@@ -1011,6 +1017,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         carID: selectedCar.carID,
         startDate, startTime, endDate, endTime, destination,
         destinationCity: destinationCoords?.city || "",
+        codingStops,
         key: codingKey, reqId,
       });
     }, 400);
@@ -1024,6 +1031,37 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       codingAlertRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [codingError]);
+
+  // ── Date-independent Number Coding heads-up for the Destination step ──
+  // Same locations as the real check, but needs no date: asks the backend which
+  // days/hours this plate is coded in each picked location. Purely informational —
+  // if it fails the real check still runs later, so errors are ignored.
+  const [codingNotices, setCodingNotices] = useState({ key: '', items: [] });
+  const noticeKey = [selectedCar?.carID, destination, destinationCoords?.city || '', JSON.stringify(codingStops)].join('|');
+  useEffect(() => {
+    if (!(currentStep === 2 && selectedCar?.carID && destination)) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/coding-notice`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            carID: selectedCar.carID,
+            destination,
+            destinationCity: destinationCoords?.city || "",
+            codingStops,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok) setCodingNotices({ key: noticeKey, items: Array.isArray(data.notices) ? data.notices : [] });
+      } catch (err) {
+        console.warn("Coding notice failed:", err);
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noticeKey, currentStep]);
 
   const handleStartTimeChange = (time) => {
     setStartTime(time);
@@ -1436,12 +1474,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // Returns true when the booking is blocked (or could not be verified).
   // `reqId` = null forces the result to be applied (used by Next); otherwise a
   // result is dropped if a newer check has started since.
-  const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination, destinationCity, key, reqId = null }) => {
+  const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination, destinationCity, codingStops = [], key, reqId = null }) => {
     if (!carID || !startDate || !startTime) return false; // not enough info yet
     const isLatest = () => reqId === null || reqId === codingReqRef.current;
     setCodingChecking(true);
     let blocked = false;
     let error   = '';
+    let violations = [];
     try {
       const startDT = new Date(`${startDate}T${startTime}:00`);
       const endDT   = endDate && endTime ? new Date(`${endDate}T${endTime}:00`) : null;
@@ -1456,6 +1495,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           // Structured city from the map pin, when we have one; the backend uses it
           // together with the typed address.
           destinationCity: destinationCity || "",
+          // Every additional stop — the backend checks each one, not just the primary destination.
+          codingStops,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1469,6 +1510,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       } else if (data.blocked) {
         blocked = true;
         error   = data.reason || "This vehicle is not allowed due to Number Coding Scheme on the selected date/time.";
+        violations = Array.isArray(data.violations) ? data.violations : [];
       }
     } catch (err) {
       console.warn("Coding rule check failed:", err);
@@ -1476,7 +1518,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       error   = "Could not verify Number Coding rules. Please check your connection and try again.";
     }
     if (isLatest()) {
-      setCodingState({ key, error });
+      setCodingState({ key, error, violations });
       setCodingChecking(false);
     }
     return blocked;
@@ -1542,6 +1584,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           carID: selectedCar.carID,
           startDate, startTime, endDate, endTime, destination,
           destinationCity: destinationCoords?.city || "",
+          codingStops,
           key: codingKey, // reqId omitted → this result is always applied
         });
         if (blocked) return; // stop — don't advance to step 3
@@ -1610,6 +1653,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           extraDestinations: extraDestinations
             .filter(d => d.lat != null && d.lng != null)
             .map(d => ({ address: d.address || "", lat: d.lat, lng: d.lng, city: d.city || "" })),
+          // Every additional stop (even typed-only ones with no pin) — the server
+          // re-checks Number Coding for each of them when the booking is created.
+          codingStops,
           driveType,
           firstName,
           lastName,
@@ -1717,7 +1763,61 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       <div>
         <p className="text-sm font-black text-red-700 mb-1">Number Coding Restriction</p>
         <p className="text-sm text-red-600">{codingError}</p>
-        <p className="text-xs text-red-500 mt-2">Please choose a different date, time, or select another vehicle.</p>
+        <p className="text-xs text-red-500 mt-2">
+          Please choose a different date, time, or select another vehicle{codingViolations.some(v => v.id !== 'primary') ? ', or remove the restricted stop' : ''}.
+        </p>
+        {codingViolations.length > 0 && (
+          <p className="text-[11px] text-red-400 mt-2">
+            Coding schedules can change (holidays, MMDA advisories). This check uses the schedule we have on file — please confirm with MMDA or your city if you're unsure.
+          </p>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  // ── Heads-up on the Destination step ──
+  // That step comes BEFORE the pickup date/time, so there is nothing date-specific to
+  // check yet. Instead we list the days/hours this car's plate is coded in each
+  // picked location (primary + every extra stop) — it never blocks; the real check
+  // runs once a date and time are chosen.
+  const scheduleText = (schedule) => {
+    const byDay = [];
+    schedule.forEach(sc => {
+      let g = byDay.find(x => x.day === sc.dayName);
+      if (!g) { g = { day: sc.dayName, wins: [] }; byDay.push(g); }
+      g.wins.push(`${sc.startTime} – ${sc.endTime}`);
+    });
+    return byDay.map(g => `${g.day} ${g.wins.join(', ')}`).join(' · ');
+  };
+  const codingNoticeItems = codingNotices.key === noticeKey ? codingNotices.items : [];
+  // Small per-location marker shown under each destination field.
+  const codingNote = (id) => {
+    const v = codingViolations.find(x => x.id === id);
+    if (v) return (
+      <p className="text-xs text-red-600 font-semibold mt-1">
+        🚫 Number Coding applies here: {v.city || 'this area'}, {v.dayName} {v.startTime} – {v.endTime}.
+      </p>
+    );
+    const n = codingNoticeItems.find(x => x.id === id);
+    if (n) return (
+      <p className="text-xs text-amber-700 font-semibold mt-1">
+        ⚠️ Number Coding applies here: {scheduleText(n.schedule)}.
+      </p>
+    );
+    return null;
+  };
+  const codingNoticeBox = (!codingError && codingNoticeItems.length > 0) ? (
+    <div role="note" className="mt-2 flex gap-3 items-start bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
+      <span className="text-2xl flex-shrink-0">⚠️</span>
+      <div className="min-w-0">
+        <p className="text-sm font-black text-amber-800 mb-1">Number Coding heads-up</p>
+        <p className="text-xs text-amber-800">
+          This vehicle's plate is under Number Coding at {codingNoticeItems.length} of your locations (marked above).
+          On the next step you'll need to choose a date and time outside the restricted hours, or pick another vehicle.
+        </p>
+        <p className="text-[11px] text-amber-700 mt-2">
+          Coding schedules can change (holidays, MMDA advisories). This uses the schedule we have on file — please confirm with MMDA or your city if you're unsure.
+        </p>
       </div>
     </div>
   ) : null;
@@ -2100,6 +2200,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       Your destination is for documentation purposes only. Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.
                     </p>
                     {errors.destination && <p className="text-arl-cta text-xs mt-1">{errors.destination}</p>}
+                    {codingNote('primary')}
 
                     {extraDestinations.map((d, i) => (
                       <div key={d.id} className="relative">
@@ -2110,6 +2211,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           onCoordsChange={(c) => updateExtraDestinationCoords(d.id, c)}
                           placeholder="Search for another stop…"
                         />
+                        {codingNote(d.id)}
                         <button
                           type="button"
                           onClick={() => removeExtraDestination(d.id)}
@@ -2124,10 +2226,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       className="text-xs font-bold text-arl-primary hover:text-arl-secondary transition">
                       + Add another destination
                     </button>
+                    <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
+                      Number Coding is checked for every destination you add.
+                    </p>
                   </div>
                   )}
 
                   {tripPart === 4 && codingAlert}
+                  {tripPart === 4 && codingNoticeBox}
 
                   {tripPart === 5 && (<>
                   {/* ── CALENDAR ── */}

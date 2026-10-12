@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { fetchServiceArea, checkInServiceArea, serviceAreaLabel } from '../../utils/serviceArea';
 
 // Fix default marker icon (Leaflet webpack issue)
 delete L.Icon.Default.prototype._getIconUrl;
@@ -54,29 +55,16 @@ const DraggableMarker = ({ position, onDrag }) => {
   return <Marker draggable position={position} ref={markerRef} eventHandlers={eventHandlers} />;
 };
 
-// Service area — pickup can be restricted to these PSGC regions (matches
-// the region list customers can actually register under; see SignUpModal).
-// Matched case-insensitively as a substring against whatever Nominatim
-// puts in address.region / address.state / address.state_district, since
-// Nominatim's exact field and naming for PH regions is inconsistent
-// (e.g. NCR sometimes comes back as "Metro Manila" rather than "National
-// Capital Region").
-const ALLOWED_REGIONS = [
-  'cordillera administrative region', 'car',
-  'national capital region', 'ncr', 'metro manila',
-  'cagayan valley', 'region ii',
-  'central luzon', 'region iii',
-  'calabarzon', 'region iv-a',
-];
-const SERVICE_AREA_LABEL = 'CAR, NCR, Region II, Region III, or Region IV-A (CALABARZON)';
-
+// Service area — pickup is restricted to the regions saved in our database
+// (see utils/serviceArea.js). Nominatim's region naming for PH is inconsistent,
+// so we hand it every region-ish field plus the province and let the DB
+// regions/provinces decide.
 const pickRegion = (addr) => addr?.region || addr?.state || addr?.state_district || '';
-
-const isAllowedRegion = (regionStr) => {
-  const r = (regionStr || '').toLowerCase();
-  if (!r) return false;
-  return ALLOWED_REGIONS.some((a) => r.includes(a) || a.includes(r));
-};
+const regionParts = (addr) => ({
+  region:   addr?.region || addr?.state || addr?.state_district || '',
+  province: addr?.province || addr?.state || addr?.county || '',
+  city:     addr?.city || addr?.town || addr?.municipality || addr?.village || '',
+});
 
 // Reverse geocode using Nominatim (free, no API key).
 // Returns the display label, the raw address block (caller needs
@@ -134,6 +122,9 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   const [address,      setAddress]      = useState(initialLabel);
   const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
   const [resolvedProvince, setResolvedProvince] = useState(''); // structured province/state name
+  const [resolvedRegion, setResolvedRegion] = useState('');     // region name as returned by the geocoder
+  // Allowed regions from the database. null = not loaded yet; 'error' = load failed.
+  const [serviceArea, setServiceArea] = useState(null);
   const [searchQuery,  setSearchQuery]  = useState('');
   const [searchResults,setSearchResults]= useState([]);
   const [searching,    setSearching]    = useState(false);
@@ -162,6 +153,32 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   // not a single city — see pricing.js isBaseArea).
   const pickProvince = (addr) => addr?.province || addr?.state || '';
 
+  // Load the allowed regions from the database when the picker opens
+  useEffect(() => {
+    if (!isOpen || !restrictToServiceArea) return;
+    let cancelled = false;
+    setServiceArea(null);
+    fetchServiceArea()
+      .then((a) => { if (!cancelled) setServiceArea(a); })
+      .catch((err) => { console.error('[MapPicker] fetchServiceArea failed:', err.message); if (!cancelled) setServiceArea('error'); });
+    return () => { cancelled = true; };
+  }, [isOpen, restrictToServiceArea]);
+
+  // Returns an error string if `addr` is outside the service area, else ''.
+  // The server decides (using the regions saved in the database).
+  const serviceAreaError = useCallback(async (addr) => {
+    if (!restrictToServiceArea) return '';
+    if (serviceArea === null)    return 'Still loading the service area — please try again in a moment.';
+    if (serviceArea === 'error') return "Couldn't load the service area — check your connection and try again.";
+    try {
+      const ok = await checkInServiceArea(regionParts(addr));
+      return ok ? '' : `Pickup is currently only available within: ${serviceAreaLabel(serviceArea)}.`;
+    } catch (err) {
+      console.error('[MapPicker] checkInServiceArea failed:', err.message);
+      return "Couldn't verify that location — check your connection and try again.";
+    }
+  }, [restrictToServiceArea, serviceArea]);
+
   // When modal opens, reset to initial or default
   useEffect(() => {
     if (isOpen) {
@@ -171,6 +188,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
       setHasSelected(!!initialLabel);
       setResolvedCity('');
       setResolvedProvince('');
+      setResolvedRegion('');
       setSearchQuery('');
       setSearchResults([]);
       setSearchError('');
@@ -211,8 +229,9 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
       return; // marker/address left unchanged — previous valid pick stays
     }
 
-    if (restrictToServiceArea && !isAllowedRegion(pickRegion(address))) {
-      setPickError(`Pickup is currently only available within ${SERVICE_AREA_LABEL}.`);
+    const areaErr = await serviceAreaError(address);
+    if (areaErr) {
+      setPickError(areaErr);
       setLoading(false);
       return;
     }
@@ -222,9 +241,10 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setAddress(label);
     setResolvedCity(pickCity(address));
     setResolvedProvince(pickProvince(address));
+    setResolvedRegion(pickRegion(address));
     setHasSelected(true);
     setLoading(false);
-  }, [restrictToServiceArea, readOnly]);
+  }, [serviceAreaError, readOnly]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -241,8 +261,9 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
 
-    if (restrictToServiceArea && !isAllowedRegion(pickRegion(result.address))) {
-      setPickError(`Pickup is currently only available within ${SERVICE_AREA_LABEL}.`);
+    const areaErr = await serviceAreaError(result.address);
+    if (areaErr) {
+      setPickError(areaErr);
       return; // don't accept the pick; leave the previous valid selection in place
     }
 
@@ -252,6 +273,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setAddress(result.display_name);
     setResolvedCity(pickCity(result.address));
     setResolvedProvince(pickProvince(result.address));
+    setResolvedRegion(pickRegion(result.address));
     setHasSelected(true);
     setSearchResults([]);
     setSearchQuery('');
@@ -262,7 +284,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     // pick, but never let a confirm through without one regardless of how
     // it was triggered.
     if (!hasSelected) return;
-    onConfirm({ address, lat: markerPos[0], lng: markerPos[1], city: resolvedCity, province: resolvedProvince });
+    onConfirm({ address, lat: markerPos[0], lng: markerPos[1], city: resolvedCity, province: resolvedProvince, region: resolvedRegion });
   };
 
   if (!isOpen) return null;
@@ -278,7 +300,9 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             {readOnly ? (
               <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Fixed pickup location — uncheck "Pick up in-store" to choose elsewhere</p>
             ) : restrictToServiceArea && (
-              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Available in {SERVICE_AREA_LABEL}</p>
+              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
+                {serviceArea === null ? 'Loading service area…' : serviceArea === 'error' ? 'Service area unavailable' : `Available in ${serviceAreaLabel(serviceArea)}`}
+              </p>
             )}
           </div>
           <button onClick={onClose}
