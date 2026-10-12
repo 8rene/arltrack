@@ -231,6 +231,8 @@ const MyReviews = ({ user }) => {
   useEffect(() => {
     if (!user?.userID) { navigate("/"); return; }
     fetchBookingsWithReviews();
+  // fetchBookingsWithReviews is re-created every render; only re-run when the user changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchBookingsWithReviews = async () => {

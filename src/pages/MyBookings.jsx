@@ -602,6 +602,8 @@ const MyBookings = ({ user }) => {
     fetchBookings();
     fetchRefundRequests();
     fetchOutstandingBalance();
+  // The fetch functions are re-created every render; this only needs to re-run when the user changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchBookings = async () => {

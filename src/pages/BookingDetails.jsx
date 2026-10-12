@@ -310,6 +310,8 @@ export default function BookingDetailsPage() {
     return () => clearInterval(t);
   }, [receiptCooldown]);
 
+  // fetchDetails is re-created every render; this only needs to re-run when the booking changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchDetails(); }, [bookingID]);
 
   const fetchDetails = async () => {

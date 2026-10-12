@@ -815,6 +815,8 @@ const ReviewsTab = ({ user, navigate }) => {
   const [error,    setError]    = useState("");
   const [filter,   setFilter]   = useState("all");
 
+  // Loads once when the tab opens (the user is already known here).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchBookingsWithReviews(); }, []);
 
   const fetchBookingsWithReviews = async () => {
@@ -1061,6 +1063,8 @@ const ProfilePage = ({ user }) => {
     if (!user?.userID) { navigate("/"); return; }
     fetchProfile();
     fetchEditRequests();
+  // The fetch functions are re-created every render; this only needs to re-run when the user changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchProfile = async () => {

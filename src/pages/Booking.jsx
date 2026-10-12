@@ -949,6 +949,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (!location.state?.carID || cars.length === 0) return;
     const match = cars.find(c => c.carID === location.state.carID);
     if (match) { handleCarSelect(match); setCurrentStep(2); }
+  // handleCarSelect is intentionally NOT a dependency: it is re-created whenever the
+  // date/duration state changes, and adding it would re-run this pre-select (jumping
+  // back to step 2 and resetting the car) every time the customer picks a date.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cars, location.state]);
 
   // ── Fetch bookings when car is selected ──────────────────────
