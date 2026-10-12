@@ -69,14 +69,14 @@ const ViewDetailsModal = ({ car, onClose }) => {
           <div className="w-20 h-16 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0">
             {car.imageURL
               ? <img src={car.imageURL} alt={car.name} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">🚗</div>
+              : <div className="w-full h-full flex items-center justify-center text-[10px] font-semibold text-gray-400">No image</div>
             }
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-xl font-black text-arl-primary truncate">{car.name}</h2>
             <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mt-0.5">{car.bodyType}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <span className="text-xs text-gray-500">⭐ {allReviews.length} reviews</span>
+              <span className="text-xs text-gray-500">{allReviews.length} reviews</span>
               {car.startingPrice && (
                 <span className="text-xs font-bold text-arl-cta">₱{Number(car.startingPrice).toLocaleString()} / {car.durationType}</span>
               )}
@@ -85,7 +85,7 @@ const ViewDetailsModal = ({ car, onClose }) => {
           <button
             onClick={onClose}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition flex-shrink-0 text-lg"
-          >✕</button>
+          ><svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg></button>
         </div>
 
         {/* Tabs */}
@@ -334,7 +334,7 @@ const VehicleCard = ({ car, badge }) => {
               onError={(e) => { e.target.style.display = "none"; }}
             />
           ) : (
-            <div className="w-full h-32 sm:h-52 flex items-center justify-center bg-gray-100 text-gray-300 text-3xl sm:text-4xl">🚗</div>
+            <div className="w-full h-32 sm:h-52 flex items-center justify-center bg-gray-100 text-gray-400 text-sm font-semibold">No image</div>
           )}
         </div>
 
@@ -355,10 +355,10 @@ const VehicleCard = ({ car, badge }) => {
 
           <div className="flex items-center justify-between text-[10px] sm:text-xs text-gray-400 mb-2 sm:mb-4">
             {reviewCount > 0 && (
-              <span className="flex items-center gap-1">⭐ {reviewCount} review{reviewCount !== 1 ? "s" : ""}</span>
+              <span className="flex items-center gap-1">{reviewCount} review{reviewCount !== 1 ? "s" : ""}</span>
             )}
             {bookingCount > 0 && (
-              <span className="flex items-center gap-1">📅 {bookingCount} booking{bookingCount !== 1 ? "s" : ""}</span>
+              <span className="flex items-center gap-1">{bookingCount} booking{bookingCount !== 1 ? "s" : ""}</span>
             )}
           </div>
 

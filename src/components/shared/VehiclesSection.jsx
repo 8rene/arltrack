@@ -100,7 +100,7 @@ const VehiclesSection = () => {
         <CarSubSection
           title="Most Reviewed"
           subtitle="Customer Favorites"
-          badge="⭐ Top Rated"
+          badge="Top Rated"
           cars={mostReviewed}
           loading={loading}
           error={error}
@@ -119,7 +119,7 @@ const VehiclesSection = () => {
         <CarSubSection
           title="Most Booked"
           subtitle="Highly In Demand"
-          badge="🔥 Most Booked"
+          badge="Most Booked"
           cars={mostBooked}
           loading={loading}
           error={error}
