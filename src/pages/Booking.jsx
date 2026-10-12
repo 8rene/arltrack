@@ -353,9 +353,6 @@ const KeyPoints = ({ title, subtitle, points }) => (
         const must = pt.level === 'must';
         return (
           <li key={i} className={`flex gap-3 px-3 sm:px-4 py-3 border-l-4 ${must ? 'bg-amber-50 border-amber-400' : 'bg-white border-arl-secondary/40'}`}>
-            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-lg sm:text-xl flex-shrink-0 ${must ? 'bg-amber-100' : 'bg-blue-50'}`}>
-              {pt.icon}
-            </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <p className="text-sm sm:text-base font-extrabold text-arl-dark leading-snug">{pt.headline}</p>
@@ -386,7 +383,7 @@ const TRIP_PARTS = [
     title: 'What is your trip for?',
     description: 'Pick the purpose of your rental. Choose Others if it is not listed.',
     points: [
-      { icon: '🚫', level: 'must', headline: 'Lawful use only', detail: 'No subletting, illegal transport, off-road driving, smoking inside, or hazardous items.', ref: 'Vehicle Usage' },
+      { level: 'must', headline: 'Lawful use only', detail: 'No subletting, illegal transport, off-road driving, smoking inside, or hazardous items.', ref: 'Vehicle Usage' },
     ],
   },
   {
@@ -394,8 +391,8 @@ const TRIP_PARTS = [
     title: 'How long do you need the car?',
     description: '12 Hours ends automatically after 12 hours. 22 Hours lets you choose your pickup and return dates.',
     points: [
-      { icon: '⏱️', level: 'must', headline: 'You choose the time, so make it enough', detail: 'Pick a duration that covers the whole trip, including travel, traffic and rest stops.', ref: 'Rental Time & Destination Selection' },
-      { icon: '💸', level: 'must', headline: 'Late return is charged per hour', detail: 'Every hour after your return time is billed.', ref: 'Late Return & Penalties' },
+      { level: 'must', headline: 'You choose the time, so make it enough', detail: 'Pick a duration that covers the whole trip, including travel, traffic and rest stops.', ref: 'Rental Time & Destination Selection' },
+      { level: 'must', headline: 'Late return is charged per hour', detail: 'Every hour after your return time is billed.', ref: 'Late Return & Penalties' },
     ],
   },
   {
@@ -403,10 +400,10 @@ const TRIP_PARTS = [
     title: 'Pickup and driver',
     description: 'Choose where we hand over the car (drop-off is the same place) and who will drive.',
     points: [
-      { icon: '🪪', level: 'must', headline: 'Bring a valid government ID', detail: 'No valid ID on pickup day means the booking may be cancelled and the deposit is not refunded.', ref: 'Vehicle Pickup & Customer Identification' },
-      { icon: '🚗', level: 'must', headline: 'Without Driver: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license on pickup day.', ref: 'Driver Requirements (Self-Drive)' },
-      { icon: '🧑‍✈️', headline: "With Driver: driver's fee applies", detail: 'The amount is shown on the option below and as its own line in your price breakdown.' },
-      { icon: '🔑', headline: 'We inspect the car with you', detail: 'Existing damage is noted first. The car is released once your payment is confirmed.', ref: 'Booking Guidelines' },
+      { level: 'must', headline: 'Bring a valid government ID', detail: 'No valid ID on pickup day means the booking may be cancelled and the deposit is not refunded.', ref: 'Vehicle Pickup & Customer Identification' },
+      { level: 'must', headline: 'Without Driver: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license on pickup day.', ref: 'Driver Requirements (Self-Drive)' },
+      { headline: "With Driver: driver's fee applies", detail: 'The amount is shown on the option below and as its own line in your price breakdown.' },
+      { headline: 'We inspect the car with you', detail: 'Existing damage is noted first. The car is released once your payment is confirmed.', ref: 'Booking Guidelines' },
     ],
   },
   {
@@ -414,9 +411,9 @@ const TRIP_PARTS = [
     title: 'Where are you going?',
     description: 'Tell us where you are headed. This is saved for our records only.',
     points: [
-      { icon: '📍', level: 'must', headline: 'We cannot compute your travel time', detail: 'The destination is for documentation only. Choosing enough time for the trip is up to you.', ref: 'Rental Time & Destination Selection' },
-      { icon: '🔢', headline: 'Number coding applies', detail: 'Metro Manila, weekdays 7 AM to 7 PM. If your car is restricted, we will ask you to change the date or the car.', ref: 'Number Coding Scheme' },
-      { icon: '⛽', headline: 'Fuel and tolls are yours', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
+      { level: 'must', headline: 'We cannot compute your travel time', detail: 'The destination is for documentation only. Choosing enough time for the trip is up to you.', ref: 'Rental Time & Destination Selection' },
+      { headline: 'Number coding applies', detail: 'Metro Manila, weekdays 7 AM to 7 PM. If your car is restricted, we will ask you to change the date or the car.', ref: 'Number Coding Scheme' },
+      { headline: 'Fuel and tolls are yours', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
     ],
   },
   {
@@ -424,9 +421,9 @@ const TRIP_PARTS = [
     title: 'When do you need it?',
     description: 'Pick your pickup date and time. Your return is calculated from your duration.',
     points: [
-      { icon: '⏰', level: 'must', headline: 'Choose your pickup time carefully', detail: 'The system will not estimate your travel time, so make sure your schedule fits the whole trip.', ref: 'Rental Time & Destination Selection' },
-      { icon: '💸', level: 'must', headline: 'Late return is charged per hour', detail: 'Time past your agreed return is billed hourly.', ref: 'Late Return & Penalties' },
-      { icon: '🔁', headline: 'Reschedule 24 hours ahead', detail: 'Subject to vehicle availability.', ref: 'Cancellation & Refund Policy' },
+      { level: 'must', headline: 'Choose your pickup time carefully', detail: 'The system will not estimate your travel time, so make sure your schedule fits the whole trip.', ref: 'Rental Time & Destination Selection' },
+      { level: 'must', headline: 'Late return is charged per hour', detail: 'Time past your agreed return is billed hourly.', ref: 'Late Return & Penalties' },
+      { headline: 'Reschedule 24 hours ahead', detail: 'Subject to vehicle availability.', ref: 'Cancellation & Refund Policy' },
     ],
   },
 ];
@@ -489,7 +486,7 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
           ? <img src={imageURL} alt={name} className="w-full h-20 sm:h-36 object-cover"
               onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
           : null}
-        <div className="w-full h-20 sm:h-36 items-center justify-center text-2xl sm:text-4xl text-gray-300 bg-gray-100" style={{ display: imageURL ? 'none' : 'flex' }}>🚗</div>
+        <div className="w-full h-20 sm:h-36 items-center justify-center text-xs sm:text-sm font-semibold text-gray-400 bg-gray-100" style={{ display: imageURL ? 'none' : 'flex' }}>No image</div>
         <span className="absolute bottom-1 right-2 sm:bottom-2 sm:right-3 text-white/70 text-[10px] sm:text-xs font-black tracking-widest uppercase drop-shadow">{brandName}</span>
       </div>
       <div className="p-2 sm:p-4">
@@ -621,8 +618,12 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
           value={value}
           placeholder={placeholder}
           onChange={(e) => onValueChange(e.target.value)}
+          // When pickup is limited to our service regions, typed text can't be
+          // verified — the location has to be chosen on the map.
+          readOnly={restrictToServiceArea && !disabled}
+          onClick={() => { if (restrictToServiceArea && !disabled) setMapOpen(true); }}
           disabled={disabled}
-          className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed read-only:cursor-pointer"
         />
         {/* Map button stays clickable even while locked — opens in read-only
             view mode so the customer can still see exactly where it is,
@@ -639,9 +640,9 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
         <MapPicker
           isOpen={mapOpen}
           onClose={() => setMapOpen(false)}
-          onConfirm={({ address: addr, lat, lng, city, province }) => {
+          onConfirm={({ address: addr, lat, lng, city, province, region }) => {
             onValueChange(addr);
-            onCoordsChange?.({ lat, lng, city, province });
+            onCoordsChange?.({ lat, lng, city, province, region });
             setMapOpen(false);
           }}
           initialLabel={value}
@@ -1359,10 +1360,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const canProceed = () => {
     if (currentStep === 1) return !!selectedCar;
     if (currentStep === 2) {
-      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError);
+      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError);
       if (tripPart === 1) return !!serviceType && !(serviceType === 'Others' && !otherServiceNote.trim());
       if (tripPart === 2) return !!duration;
-      if (tripPart === 3) return !!(pickupLocation && dropoffLocation);
+      if (tripPart === 3) return !!(pickupLocation && pickupCoords && dropoffLocation);
       if (tripPart === 4) return !!destination;
       return allOk; // last part (Date & Time): everything must be complete
     }
@@ -1390,7 +1391,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === 2) && !duration)                missing.push('a duration');
       if ((last || tripPart === 5) && (!startDate || !startTime)) missing.push('a pickup date & time');
       if ((last || tripPart === 5) && (!endDate || !endTime))     missing.push('an end date & time');
-      if ((last || tripPart === 3) && !pickupLocation)          missing.push('a pickup location');
+      if ((last || tripPart === 3) && (!pickupLocation || !pickupCoords)) missing.push('a pickup location chosen on the map');
       if ((last || tripPart === 3) && !dropoffLocation)         missing.push('a drop-off location');
       if ((last || tripPart === 4) && !destination)             missing.push('a destination');
       if (tripPart >= 5 && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
@@ -1432,7 +1433,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === 5) && !startDate)       e.startDate       = 'Select a start date.';
       if ((last || tripPart === 5) && !startTime)       e.startTime       = 'Set a pickup time.';
       if ((last || tripPart === 5) && (!endDate || !endTime)) e.endDate     = 'End date/time is required.';
-      if ((last || tripPart === 3) && !pickupLocation)  e.pickupLocation  = 'Enter a pickup location.';
+      if ((last || tripPart === 3) && !pickupLocation)  e.pickupLocation  = 'Choose a pickup location on the map.';
+      else if ((last || tripPart === 3) && !pickupCoords) e.pickupLocation = 'Please pick your location on the map so we can confirm it is within our service area.';
       if ((last || tripPart === 3) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
       if ((last || tripPart === 4) && !destination)     e.destination     = 'Please enter a destination.';
       if (tripPart >= 5 && codingError)      e.coding          = codingError;
@@ -1643,6 +1645,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           // Structured city, when we have one — backend prefers this over
           // fuzzy substring-matching the address string for coding rules.
           pickupCity:      pickupCoords?.city      || "",
+          // Region/province from the map pick — the backend checks these against
+          // the regions saved in the database before accepting the booking.
+          pickupProvince:  pickupCoords?.province  || "",
+          pickupRegion:    pickupCoords?.region    || "",
           destinationCity: destinationCoords?.city || "",
           // Same reasoning as destinationCity — exact match preferred over
           // substring-matching the raw address for the base-area fee.
@@ -1759,7 +1765,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // ── Number Coding restriction message (shown under Destination and under Date & Time) ──
   const codingAlert = codingError ? (
     <div ref={codingAlertRef} role="alert" className="mt-6 flex gap-3 items-start bg-red-50 border-2 border-red-300 rounded-2xl p-4">
-      <span className="text-2xl flex-shrink-0">🚫</span>
       <div>
         <p className="text-sm font-black text-red-700 mb-1">Number Coding Restriction</p>
         <p className="text-sm text-red-600">{codingError}</p>
@@ -1795,20 +1800,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     const v = codingViolations.find(x => x.id === id);
     if (v) return (
       <p className="text-xs text-red-600 font-semibold mt-1">
-        🚫 Number Coding applies here: {v.city || 'this area'}, {v.dayName} {v.startTime} – {v.endTime}.
+        Number Coding applies here: {v.city || 'this area'}, {v.dayName} {v.startTime} – {v.endTime}.
       </p>
     );
     const n = codingNoticeItems.find(x => x.id === id);
     if (n) return (
       <p className="text-xs text-amber-700 font-semibold mt-1">
-        ⚠️ Number Coding applies here: {scheduleText(n.schedule)}.
+        Number Coding applies here: {scheduleText(n.schedule)}.
       </p>
     );
     return null;
   };
   const codingNoticeBox = (!codingError && codingNoticeItems.length > 0) ? (
     <div role="note" className="mt-2 flex gap-3 items-start bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
-      <span className="text-2xl flex-shrink-0">⚠️</span>
       <div className="min-w-0">
         <p className="text-sm font-black text-amber-800 mb-1">Number Coding heads-up</p>
         <p className="text-xs text-amber-800">
@@ -1932,10 +1936,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   <p className="text-gray-500 text-sm mb-6">Select the car that suits your trip.</p>
                   <div className="flex flex-col sm:flex-row gap-3 mb-4">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
                       <input type="text" placeholder="Search by name or brand…" value={carSearch}
                         onChange={e => setCarSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm" />
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm" />
                     </div>
                     <select value={filterBody} onChange={e => setFilterBody(e.target.value)}
                       className="px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm bg-white text-gray-600">
@@ -1947,8 +1950,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       Showing <span className="font-semibold text-arl-primary">{filteredCars.length}</span> of <span className="font-semibold">{cars.length}</span> vehicles
                     </p>
                   )}
-                  {carsError  && <p className="text-red-400 text-sm mb-4">⚠ {carsError}</p>}
-                  {errors.vehicle && <p className="text-arl-cta text-sm mb-4">⚠ {errors.vehicle}</p>}
+                  {carsError  && <p className="text-red-400 text-sm mb-4">{carsError}</p>}
+                  {errors.vehicle && <p className="text-arl-cta text-sm mb-4">{errors.vehicle}</p>}
                   <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 max-h-[600px] overflow-y-auto pr-1">
                     {carsLoading
                       ? Array.from({length:6}).map((_,i) => <SkeletonCard key={i} />)
@@ -1958,7 +1961,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                             selected={selectedCar?.carID === car.carID}
                             onSelect={handleCarSelect} />
                         ))
-                      : <div className="col-span-3 text-center py-12 text-gray-400"><p className="text-3xl mb-2">🔍</p><p className="text-sm">No vehicles found.</p></div>
+                      : <div className="col-span-3 text-center py-12 text-gray-400"><p className="text-sm">No vehicles found.</p></div>
                     }
                   </div>
                 </div>
@@ -1972,7 +1975,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     <div className="flex items-center gap-4 bg-arl-primary/5 border border-arl-primary/20 rounded-xl p-4 mb-6">
                       {selectedCar.imageURL
                         ? <img src={selectedCar.imageURL} alt={selectedCar.name} className="w-20 h-14 object-cover rounded-lg" onError={e => e.target.style.display='none'} />
-                        : <div className="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">🚗</div>}
+                        : <div className="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-semibold text-gray-400">No image</div>}
                       <div>
                         <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Selected Vehicle</p>
                         <p className="text-lg font-black text-arl-primary">{selectedCar.name}</p>
@@ -1986,7 +1989,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* Draft restored notice */}
                   {tripPart === 1 && (duration || startDate || startTime || destination) && (
                     <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 text-sm">
-                      <span className="text-lg">💾</span>
                       <span className="text-green-700 font-medium">Your previous selections were restored. You can change them below.</span>
                       <button
                         type="button"
@@ -2087,7 +2089,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           className="w-4 h-4 accent-arl-primary rounded"
                         />
                         <label htmlFor="pickupInStore" className="text-xs font-semibold text-gray-600">
-                          🏬 Pick up in-store — {storeInfo.storeName}
+                          Pick up in-store — {storeInfo.storeName}
                         </label>
                       </div>
                     )}
@@ -2099,7 +2101,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       value={pickupLocation}
                       onValueChange={setPickupLocation}
                       onCoordsChange={setPickupCoords}
-                      placeholder="Enter pick-up location…"
+                      placeholder="Tap to choose a pick-up location on the map…"
                       disabled={pickupInStore}
                       restrictToServiceArea
                       coords={pickupCoords}
@@ -2137,8 +2139,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     <p className="text-xs text-gray-500 mb-3">Choose one. The extra cost of a driver is shown on the option.</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
-                        { type: 'chauffeur',  icon: '🧑‍✈️', label: 'With Driver' },
-                        { type: 'self-drive', icon: '🚗',      label: 'Without Driver' },
+                        { type: 'chauffeur',  label: 'With Driver' },
+                        { type: 'self-drive', label: 'Without Driver' },
                       ].map(({ type, icon, label }) => {
                         const selected = driveType === type;
                         const base = quote.driversFeeBaseArea;
@@ -2152,7 +2154,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                                   onChange={() => setDriveType(type)}
                                   className="mt-1 w-4 h-4 accent-arl-primary flex-shrink-0" />
                                 <span className="min-w-0">
-                                  <span className="block text-sm sm:text-base font-extrabold text-arl-dark">{icon} {label}</span>
+                                  <span className="block text-sm sm:text-base font-extrabold text-arl-dark">{label}</span>
                                   {type === 'chauffeur' ? (
                                     base === null || base === undefined ? (
                                       <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">A professional driver. The driver's fee shows in your price breakdown.</span>
@@ -2161,7 +2163,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                                         <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} inside our service area</span>
                                         <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} outside our service area</span>
                                         {selected && driversFee > 0 ? (
-                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">✔ Added to your total: {peso(driversFee)} (based on your destination)</span>
+                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)} (based on your destination)</span>
                                         ) : (
                                           <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The exact amount depends on your destination, which you choose next.</span>
                                         )}
@@ -2270,7 +2272,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       {/* Auto-end banner */}
                       {duration === '12 Hours' && startDate && startTime && endDate && endTime && (
                         <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
-                          <span className="text-lg sm:text-2xl">🏁</span>
                           <div>
                             <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (12 hrs)</p>
                             <p className="text-sm sm:text-base font-black text-green-700">{fmt(endDate)}</p>
@@ -2281,7 +2282,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       )}
                       {duration === '22 Hours' && startDate && startTime && endDate && endTime && (
                         <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
-                          <span className="text-lg sm:text-2xl">🏁</span>
                           <div>
                             <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (22 hrs)</p>
                             <p className="text-[10px] sm:text-xs text-green-500">{fmt(startDate)} →</p>
@@ -2300,7 +2300,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* ── Max rental length error ── */}
                   {maxDaysError && (
                     <div className="mt-6 flex gap-3 items-start bg-red-50 border-2 border-red-300 rounded-2xl p-4">
-                      <span className="text-2xl flex-shrink-0">🚫</span>
                       <div>
                         <p className="text-sm font-black text-red-700 mb-1">Rental Period Too Long</p>
                         <p className="text-sm text-red-600">{maxDaysError}</p>
@@ -2493,10 +2492,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           title="Notes: Security Deposit"
                           subtitle="What the deposit is and when you get it back."
                           points={[
-                            { icon: '💰', level: 'must', headline: `${peso(securityDeposit)} deposit is paid upfront`, detail: 'It is part of your total and is always paid first, even with Partial Payment.', ref: 'Security Deposit' },
-                            { icon: '✅', level: 'must', headline: 'Refundable in full', detail: 'You get it back when the car is returned in good condition with no unpaid charges.', ref: 'Security Deposit' },
-                            { icon: '⚠️', headline: 'Damage or unpaid charges may reduce it', detail: 'For example fuel or a late return.' },
-                            { icon: '❌', headline: 'Not refunded if you cancel late or do not show up', detail: 'Cancelling within the refund window or missing your pickup keeps the deposit.', ref: 'Cancellation & Refund Policy' },
+                            { level: 'must', headline: `${peso(securityDeposit)} deposit is paid upfront`, detail: 'It is part of your total and is always paid first, even with Partial Payment.', ref: 'Security Deposit' },
+                            { level: 'must', headline: 'Refundable in full', detail: 'You get it back when the car is returned in good condition with no unpaid charges.', ref: 'Security Deposit' },
+                            { headline: 'Damage or unpaid charges may reduce it', detail: 'For example fuel or a late return.' },
+                            { headline: 'Not refunded if you cancel late or do not show up', detail: 'Cancelling within the refund window or missing your pickup keeps the deposit.', ref: 'Cancellation & Refund Policy' },
                           ]}
                         />
                       </div>
@@ -2541,8 +2540,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       title="Before you pay"
                       subtitle="This applies to both Partial and Full Payment."
                       points={[
-                        { icon: '🌐', level: 'must', headline: `Pay ${peso(getPayNow())} online to confirm`, detail: 'The required amount must be paid online first. Your booking is not confirmed until payment is received.', ref: 'Reservation & Booking Policy' },
-                        { icon: '🥇', headline: 'First to pay gets the car', detail: 'Bookings without payment are not held. Priority goes to the first customer who completes payment.', ref: 'Payment Terms' },
+                        { level: 'must', headline: `Pay ${peso(getPayNow())} online to confirm`, detail: 'The required amount must be paid online first. Your booking is not confirmed until payment is received.', ref: 'Reservation & Booking Policy' },
+                        { headline: 'First to pay gets the car', detail: 'Bookings without payment are not held. Priority goes to the first customer who completes payment.', ref: 'Payment Terms' },
                       ]}
                     />
                   </div>
@@ -2592,7 +2591,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-xs sm:text-sm font-mono"
                       />
                       {errors.gcashReference && (
-                        <p className="text-arl-cta text-[11px] sm:text-xs mt-1">⛔ {errors.gcashReference}</p>
+                        <p className="text-arl-cta text-[11px] sm:text-xs mt-1">{errors.gcashReference}</p>
                       )}
                     </div>
 
@@ -2604,7 +2603,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                       {!screenshotPreview ? (
                         <label className="flex flex-col items-center justify-center w-full h-28 sm:h-36 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-arl-primary hover:bg-arl-primary/5 transition-all group">
-                          <div className="text-2xl sm:text-4xl mb-1 sm:mb-2 group-hover:scale-110 transition-transform">📸</div>
                           <p className="text-xs sm:text-sm font-semibold text-gray-500 group-hover:text-arl-primary">
                             Click to upload screenshot
                           </p>
@@ -2635,14 +2633,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           />
                           <div className="absolute top-2 right-2 flex gap-2">
                             <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                              ✓ Uploaded
+                              Uploaded
                             </span>
                             <button
                               type="button"
                               onClick={() => { setPaymentScreenshot(null); setScreenshotPreview(''); }}
                               className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full hover:bg-red-600 transition"
                             >
-                              ✕ Remove
+                              Remove
                             </button>
                           </div>
                           <p className="text-xs text-gray-400 mt-2 text-center">
@@ -2651,7 +2649,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         </div>
                       )}
                       {errors.paymentScreenshot && (
-                        <p className="text-arl-cta text-xs mt-1">⛔ {errors.paymentScreenshot}</p>
+                        <p className="text-arl-cta text-xs mt-1">{errors.paymentScreenshot}</p>
                       )}
                     </div>
                   </div>

@@ -296,7 +296,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-sm sm:text-lg font-black text-arl-primary">📍 Pick Location</h3>
+            <h3 className="text-sm sm:text-lg font-black text-arl-primary">Pick Location</h3>
             {readOnly ? (
               <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Fixed pickup location — uncheck "Pick up in-store" to choose elsewhere</p>
             ) : restrictToServiceArea && (
@@ -307,7 +307,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
           </div>
           <button onClick={onClose}
             className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 text-sm transition flex-shrink-0">
-            ✕
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
           </button>
         </div>
 
@@ -362,7 +362,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             </div>
           )}
           {searchError && !searching && (
-            <p className="text-[10px] sm:text-xs text-red-500 mt-2 px-1">⚠ {searchError}</p>
+            <p className="text-[10px] sm:text-xs text-red-500 mt-2 px-1">{searchError}</p>
           )}
           {!searchError && hasSearched && searchResults.length === 0 && !searching && (
             <p className="text-[10px] sm:text-xs text-gray-400 mt-2 px-1">No results. Try a different keyword.</p>
@@ -406,7 +406,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             {loading ? 'Getting address…' : (hasSelected ? address : 'Tap the map, drag the pin, or search to choose a location')}
           </p>
           {pickError && (
-            <p className="text-[10px] sm:text-xs text-red-500 mb-2.5 sm:mb-3">⚠ {pickError}</p>
+            <p className="text-[10px] sm:text-xs text-red-500 mb-2.5 sm:mb-3">{pickError}</p>
           )}
           <div className="flex gap-2 sm:gap-3">
             {readOnly ? (
@@ -422,7 +422,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
                 </button>
                 <button onClick={handleConfirm} disabled={loading || !hasSelected}
                   className="flex-1 py-2 sm:py-2.5 rounded-xl bg-arl-primary text-white text-xs sm:text-sm font-semibold hover:bg-arl-secondary transition disabled:opacity-50">
-                  ✓ Use this location
+                  Use this location
                 </button>
               </>
             )}
