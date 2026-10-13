@@ -690,6 +690,9 @@ const MyBookings = ({ user }) => {
     (b.payment?.status || "").toLowerCase() === "refunded" ||
     !!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID));
   const toPay     = bookings.filter(b => b.status === "to pay");
+  // Unpaid penalties belong under To Pay too (one entry per booking that owes).
+  // Falls back to 1 if the balance is > 0 but the per-booking list is empty.
+  const penaltyCount = outstandingBalance > 0 ? Math.max(outstandingBookings.length, 1) : 0;
   const upcoming  = bookings.filter(b => b.status === "upcoming" && !hasActiveRefundStory(b));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   const refunded  = bookings.filter(hasActiveRefundStory);
@@ -710,37 +713,9 @@ const MyBookings = ({ user }) => {
           <p className="text-gray-500 text-sm mt-1">Track all your rides and payment details</p>
         </div>
 
-        {outstandingBalance > 0 && (
-          <div className="mb-6 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-red-700">
-                Outstanding balance: ₱{outstandingBalance.toLocaleString()}
-              </p>
-              <p className="text-xs text-red-500 mt-0.5">
-                Please settle this in store before booking again.
-              </p>
-            </div>
-            {outstandingBookings.length > 0 && (
-              <div className="flex flex-col gap-1.5 shrink-0">
-                {outstandingBookings.map((b) => (
-                  <button
-                    key={b.bookingID}
-                    onClick={() => navigate(`/booking/${b.bookingID}/details`)}
-                    className="whitespace-nowrap rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 transition-colors"
-                  >
-                    {outstandingBookings.length > 1
-                      ? `View booking · ₱${Number(b.amount).toLocaleString()}`
-                      : "View booking"}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="flex overflow-x-auto scrollbar-hide bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1 -mx-1 px-1 sm:mx-0">
           {[
-            { key: "toPay",    label: "To Pay",   count: toPay.length },
+            { key: "toPay",    label: "To Pay",   count: toPay.length + penaltyCount },
             { key: "upcoming", label: "Upcoming", count: upcoming.length },
             { key: "ongoing",  label: "Ongoing",  count: ongoing.length },
             { key: "refunds",  label: "Refunds",  count: refunded.length },
@@ -779,6 +754,34 @@ const MyBookings = ({ user }) => {
         )}
 
         <div className="space-y-4">
+          {activeTab === "toPay" && penaltyCount > 0 && (
+            <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-4">
+              <p className="text-sm font-bold text-red-700">
+                Unpaid penalty: ₱{outstandingBalance.toLocaleString()}
+              </p>
+              <p className="text-xs text-red-500 mt-0.5">
+                Please settle this in store. You can't make a new booking until it is paid.
+              </p>
+              {outstandingBookings.length > 0 && (
+                <div className="mt-3 flex flex-col gap-2">
+                  {outstandingBookings.map((b) => (
+                    <div key={b.bookingID} className="flex items-center justify-between gap-3 bg-white/70 rounded-xl px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-500 truncate">Booking #{String(b.bookingID).slice(-6).toUpperCase()}</p>
+                        <p className="text-sm font-bold text-red-700">₱{Number(b.amount).toLocaleString()}</p>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/booking/${b.bookingID}/details`)}
+                        className="whitespace-nowrap rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 transition-colors"
+                      >
+                        View booking
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {loading
             ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} />)
             : displayed.length > 0
@@ -792,7 +795,7 @@ const MyBookings = ({ user }) => {
                   onRefundRequested={fetchRefundRequests}
                 />
               ))
-            : <EmptyState tab={activeTab} />
+            : (activeTab === "toPay" && penaltyCount > 0) ? null : <EmptyState tab={activeTab} />
           }
         </div>
 

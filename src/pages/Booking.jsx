@@ -720,6 +720,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [currentStep,       setCurrentStep]       = useState(1);
   const [tripPart,          setTripPart]          = useState(1); // 1..TRIP_PARTS.length — which part of the Trip step is shown
   const [payPart,           setPayPart]           = useState(1); // 1 = payment details & total, 2 = payment option + method
+  const [showBreakdown,      setShowBreakdown]      = useState(false); // accordion on the Part 2 total bar
   const [serviceType,       setServiceType]        = useState('');
   // FK into the serviceType collection, sent alongside the label so admin
   // can resolve/display it (see admin-backend's resolveServiceType()).
@@ -1599,7 +1600,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
     if (currentStep < 5) {
       if (currentStep === 1) setTripPart(1); // always start the Trip step from its first part
-      if (currentStep === 3) setPayPart(1);  // always open Payment on the details/total first
+      if (currentStep === 3) { setPayPart(1); setShowBreakdown(false); }  // always open Payment on the details/total first
       setCurrentStep(currentStep + 1);
       return;
     }
@@ -1737,7 +1738,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   const resetBooking = () => {
     clearDraft();
-    setShowConfirmModal(false); setCurrentStep(1); setTripPart(1); setPayPart(1); setSelectedCar(null);
+    setShowConfirmModal(false); setCurrentStep(1); setTripPart(1); setPayPart(1); setShowBreakdown(false); setSelectedCar(null);
     setServiceType(''); setOtherServiceNote(''); setDuration(''); setStartDate(''); setStartTime('');
     setEndDate(''); setEndTime(''); setPickupLocation(''); setPickupInStore(false);
     setDropoffLocation(''); setDestination(''); setDriveType('chauffeur');
@@ -1895,6 +1896,30 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       ],
     },
   ];
+
+  const renderBreakdownTable = () => (
+    <>
+      <div className="rounded-2xl border border-gray-200 bg-white px-3 sm:px-4">
+        {payDetailRows.map((row) => (
+          <div key={row.key} className="border-b border-gray-100 last:border-b-0">
+            <div className="flex items-center justify-between gap-2 py-2.5 sm:py-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs sm:text-sm font-medium text-arl-dark">{row.label}</span>
+                <HelpButton open={openInfo === `pay-${row.key}`} onClick={() => toggleInfo(`pay-${row.key}`)} label={`About ${row.title}`} />
+              </div>
+              <span className="text-xs sm:text-sm font-bold text-gray-700 flex-shrink-0">{quoteLoading ? '…' : row.value}</span>
+            </div>
+            {openInfo === `pay-${row.key}` && <InfoPanel title={row.title} items={row.items} />}
+          </div>
+        ))}
+        <div className="flex items-center justify-between gap-2 py-3 border-t-2 border-arl-primary">
+          <span className="text-sm sm:text-base font-black text-arl-dark">Total</span>
+          <span className="text-base sm:text-lg font-black text-arl-cta">{quoteLoading ? 'Computing…' : peso(grandTotal)}</span>
+        </div>
+      </div>
+    </>
+  );
+
 
   // ─────────────────────────────────────────────────────────────
   return (
@@ -2470,24 +2495,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {payPart === 1 && (
                   <div className="mb-4 sm:mb-6">
                     <p className="text-[11px] sm:text-xs text-gray-500 mb-2">Tap the <span className="font-bold text-arl-primary">?</span> beside any item to see what it is for.</p>
-                    <div className="rounded-2xl border border-gray-200 bg-white px-3 sm:px-4">
-                      {payDetailRows.map((row) => (
-                        <div key={row.key} className="border-b border-gray-100 last:border-b-0">
-                          <div className="flex items-center justify-between gap-2 py-2.5 sm:py-3">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-xs sm:text-sm font-medium text-arl-dark">{row.label}</span>
-                              <HelpButton open={openInfo === `pay-${row.key}`} onClick={() => toggleInfo(`pay-${row.key}`)} label={`About ${row.title}`} />
-                            </div>
-                            <span className="text-xs sm:text-sm font-bold text-gray-700 flex-shrink-0">{quoteLoading ? '…' : row.value}</span>
-                          </div>
-                          {openInfo === `pay-${row.key}` && <InfoPanel title={row.title} items={row.items} />}
-                        </div>
-                      ))}
-                      <div className="flex items-center justify-between gap-2 py-3 border-t-2 border-arl-primary">
-                        <span className="text-sm sm:text-base font-black text-arl-dark">Total</span>
-                        <span className="text-base sm:text-lg font-black text-arl-cta">{quoteLoading ? 'Computing…' : peso(grandTotal)}</span>
-                      </div>
-                    </div>
+                    {renderBreakdownTable()}
 
                     {/* Notes: security deposit */}
                     {securityDeposit > 0 && (
@@ -2513,14 +2521,37 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                   {/* ── Part 2: payment option, then payment method ── */}
                   {payPart === 2 && (<>
-                  <div className="flex items-center justify-between gap-3 rounded-xl bg-arl-primary/5 border border-arl-primary/20 px-3 sm:px-4 py-2.5 mb-4 sm:mb-6">
-                    <div>
-                      <p className="text-[11px] sm:text-xs text-gray-500 font-semibold uppercase tracking-wide">Your total</p>
-                      <p className="text-lg sm:text-xl font-black text-arl-cta">{quoteLoading ? 'Computing…' : peso(grandTotal)}</p>
+                  <div className="rounded-xl bg-arl-primary/5 border border-arl-primary/20 mb-4 sm:mb-6 overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 px-3 sm:px-4 py-2.5">
+                      <div>
+                        <p className="text-[11px] sm:text-xs text-gray-500 font-semibold uppercase tracking-wide">Your total</p>
+                        <p className="text-lg sm:text-xl font-black text-arl-cta">{quoteLoading ? 'Computing…' : peso(grandTotal)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowBreakdown((v) => !v)}
+                        aria-expanded={showBreakdown}
+                        aria-controls="payment-breakdown"
+                        className="flex items-center gap-1 text-xs font-bold text-arl-primary underline"
+                      >
+                        {showBreakdown ? 'Hide breakdown' : 'View breakdown'}
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                          className={`transition-transform duration-300 ${showBreakdown ? 'rotate-180' : ''}`}>
+                          <path d="M2 4l4 4 4-4" />
+                        </svg>
+                      </button>
                     </div>
-                    <button type="button" onClick={() => setPayPart(1)} className="text-xs font-bold text-arl-primary underline">
-                      View breakdown
-                    </button>
+                    <div
+                      id="payment-breakdown"
+                      className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${showBreakdown ? 'grid-rows-[1fr] visible' : 'grid-rows-[0fr] invisible'}`}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="px-3 sm:px-4 pb-3">
+                          <p className="text-[11px] sm:text-xs text-gray-500 mb-2">Tap the <span className="font-bold text-arl-primary">?</span> beside any item to see what it is for.</p>
+                          {renderBreakdownTable()}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <p className="text-xs sm:text-sm font-semibold text-arl-dark mb-2 sm:mb-3">Payment Option</p>
