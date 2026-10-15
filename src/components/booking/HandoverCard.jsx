@@ -32,11 +32,11 @@ export default function HandoverCard({ bookingID }) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🤝 Pickup Handover</p>
+      <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Pickup Handover</p>
 
       {signed && (
         <div className="text-sm text-gray-700 space-y-1">
-          <p className="font-semibold text-green-700">✅ Signed by {signed.signedName} on {fmt(signed.signedAt)}</p>
+          <p className="font-semibold text-green-700">Signed by {signed.signedName} on {fmt(signed.signedAt)}</p>
           {signed.drivers.length > 0 && (
             <p className="text-xs text-gray-600">
               Drivers: {signed.drivers.map((d) => `${d.fullName}${d.role === "renter" ? " (renter)" : d.licenseLast4 ? ` (licence ····${d.licenseLast4})` : ""}`).join(", ")}

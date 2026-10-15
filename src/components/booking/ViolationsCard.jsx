@@ -46,7 +46,7 @@ export default function ViolationsCard({ bookingID, bookingStatus }) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🚨 Traffic Notices</p>
+      <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Traffic Notices</p>
 
       {state.violations.length === 0 ? (
         <p className="text-sm text-gray-600">No notices have been recorded for this booking.</p>

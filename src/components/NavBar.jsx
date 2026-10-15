@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import SignUpModal from "./auth/SignUpModal";
 import LoginModal from "./auth/LoginModal";
@@ -9,6 +9,7 @@ export default function Navbar({ user, userDetails, onLogin, onLogout }) {
   const [showSignup,    setShowSignup]    = useState(false);
   const [showLogin,     setShowLogin]     = useState(false);
   const [showDropdown,  setShowDropdown]  = useState(false);
+  const profileRef = useRef(null);
 
   const location = useLocation();
   const navigate  = useNavigate();
@@ -18,6 +19,24 @@ export default function Navbar({ user, userDetails, onLogin, onLogout }) {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Close the profile menu on any click/tap outside it (or Esc). Without this the menu only
+  // closed when the cursor left the menu itself, so tapping the bell left BOTH panels open
+  // and the profile menu covered the notifications. (The bell's own panel already closes on
+  // an outside click, so the two are now mutually exclusive.)
+  useEffect(() => {
+    if (!showDropdown) return undefined;
+    const onDown = (e) => { if (profileRef.current && !profileRef.current.contains(e.target)) setShowDropdown(false); };
+    const onKey  = (e) => { if (e.key === "Escape") setShowDropdown(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showDropdown]);
 
   const scrollToSection = (id) => {
     const element = document.getElementById(id);
@@ -74,7 +93,7 @@ export default function Navbar({ user, userDetails, onLogin, onLogout }) {
             <div className="flex items-center gap-3">
               <NotificationPanel user={user} />
 
-              <div className="relative">
+              <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
                 className="flex items-center gap-2 bg-arl-primary text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-arl-secondary transition-colors"

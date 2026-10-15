@@ -27,6 +27,24 @@ import {
 } from "../../utils/firestoreLocation";
 import TandC from "../shared/TandC";
 
+// ── Small inline icons (replace the emojis the form used to show) ─────────────
+const Svg = ({ d, className = "w-4 h-4", extra = null, fill = false }) => (
+  <svg viewBox={fill ? "0 0 20 20" : "0 0 24 24"} className={className} aria-hidden="true"
+    fill={fill ? "currentColor" : "none"} stroke={fill ? "none" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d={d} fillRule={fill ? "evenodd" : undefined} clipRule={fill ? "evenodd" : undefined} />
+    {extra && <path d={extra} />}
+  </svg>
+);
+const IconAlert  = ({ className = "w-3.5 h-3.5" }) => <Svg fill className={className} d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" />;
+const IconInfo   = ({ className = "w-4 h-4" })     => <Svg fill className={className} d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" />;
+const IconCamera = ({ className = "w-4 h-4" })     => <Svg className={className} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" extra="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />;
+const IconPhoto  = ({ className = "w-4 h-4" })     => <Svg className={className} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />;
+const IconFlip   = ({ className = "w-6 h-6" })     => <Svg className={className} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />;
+const IconMail   = ({ className = "w-8 h-8" })     => <Svg className={className} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />;
+const IconTag    = ({ className = "w-4 h-4" })     => <Svg className={className} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />;
+const IconEye    = ({ className = "w-5 h-5" })     => <Svg className={className} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" extra="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />;
+const IconEyeOff = ({ className = "w-5 h-5" })     => <Svg className={className} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />;
+
 // ── No client-side Firebase writes needed — backend handles everything ────────
 
 const API = `${process.env.REACT_APP_API_URL}`;
@@ -134,7 +152,7 @@ const STEP_LABELS = ["Account", "Personal", "Address", "Documents", "Verify"];
 const FieldErr = ({ msg }) =>
   msg ? (
     <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-      <span>⛔</span>{msg}
+      <IconAlert />{msg}
     </p>
   ) : null;
 
@@ -253,7 +271,7 @@ const ImageCapture = ({ label, cameraOnly = false, value, onChange, required }) 
         </div>
       ) : (
         <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center py-6 mb-2 gap-1">
-          <span className="text-3xl">📷</span>
+          <IconCamera className="w-9 h-9 text-gray-300" />
           <p className="text-gray-400 text-xs text-center px-4">
             {cameraOnly ? "Camera capture only — no gallery upload allowed." : "Capture with camera or upload a photo."}
           </p>
@@ -263,12 +281,12 @@ const ImageCapture = ({ label, cameraOnly = false, value, onChange, required }) 
       <div className="flex gap-2">
         <button type="button" onClick={openCamera}
           className="flex-1 flex items-center justify-center gap-1.5 border border-arl-primary text-arl-primary py-2.5 rounded-xl text-xs font-semibold hover:bg-arl-primary hover:text-white transition">
-          <span>📷</span>{value ? "Retake" : "Open Camera"}
+          <IconCamera />{value ? "Retake" : "Open Camera"}
         </button>
         {!cameraOnly && (
           <button type="button" onClick={() => fileRef.current?.click()}
             className="flex-1 flex items-center justify-center gap-1.5 border border-gray-300 text-gray-600 py-2.5 rounded-xl text-xs font-semibold hover:bg-gray-50 transition">
-            <span>🖼</span>Upload
+            <IconPhoto />Upload
           </button>
         )}
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
@@ -285,7 +303,7 @@ const ImageCapture = ({ label, cameraOnly = false, value, onChange, required }) 
 
             {camErr ? (
               <div className="p-6 text-center">
-                <p className="text-4xl mb-3">📵</p>
+                <IconAlert className="w-10 h-10 text-red-400 mx-auto mb-3" />
                 <p className="text-white text-sm">{camErr}</p>
                 <button type="button" onClick={() => startCamera(facingMode)}
                   className="mt-4 bg-arl-secondary text-white px-5 py-2 rounded-xl text-sm font-semibold">Retry</button>
@@ -300,7 +318,7 @@ const ImageCapture = ({ label, cameraOnly = false, value, onChange, required }) 
                 <div className="flex items-center justify-around py-5 px-4 bg-gray-900">
                   <button type="button" onClick={flipCamera}
                     className="text-white text-2xl w-12 h-12 flex items-center justify-center rounded-full hover:bg-white/10 transition" title="Flip">
-                    🔄
+                    <IconFlip />
                   </button>
                   <button type="button" onClick={capture}
                     className="w-16 h-16 rounded-full bg-white border-4 border-gray-400 hover:bg-gray-100 transition shadow-lg active:scale-95" />
@@ -403,7 +421,7 @@ const OTPStep = ({ email, onVerify, onRestart, loading }) => {
 
   return (
     <div className="flex flex-col items-center py-2">
-      <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-3xl mb-4">✉️</div>
+      <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 mb-4"><IconMail /></div>
       <h3 className="text-xl font-black text-arl-primary mb-1">Email Verification</h3>
       <p className="text-sm text-gray-500 text-center mb-1">Enter the 6-digit OTP sent to</p>
       <p className="text-sm font-bold text-arl-primary text-center break-all mb-4">{email}</p>
@@ -432,7 +450,7 @@ const OTPStep = ({ email, onVerify, onRestart, loading }) => {
         ))}
       </div>
 
-      {errMsg && <p className="text-red-500 text-xs mb-3 flex items-center gap-1">⛔ {errMsg}</p>}
+      {errMsg && <p className="text-red-500 text-xs mb-3 flex items-center gap-1"><IconAlert />{errMsg}</p>}
 
       <button type="button" onClick={verify} disabled={isLoading || blocked || digits.filter(Boolean).length < 6}
         className="w-full py-3 bg-arl-primary text-white rounded-xl font-bold text-sm hover:bg-arl-secondary transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-3">
@@ -807,7 +825,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                   />
                   {fieldErrors.username && (
                     <div className="mt-2 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-                      <span className="text-red-500 flex-shrink-0 mt-0.5">⛔</span>
+                      <span className="text-red-500 flex-shrink-0 mt-0.5"><IconAlert /></span>
                       <p className="text-red-600 text-xs leading-snug">{fieldErrors.username}</p>
                     </div>
                   )}
@@ -824,7 +842,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                   />
                   {fieldErrors.email && (
                     <div className="mt-2 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-                      <span className="text-red-500 flex-shrink-0 mt-0.5">⛔</span>
+                      <span className="text-red-500 flex-shrink-0 mt-0.5"><IconAlert /></span>
                       <p className="text-red-600 text-xs leading-snug">{fieldErrors.email}</p>
                     </div>
                   )}
@@ -834,7 +852,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                   <label className={labelCls}>Phone Number <span className="text-red-400">*</span></label>
                   <div className="flex">
                     <div className="flex items-center px-4 py-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-xl text-sm font-semibold text-gray-600 whitespace-nowrap select-none">
-                      🇵🇭 +63
+                      PH +63
                     </div>
                     <input type="text" inputMode="numeric"
                       className="flex-1 px-4 py-3 rounded-r-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary bg-white text-sm transition"
@@ -843,7 +861,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     />
                   </div>
                   {s0.phoneDigits.length > 0 && !phoneValid && (
-                    <p className="text-orange-500 text-xs mt-1">⚠️ Must be 10 digits starting with 9</p>
+                    <p className="text-orange-500 text-xs mt-1">Must be 10 digits starting with 9</p>
                   )}
                   {phoneValid && <p className="text-green-600 text-xs mt-1">✓ {fullPhone}</p>}
                 </div>
@@ -862,14 +880,14 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     />
                     <button type="button" onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg select-none">
-                      {showPassword ? "🙈" : "👁"}
+                      {showPassword ? <IconEyeOff /> : <IconEye />}
                     </button>
                   </div>
                   {s0.password.length > 0 && (() => {
                     const ok = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{};':"\|,.<>\/?]).{8,16}$/.test(s0.password);
                     return ok
                       ? <p className="text-green-600 text-xs mt-1">✓ Strong password</p>
-                      : <p className="text-orange-500 text-xs mt-1">⚠️ 8–16 chars · uppercase · lowercase · number · symbol</p>;
+                      : <p className="text-orange-500 text-xs mt-1">8–16 chars · uppercase · lowercase · number · symbol</p>;
                   })()}
                 </div>
 
@@ -887,7 +905,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     />
                   </div>
                   {s0.confirmPassword && s0.password !== s0.confirmPassword && (
-                    <p className="text-red-500 text-xs mt-1">⛔ Passwords do not match</p>
+                    <p className="text-red-500 text-xs mt-1">Passwords do not match</p>
                   )}
                   {s0.confirmPassword && s0.password === s0.confirmPassword && (
                     <p className="text-green-600 text-xs mt-1">✓ Passwords match</p>
@@ -902,7 +920,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm select-none">
-                      🎟
+                      <IconTag />
                     </span>
                     <input
                       type="text"
@@ -1023,7 +1041,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     </div>
                   </div>
                   {s1Err.birthdate
-                    ? <p className="text-red-500 text-xs mt-1 flex items-center gap-1">⛔ {s1Err.birthdate}</p>
+                    ? <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><IconAlert />{s1Err.birthdate}</p>
                     : ageOk && <p className="text-green-600 text-xs mt-1">✓ Age requirement met.</p>}
                 </div>
               </>
@@ -1075,7 +1093,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                   <p className="text-sm text-gray-600">Please read our Terms & Conditions before completing registration.</p>
                   <button type="button" onClick={() => setShowTerms(true)}
                     className="w-full text-sm font-semibold text-arl-secondary border border-arl-secondary rounded-xl py-2.5 hover:bg-arl-secondary hover:text-white transition">
-                    📄 Read Terms & Conditions
+                    Read Terms & Conditions
                   </button>
                   <div className="flex items-center gap-2.5">
                     <div onClick={() => termsAccepted ? (setTermsAccepted(false), setTermsInfo(null)) : setShowTerms(true)}
@@ -1095,7 +1113,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                       </button>
                     </span>
                   </div>
-                  {addrErr && <p className="text-red-500 text-xs flex items-center gap-1">⛔ {addrErr}</p>}
+                  {addrErr && <p className="text-red-500 text-xs flex items-center gap-1"><IconAlert />{addrErr}</p>}
                 </div>
               </>
             )}
@@ -1104,7 +1122,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
             {step === 3 && (
               <>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 flex gap-2">
-                  <span className="flex-shrink-0 mt-0.5">ℹ️</span>
+                  <span className="flex-shrink-0 mt-0.5"><IconInfo /></span>
                   <span>Government ID and Driver's License photos can be captured with your camera or uploaded from your gallery. Ensure documents are clearly visible and not blurry.</span>
                 </div>
 

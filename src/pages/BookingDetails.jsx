@@ -73,11 +73,11 @@ const REFUND_STYLE = {
   Failed:   "bg-red-100 text-red-600 border-red-300",
 };
 const REFUND_LABEL = {
-  Pending:  "⏳ Refund: Pending",
-  Approved: "🔵 Refund: Approved",
-  Refunded: "✅ Refund: Refunded",
-  Rejected: "❌ Refund: Rejected",
-  Failed:   "❌ Refund: Failed",
+  Pending:  "Refund: Pending",
+  Approved: "Refund: Approved",
+  Refunded: "Refund: Refunded",
+  Rejected: "Refund: Rejected",
+  Failed:   "Refund: Failed",
 };
 
 const Badge = ({ text, styleMap }) => (
@@ -86,13 +86,20 @@ const Badge = ({ text, styleMap }) => (
   </span>
 );
 
-const DR = ({ label, value, mono = false }) =>
-  value ? (
-    <div>
+// hint: small note under the value (e.g. "5% of rental") so the label stays on one line.
+// wide: spans the whole row (long addresses). Times keep "06:00 AM" together instead of
+// breaking mid-number; only IDs (mono) are allowed to break anywhere.
+const DR = ({ label, value, mono = false, hint = "", wide = false }) => {
+  if (!value) return null;
+  const text = typeof value === "string" ? value.replace(/\s(AM|PM)\b/g, "\u00a0$1") : value;
+  return (
+    <div className={wide ? "col-span-2 sm:col-span-3" : ""}>
       <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{label}</p>
-      <p className={`text-sm text-gray-700 font-medium break-all ${mono ? "font-mono" : ""}`}>{value}</p>
+      <p className={`text-sm text-gray-700 font-medium ${mono ? "font-mono break-all" : "break-words"}`}>{text}</p>
+      {hint && <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>}
     </div>
-  ) : null;
+  );
+};
 
 // Security deposit + penalties for this booking, in its own card separate
 // from Payment Details — a penalty is a deduction against a held deposit,
@@ -182,7 +189,7 @@ const PenaltiesBox = ({ bookingID }) => {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">🔒 Security Deposit &amp; Penalties</p>
+        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">Security Deposit &amp; Penalties</p>
         {badge && <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${badge.cls}`}>{badge.label}</span>}
       </div>
 
@@ -407,7 +414,6 @@ export default function BookingDetailsPage() {
     return (
       <div className="min-h-screen bg-gray-50 pt-24 pb-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center py-20">
-          <p className="text-5xl mb-4">🚫</p>
           <p className="text-gray-600 font-semibold">{error || "Booking not found."}</p>
           <button onClick={() => navigate("/my-bookings")}
             className="mt-5 px-6 py-2.5 bg-arl-primary text-white rounded-full text-sm font-bold hover:bg-arl-secondary transition">
@@ -443,7 +449,7 @@ export default function BookingDetailsPage() {
             <div className="w-28 h-20 sm:w-36 sm:h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
               {booking.carImage
                 ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">🚗</div>}
+                : <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-gray-300 uppercase tracking-wide">No photo</div>}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -495,22 +501,27 @@ export default function BookingDetailsPage() {
 
         {/* Trip details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">🗓️ Trip Details</p>
+          <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Trip Details</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
             <DR label="Start"          value={fmtDT(booking.startDateTime)} />
             <DR label="End"            value={fmtDT(booking.endDateTime)} />
             <DR label="Days"           value={`${booking.totalDays} day(s)`} />
             <DR label="Service"        value={booking.serviceType} />
             <DR label="Drive Mode"     value={booking.modeOfDriving} />
-            <DR label="Pickup"         value={pickupAddress} />
-            <DR label="Drop-off"       value={dropoffAddress} />
+            {/* Drop-off always mirrors pickup — show one row when they are the same place */}
+            {pickupAddress && pickupAddress === dropoffAddress
+              ? <DR label="Pickup & Drop-off" value={pickupAddress} wide />
+              : (<>
+                  <DR label="Pickup"   value={pickupAddress} />
+                  <DR label="Drop-off" value={dropoffAddress} />
+                </>)}
           </div>
         </div>
 
         {/* Agreement & Number Coding — what was accepted and the coding warnings found when the booking was made */}
         {(data.terms || codingGroups.length > 0) && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">📄 Agreement &amp; Number Coding</p>
+            <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Agreement &amp; Number Coding</p>
             {data.terms && (
               <div className="mb-3">
                 <DR label="Terms & Conditions accepted"
@@ -524,7 +535,7 @@ export default function BookingDetailsPage() {
             {codingGroups.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <p className="text-xs font-bold text-amber-800 mb-2">
-                  ⚠️ Number Coding applies to your plate
+                  Number Coding applies to your plate
                   {codingGroups[0].plateLastDigit !== undefined && codingGroups[0].plateLastDigit !== null ? ` (ending in ${codingGroups[0].plateLastDigit})` : ""}
                 </p>
                 <ul className="space-y-1">
@@ -551,15 +562,15 @@ export default function BookingDetailsPage() {
         {payment ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-black text-arl-primary uppercase tracking-widest">💳 Payment Details</p>
+              <p className="text-xs font-black text-arl-primary uppercase tracking-widest">Payment Details</p>
               <Badge text={payment.status} styleMap={PAYMENT_STYLE} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mb-4">
               <DR label="Payment ID"        value={payment.paymentID} mono />
               <DR label="Total Amount"      value={peso(payment.amount)} />
               <DR label="Rental Fee"        value={peso(payment.rentalFee)} />
-              <DR label={payment.serviceFeeRate > 0 ? `Service Fee (${payment.serviceFeeRate}% of rental)` : "Service Fee"} value={peso(payment.serviceFee)} />
-              <DR label={payment.gatewayFeeRate > 0 ? `Gateway Fee (${payment.gatewayFeeRate}% of total)` : "Gateway Fee"} value={peso(payment.gatewayFee)} />
+              <DR label="Service Fee" hint={payment.serviceFeeRate > 0 ? `${payment.serviceFeeRate}% of rental` : ""} value={peso(payment.serviceFee)} />
+              <DR label="Gateway Fee" hint={payment.gatewayFeeRate > 0 ? `${payment.gatewayFeeRate}% of total` : ""} value={peso(payment.gatewayFee)} />
               <DR label="Extra Fee"         value={payment.extraFee ? peso(payment.extraFee) : null} />
               <DR label="Driver's Fee"      value={payment.driversFee ? peso(payment.driversFee) : null} />
               <DR label="Discount Applied"  value={payment.discountAmount ? peso(payment.discountAmount) : null} />
@@ -583,8 +594,8 @@ export default function BookingDetailsPage() {
                   {resendingReceipt
                     ? "Sending…"
                     : receiptCooldown > 0
-                      ? `📧 Email My Receipt (${Math.floor(receiptCooldown / 60)}:${String(receiptCooldown % 60).padStart(2, "0")})`
-                      : "📧 Email My Receipt"}
+                      ? `Email My Receipt (${Math.floor(receiptCooldown / 60)}:${String(receiptCooldown % 60).padStart(2, "0")})`
+                      : "Email My Receipt"}
                 </button>
                 {receiptMsg && <p className="text-xs text-gray-500 mt-2">{receiptMsg}</p>}
               </div>

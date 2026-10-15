@@ -126,7 +126,11 @@ const SignupOTP = ({ isOpen, email, onVerify, onClose, onRestart, loading }) => 
     <div className="otp-overlay">
       <div className="otp-modal">
         {/* Icon */}
-        <div className="otp-icon">✉️</div>
+        <div className="otp-icon">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#1f5f78" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
 
         <h2>Email Verification</h2>
         <p>
@@ -167,7 +171,7 @@ const SignupOTP = ({ isOpen, email, onVerify, onClose, onRestart, loading }) => 
         </div>
 
         {/* Error message */}
-        {errorMsg && <p className="otp-error">⛔ {errorMsg}</p>}
+        {errorMsg && <p className="otp-error">{errorMsg}</p>}
 
         {/* Verify */}
         <button
