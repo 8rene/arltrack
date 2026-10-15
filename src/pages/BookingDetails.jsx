@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PenaltyPayButton from "../components/shared/PenaltyPayButton";
+import HandoverCard from "../components/booking/HandoverCard";
+import ViolationsCard from "../components/booking/ViolationsCard";
 
 // ── Formatting helpers (same conventions as MyBookings.jsx) ──
 const fmtDT = (val) => {
@@ -12,6 +14,17 @@ const fmtDT = (val) => {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 const peso = (v) => `₱${Number(v || 0).toLocaleString()}`;
+
+// [{ dayName, startTime, endTime }, …] -> "Monday 7:00 AM – 10:00 AM · Friday 5:00 PM – 8:00 PM"
+const scheduleText = (schedule = []) => {
+  const byDay = [];
+  schedule.forEach((sc) => {
+    let g = byDay.find((x) => x.day === sc.dayName);
+    if (!g) { g = { day: sc.dayName, wins: [] }; byDay.push(g); }
+    g.wins.push(`${sc.startTime} – ${sc.endTime}`);
+  });
+  return byDay.map((g) => `${g.day} ${g.wins.join(", ")}`).join(" · ");
+};
 
 const STATUS_STYLE = {
   "to pay":  "bg-yellow-100 text-yellow-700 border-yellow-200",
@@ -472,6 +485,46 @@ export default function BookingDetailsPage() {
             <DR label="Drop-off"       value={dropoffAddress} />
           </div>
         </div>
+
+        {/* Agreement & Number Coding — what was accepted and the coding warnings found when the booking was made */}
+        {(data.terms || data.codingCheck?.warned) && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">📄 Agreement &amp; Number Coding</p>
+            {data.terms && (
+              <div className="mb-3">
+                <DR label="Terms & Conditions accepted"
+                    value={`${fmtDT(data.terms.acceptedAt)}${data.terms.version ? ` · version ${data.terms.version}` : ""}`} />
+                <a href={`/terms?v=${encodeURIComponent(data.terms.hash)}`} target="_blank" rel="noopener noreferrer"
+                   className="inline-block mt-1 text-xs font-semibold text-arl-secondary hover:underline">
+                  View the exact text you accepted →
+                </a>
+              </div>
+            )}
+            {data.codingCheck?.warned && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-bold text-amber-800 mb-2">
+                  ⚠️ Number Coding applies at {data.codingCheck.warnings.length === 1 ? "one of your locations" : `${data.codingCheck.warnings.length} of your locations`}
+                  {data.codingCheck.plateLastDigit !== undefined ? ` (plate ending in ${data.codingCheck.plateLastDigit})` : ""}
+                </p>
+                <ul className="space-y-1">
+                  {data.codingCheck.warnings.map((w) => (
+                    <li key={w.id} className="text-xs text-amber-800">
+                      <span className="font-semibold">{w.location}</span>{w.city ? ` — ${w.city}` : ""}: {scheduleText(w.schedule)}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] text-amber-700 mt-2">
+                  This is the schedule we had on file when you booked{data.codingCheck.checkedAt ? ` (${fmtDT(data.codingCheck.checkedAt)})` : ""}. Coding schedules can change
+                  (holidays, MMDA advisories) — please confirm with MMDA or your city, and plan your trip around the restricted hours.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pickup handover signature + traffic notices (each card hides itself when it doesn't apply) */}
+        <HandoverCard bookingID={booking.bookingID || bookingID} />
+        <ViolationsCard bookingID={booking.bookingID || bookingID} bookingStatus={booking.status} />
 
         {/* Payment */}
         {payment ? (

@@ -1,123 +1,14 @@
 import { useEffect } from "react";
 import Footer from "../components/layout/Footer";
-import { usePolicySettings } from "../utils/policySettings";
+import { useTermsDocument } from "../utils/terms";
 
-const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, fullRefundHours }) => [
-  {
-    num: "01",
-    title: "Acceptance of Agreement",
-    body: "By renting a vehicle from ARL Car Rental, the renter agrees to comply with all terms, policies, and conditions stated in this agreement. These conditions are established to ensure the proper use of rental vehicles and to protect both the renter and the business.",
-  },
-  {
-    num: "02",
-    title: "Reservation & Booking Policy",
-    body: `ARL Car Rental follows a first-come, first-served reservation policy. Reservations are only confirmed once the required deposit or downpayment has been received. A minimum deposit of ${depositText} is required to reserve a vehicle and secure the requested rental date. Pencil bookings or temporary reservations without deposit are not accepted.`,
-  },
-  {
-    num: "03",
-    title: "Rental Inquiries and Approval",
-    body: "Customers may send rental inquiries through the official communication channels of ARL Car Rental. Upon receiving an inquiry, the supervisor verifies the requested rental date, vehicle type, rental duration, and type of service (self-drive or with driver) before approving the booking.",
-  },
-  {
-    num: "04",
-    title: "Payment Terms",
-    highlight: `${serviceFeePercent}% service fee (of the rental fee) · ${gatewayFeePercent}% online payment gateway fee (of the booking total, including the service fee and security deposit)`,
-    body: "After reservation approval, the renter must settle the remaining rental balance. Full payment must be completed before the vehicle is released. ARL Car Rental offers promotional discounts for rentals of 5 days or more (5% off) and for two or more vehicles in a single transaction (10% off). Discounts for PWD, Senior Citizen, or other identification cards are not applicable.",
-  },
-  {
-    num: "05",
-    title: "Cancellation & Refund Policy",
-    body: `Renters who wish to cancel must notify ARL Car Rental through official channels as early as possible. The ${fullRefundHours} hours are counted from the moment you send your refund request, not from the moment it is reviewed. Service and gateway fees are refunded together with your booking amount; when a refund falls under the ${fullRefundHours}-hour limit, only the ${depositText} deposit is withheld.`,
-    list: [
-      { label: `${fullRefundHours} hours or more before pickup`, value: "Full refund of everything you paid" },
-      { label: `Less than ${fullRefundHours} hours before pickup`, value: `Everything refunded except the ${depositText} deposit` },
-      { label: "No-show on pickup date", value: `${depositText} deposit forfeited; everything else refunded` },
-    ],
-    footer: `Rescheduling is allowed with at least 24 hours' notice, subject to vehicle availability. The ${depositText} deposit may be applied to the rescheduled booking at management's discretion.`,
-  },
-  {
-    num: "06",
-    title: "Vehicle Pickup & Customer Identification",
-    body: "On the scheduled pickup date, the renter is required to present a valid government-issued identification card to verify identity, confirm booking details, and serve as a security measure. Failure to provide valid identification may result in cancellation without refund of the deposit.",
-  },
-  {
-    num: "07",
-    title: "Driver Requirements (Self-Drive Rentals)",
-    list: [
-      { label: "Minimum age", value: "21 years old" },
-      { label: "License required", value: "Valid Philippine driver's license" },
-      { label: "Primary driver", value: "Only the registered renter may drive" },
-      { label: "Unauthorized drivers", value: "Strictly prohibited" },
-    ],
-  },
-  {
-    num: "08",
-    title: "Vehicle Usage & Rental Period",
-    body: "The renter agrees to use the vehicle only within the agreed rental period and for lawful purposes. Strictly prohibited: subletting or transferring the vehicle, illegal transport, off-road use (unless authorized in writing), smoking inside the vehicle, and transporting hazardous or prohibited materials. The vehicle must be returned to ARL Car Rental once the rental agreement has ended.",
-  },
-  {
-    num: "09",
-    title: "Rental Time & Destination Selection",
-    body: "The renter is solely responsible for carefully choosing the pickup date, pickup time, and rental duration, and for making sure the selected schedule gives enough time to complete the entire trip, including travel to and from every destination, traffic, rest stops, and possible delays. The destination entered during booking is recorded for documentation and record-keeping purposes only. The ARL booking system does not calculate or estimate travel time or distance based on the selected destination, and an accepted booking does not mean that the chosen schedule is sufficient for the trip. Any time used beyond the agreed return time, including time lost because the schedule was underestimated, is treated as a late return and is charged under Late Return & Penalties.",
-  },
-  {
-    num: "10",
-    title: "Security Deposit",
-    body: "In addition to the reservation deposit, ARL Car Rental may require a separate security deposit prior to vehicle release. The amount depends on the vehicle type and rental duration. It will be refunded in full upon return of the vehicle in satisfactory condition, free of damage, and with no outstanding charges.",
-  },
-  {
-    num: "11",
-    title: "Accidents & Incidents",
-    body: "In the event of an accident or road incident during the rental period, the renter must: immediately stop the vehicle and ensure the safety of all parties; contact ARL Car Rental as soon as possible; file a report with the nearest PNP station and obtain a copy; and not admit fault or make settlements with third parties without prior written consent from ARL Car Rental.",
-  },
-  {
-    num: "12",
-    title: "Damages & Repair Liability",
-    body: "The renter is responsible for any damages that occur during the rental period, whether caused by accident, negligence, or misuse. Charges may apply for major or minor vehicle damages, repair or replacement costs, and administrative fees. ARL Car Rental's assessment of damages shall be final and binding.",
-  },
-  {
-    num: "13",
-    title: "Fuel Policy",
-    body: "ARL Car Rental operates on an unlimited mileage basis. However, fuel and toll fees are the full responsibility of the renter. Vehicles must be returned with the same fuel level as when released. If returned with less fuel, the renter will be charged for the difference at current pump prices plus an administrative handling fee.",
-  },
-  {
-    num: "14",
-    title: "Late Return & Penalties",
-    highlight: "₱100.00 per hour beyond the agreed return time",
-    body: "Vehicles must be returned on the agreed date and time. If the vehicle is not returned within 12 hours of the agreed return time without prior communication, ARL Car Rental reserves the right to treat the unit as unreturned and pursue appropriate legal action. Extensions must be confirmed in advance.",
-  },
-  {
-    num: "15",
-    title: "Number Coding Scheme (Metro Manila – UVVRP)",
-    body: "The Number Coding Scheme is strictly enforced in most Metro Manila cities from 7:00 AM to 7:00 PM on weekdays.",
-    list: [
-      { label: "Monday", value: "Plates ending in 1 or 2" },
-      { label: "Tuesday", value: "Plates ending in 3 or 4" },
-      { label: "Wednesday", value: "Plates ending in 5 or 6" },
-      { label: "Thursday", value: "Plates ending in 7 or 8" },
-      { label: "Friday", value: "Plates ending in 9 or 0" },
-    ],
-  },
-  {
-    num: "16",
-    title: "Vehicle Security & Renter Responsibility",
-    body: "The renter assumes full responsibility for the vehicle and its contents during the entire rental period. ARL Car Rental shall not be held liable for any loss of personal belongings left inside the vehicle. Failure to return the vehicle or intentional damage may result in legal action under applicable Philippine laws.",
-  },
-  {
-    num: "17",
-    title: "Force Majeure",
-    body: "Neither party shall be held liable for failure or delay in fulfilling obligations due to circumstances beyond reasonable control, including natural disasters, typhoons, floods, government-imposed restrictions, road closures, or civil unrest. Both parties shall communicate promptly to agree on a fair resolution.",
-  },
-  {
-    num: "18",
-    title: "Governing Law & Dispute Resolution",
-    body: "This agreement shall be governed by and construed in accordance with the laws of the Republic of the Philippines. Any disputes that cannot be resolved amicably shall be submitted to the proper courts of competent jurisdiction in the city or municipality where ARL Car Rental's principal office is located.",
-  },
-];
-
+// The text is no longer hard-coded here: it comes from the server (GET /api/terms/active),
+// which also records exactly which text a customer accepted. `/terms?v=<hash>` shows an
+// earlier version by its hash (linked from a booking's details).
 export default function TermsPage() {
-  const policy = usePolicySettings();
-  const SECTIONS = buildSections(policy);
+  const versionHash = new URLSearchParams(window.location.search).get("v");
+  const { terms, loading, error, reload } = useTermsDocument(versionHash);
+  const SECTIONS = terms?.sections || [];
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -134,13 +25,30 @@ export default function TermsPage() {
           <h1 className="font-display text-3xl sm:text-4xl md:text-5xl text-white font-black leading-tight mb-3">
             Terms &amp; Conditions
           </h1>
-          <p className="text-sm text-white/50">Effective upon signing of rental agreement</p>
+          <p className="text-sm text-white/50">
+            {terms ? `Version ${terms.version} · ` : ""}Accepted electronically when you sign up and when you confirm a booking
+          </p>
         </div>
       </div>
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-14">
         <div className="flex flex-col gap-4 sm:gap-8">
+          {versionHash && terms && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-xs sm:text-sm text-amber-800">
+              You are viewing the exact version you accepted (version {terms.version}). The current Terms &amp; Conditions
+              may be different — open <a href="/terms" className="underline font-semibold">the current version</a>.
+            </div>
+          )}
+          {loading && !terms && (
+            <div className="bg-white rounded-2xl shadow-soft p-6 text-sm text-gray-500 text-center">Loading the Terms &amp; Conditions…</div>
+          )}
+          {error && !terms && (
+            <div className="bg-white rounded-2xl shadow-soft p-6 text-center">
+              <p className="text-sm text-red-600 mb-3">{error}</p>
+              <button onClick={reload} className="px-5 py-2 rounded-full bg-arl-primary text-white text-sm font-semibold">Try again</button>
+            </div>
+          )}
           {SECTIONS.map((s) => (
             <div key={s.num} className="bg-white rounded-2xl sm:rounded-3xl shadow-soft p-4 sm:p-8 flex flex-col sm:flex-row gap-3 sm:gap-6">
 

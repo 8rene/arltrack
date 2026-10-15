@@ -573,6 +573,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
   const [selBar,     setSelBar]     = useState(null);
   const [street,     setStreet]     = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsInfo,     setTermsInfo]     = useState(null); // { hash, version } of the text the customer actually accepted
   const [showTerms,     setShowTerms]     = useState(false);
   const [addrErr,       setAddrErr]       = useState("");
 
@@ -678,11 +679,21 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
         driversLicenseNumber: s3.licenseNumber.trim(),
         driverLicenseBase64:  s3.licenseImage,
         selfieWithIdBase64:   s3.selfieImage,
+        // Hash of the Terms & Conditions text they accepted — the server checks it is the current one and records it.
+        termsHash:            termsInfo?.hash || null,
       }),
     });
 
     const signupData = await signupRes.json();
-    if (!signupRes.ok) throw new Error(signupData.message || "Signup failed.");
+    if (!signupRes.ok) {
+      // The terms changed (or weren't accepted) — the old acceptance no longer counts.
+      if (signupData.termsChanged || signupData.termsRequired) {
+        setTermsAccepted(false);
+        setTermsInfo(null);
+        throw new Error(`${signupData.message || "Please accept the Terms & Conditions."} Go back to the address step and accept them again.`);
+      }
+      throw new Error(signupData.message || "Signup failed.");
+    }
     if (!signupData.userID) throw new Error("No user ID returned from server.");
   };
 
@@ -1067,7 +1078,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     📄 Read Terms & Conditions
                   </button>
                   <div className="flex items-center gap-2.5">
-                    <div onClick={() => termsAccepted ? setTermsAccepted(false) : setShowTerms(true)}
+                    <div onClick={() => termsAccepted ? (setTermsAccepted(false), setTermsInfo(null)) : setShowTerms(true)}
                       className={`w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all flex-shrink-0 ${
                         termsAccepted ? "bg-arl-primary border-arl-primary" : "border-gray-300 hover:border-arl-secondary"
                       }`}>
@@ -1205,8 +1216,8 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
       {/* Terms modal */}
       <TandC
         isOpen={showTerms}
-        onAgree={() => { setTermsAccepted(true); setShowTerms(false); }}
-        onCancel={() => { setTermsAccepted(false); setShowTerms(false); }}
+        onAgree={(info) => { setTermsAccepted(true); setTermsInfo(info || null); setShowTerms(false); }}
+        onCancel={() => { setTermsAccepted(false); setTermsInfo(null); setShowTerms(false); }}
       />
 
       {/* Post-registration approval notice */}

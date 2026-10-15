@@ -1,120 +1,12 @@
 import React, { useEffect, useRef } from "react";
-import { usePolicySettings } from "../../utils/policySettings";
+import { useActiveTerms } from "../../utils/terms";
 
-const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, fullRefundHours }) => [
-  {
-    num: "01",
-    title: "Acceptance of Agreement",
-    body: "By renting a vehicle from ARL Car Rental, the renter agrees to comply with all terms, policies, and conditions stated in this agreement. These conditions protect both the renter and the business.",
-  },
-  {
-    num: "02",
-    title: "Reservation & Booking Policy",
-    body: `Reservations are confirmed only once the required deposit is received. A minimum deposit of ${depositText} is required to secure your rental date. Pencil bookings without deposit are not accepted — priority goes to the first customer who completes payment.`,
-  },
-  {
-    num: "03",
-    title: "Rental Inquiries and Approval",
-    body: "Upon receiving an inquiry, the supervisor verifies the requested rental date, vehicle type, rental duration, and type of service (self-drive or with driver) before approving the booking.",
-  },
-  {
-    num: "04",
-    title: "Payment Terms",
-    highlight: `${serviceFeePercent}% service fee (of the rental fee) · ${gatewayFeePercent}% online gateway fee (of the booking total)`,
-    body: "Full payment must be completed before the vehicle is released. Discounts for PWD, Senior Citizen, or other ID cards are not applicable to this service.",
-  },
-  {
-    num: "05",
-    title: "Cancellation & Refund Policy",
-    list: [
-      { label: `${fullRefundHours} hrs or more before pickup`, value: "Full refund of everything you paid" },
-      { label: `Less than ${fullRefundHours} hrs before pickup`, value: `Everything refunded except the ${depositText} deposit` },
-      { label: "No-show", value: `${depositText} deposit forfeited; everything else refunded` },
-    ],
-    body: `The ${fullRefundHours} hours are counted from the moment you send your refund request, not from the moment it is reviewed. Service and gateway fees are refunded together with your booking amount; when a refund falls under the ${fullRefundHours}-hour limit, only the ${depositText} deposit is withheld. Rescheduling is allowed with at least 24 hours' notice, subject to vehicle availability.`,
-  },
-  {
-    num: "06",
-    title: "Vehicle Pickup & Identification",
-    body: "A valid government-issued ID must be presented on the scheduled pickup date. Failure to provide valid identification may result in cancellation without refund.",
-  },
-  {
-    num: "07",
-    title: "Driver Requirements (Self-Drive)",
-    list: [
-      { label: "Minimum age", value: "21 years old" },
-      { label: "License", value: "Valid Philippine driver's license" },
-      { label: "Primary driver", value: "Only the registered renter may drive" },
-    ],
-  },
-  {
-    num: "08",
-    title: "Vehicle Usage",
-    body: "The vehicle must only be used for lawful purposes. Strictly prohibited: subletting, illegal transport, off-road use, smoking inside the vehicle, and transporting hazardous or prohibited materials.",
-  },
-  {
-    num: "09",
-    title: "Rental Time & Destination Selection",
-    body: "The renter is solely responsible for carefully choosing the pickup date, pickup time, and rental duration, and for making sure the selected schedule gives enough time to complete the entire trip, including travel to and from every destination, traffic, rest stops, and possible delays. The destination entered during booking is recorded for documentation and record-keeping purposes only. The ARL booking system does not calculate or estimate travel time or distance based on the selected destination, and an accepted booking does not mean that the chosen schedule is sufficient for the trip. Any time used beyond the agreed return time, including time lost because the schedule was underestimated, is treated as a late return and is charged under Late Return & Penalties.",
-  },
-  {
-    num: "10",
-    title: "Security Deposit",
-    body: "A security deposit may be required prior to vehicle release. It will be refunded in full upon return of the vehicle in satisfactory condition with no outstanding charges.",
-  },
-  {
-    num: "11",
-    title: "Accidents & Incidents",
-    body: "In the event of an accident: stop immediately, contact ARL Car Rental, and file a PNP report. Do not admit fault or settle with third parties without prior written consent from ARL Car Rental.",
-  },
-  {
-    num: "12",
-    title: "Damages & Repair Liability",
-    body: "The renter is responsible for all damages during the rental period — whether caused by accident, negligence, or misuse. Charges include repair costs, replacement costs, and administrative fees.",
-  },
-  {
-    num: "13",
-    title: "Fuel Policy",
-    body: "Fuel and toll fees are the renter's full responsibility. Vehicles must be returned with the same fuel level. A handling fee applies if returned with less fuel than provided.",
-  },
-  {
-    num: "14",
-    title: "Late Return & Penalties",
-    highlight: "₱100.00 per hour beyond the agreed return time",
-    body: "Failure to return the vehicle within 12 hours without prior communication may result in the unit being treated as unreturned and subject to legal action.",
-  },
-  {
-    num: "15",
-    title: "Number Coding Scheme (UVVRP)",
-    body: "Enforced 7:00 AM – 7:00 PM on weekdays in Metro Manila:",
-    list: [
-      { label: "Monday", value: "Plates ending in 1 or 2" },
-      { label: "Tuesday", value: "Plates ending in 3 or 4" },
-      { label: "Wednesday", value: "Plates ending in 5 or 6" },
-      { label: "Thursday", value: "Plates ending in 7 or 8" },
-      { label: "Friday", value: "Plates ending in 9 or 0" },
-    ],
-  },
-  {
-    num: "16",
-    title: "Vehicle Security & Responsibility",
-    body: "The renter assumes full responsibility for the vehicle and its contents during the entire rental period. ARL Car Rental is not liable for any loss of personal belongings left inside the vehicle.",
-  },
-  {
-    num: "17",
-    title: "Force Majeure",
-    body: "Neither party is liable for failure due to circumstances beyond reasonable control — natural disasters, typhoons, floods, government-imposed restrictions, road closures, or civil unrest.",
-  },
-  {
-    num: "18",
-    title: "Governing Law",
-    body: "This agreement is governed by the laws of the Republic of the Philippines. Disputes shall be submitted to the proper courts where ARL Car Rental's principal office is located.",
-  },
-];
-
+// Same text as the Terms & Conditions page — both read it from the server
+// (GET /api/terms/active). This modal used to carry its own shorter, differently-worded
+// copy; one canonical text means what the customer reads here is what is recorded.
 const TandC = ({ isOpen, onAgree, onCancel }) => {
-  const policy = usePolicySettings();
-  const SECTIONS = buildSections(policy);
+  const { terms, loading, error, reload } = useActiveTerms();
+  const SECTIONS = terms?.sections || [];
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -141,7 +33,7 @@ const TandC = ({ isOpen, onAgree, onCancel }) => {
             <div>
               <p className="text-xs font-bold tracking-[0.2em] text-arl-secondary uppercase mb-1">ARL Car Rental</p>
               <h2 className="font-display text-2xl text-arl-primary leading-tight">Terms &amp; Conditions</h2>
-              <p className="text-xs text-gray-400 mt-1">Effective upon signing of rental agreement</p>
+              <p className="text-xs text-gray-400 mt-1">{terms ? `Version ${terms.version} · ` : ""}Accepted electronically</p>
             </div>
             <button
               onClick={onCancel}
@@ -153,6 +45,13 @@ const TandC = ({ isOpen, onAgree, onCancel }) => {
         {/* Scrollable body */}
         <div ref={scrollRef} className="overflow-y-auto flex-1 px-8 py-6">
           <div className="flex flex-col gap-5">
+            {loading && !terms && <p className="text-sm text-gray-500 text-center py-6">Loading the Terms &amp; Conditions…</p>}
+            {error && !terms && (
+              <div className="text-center py-6">
+                <p className="text-sm text-red-600 mb-3">{error}</p>
+                <button onClick={reload} className="px-5 py-2 rounded-full bg-arl-primary text-white text-sm font-semibold">Try again</button>
+              </div>
+            )}
             {SECTIONS.map((s) => (
               <div key={s.num} className="flex gap-4">
                 {/* Section number */}
@@ -210,8 +109,11 @@ const TandC = ({ isOpen, onAgree, onCancel }) => {
             Cancel
           </button>
           <button
-            onClick={onAgree}
-            className="flex-1 bg-arl-cta text-white py-3 rounded-2xl text-sm font-bold hover:opacity-90 transition-all duration-200 shadow-sm"
+            // Passes back the hash + version of the text that was on screen — the server checks it
+            // and records it as the acceptance when the account is created.
+            onClick={() => terms && onAgree({ hash: terms.hash, version: terms.version })}
+            disabled={!terms}
+            className="flex-1 bg-arl-cta text-white py-3 rounded-2xl text-sm font-bold hover:opacity-90 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             I Agree
           </button>

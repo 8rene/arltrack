@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchServiceArea, checkInServiceArea, serviceAreaLabel } from '../../utils/serviceArea';
+import { fetchBaseAreaConfig, getBaseAreaOutline, isInsideBaseArea } from '../../utils/baseArea';
 
 // Fix default marker icon (Leaflet webpack issue)
 delete L.Icon.Default.prototype._getIconUrl;
@@ -117,12 +118,18 @@ const searchAddress = async (query) => {
 // `initialCoords`: { lat, lng } to center on immediately when opening —
 // without this the map always starts at DEFAULT_COORDS regardless of what
 // location is already selected.
-const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false, readOnly = false, initialCoords = null }) => {
+// showBaseArea  — shade the base area on the map and say whether the chosen spot is inside/outside it.
+// baseAreaRole  — 'pickup' | 'destination': which location this map is picking. The note only shows
+//                 when that location is one that decides the out-of-area charge.
+const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false, readOnly = false, initialCoords = null, showBaseArea = false, baseAreaRole = 'pickup' }) => {
   const [markerPos,    setMarkerPos]    = useState(DEFAULT_COORDS);
   const [address,      setAddress]      = useState(initialLabel);
   const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
   const [resolvedProvince, setResolvedProvince] = useState(''); // structured province/state name
   const [resolvedRegion, setResolvedRegion] = useState('');     // region name as returned by the geocoder
+  const [resolvedCounty, setResolvedCounty] = useState('');     // geocoder "county" — often the province (base-area match)
+  const [baseCfg,     setBaseCfg]     = useState(null);   // { baseAreaKeywords, basis, fee amounts }
+  const [baseShapes,  setBaseShapes]  = useState({});     // keyword -> GeoJSON geometry (progressively filled)
   // Allowed regions from the database. null = not loaded yet; 'error' = load failed.
   const [serviceArea, setServiceArea] = useState(null);
   const [searchQuery,  setSearchQuery]  = useState('');
@@ -189,6 +196,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
       setResolvedCity('');
       setResolvedProvince('');
       setResolvedRegion('');
+      setResolvedCounty('');
       setSearchQuery('');
       setSearchResults([]);
       setSearchError('');
@@ -242,6 +250,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setResolvedCity(pickCity(address));
     setResolvedProvince(pickProvince(address));
     setResolvedRegion(pickRegion(address));
+    setResolvedCounty(address?.county || '');
     setHasSelected(true);
     setLoading(false);
   }, [serviceAreaError, readOnly]);
@@ -274,6 +283,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setResolvedCity(pickCity(result.address));
     setResolvedProvince(pickProvince(result.address));
     setResolvedRegion(pickRegion(result.address));
+    setResolvedCounty(result.address?.county || '');
     setHasSelected(true);
     setSearchResults([]);
     setSearchQuery('');
@@ -284,8 +294,56 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     // pick, but never let a confirm through without one regardless of how
     // it was triggered.
     if (!hasSelected) return;
-    onConfirm({ address, lat: markerPos[0], lng: markerPos[1], city: resolvedCity, province: resolvedProvince, region: resolvedRegion });
+    onConfirm({ address, lat: markerPos[0], lng: markerPos[1], city: resolvedCity, province: resolvedProvince, region: resolvedRegion, county: resolvedCounty });
   };
+
+  // ── Base area: load the admin's keywords, then draw each one's outline ──
+  // Outlines come in one at a time (cached after the first load — see utils/baseArea.js),
+  // so the map is usable immediately and the shading fills in.
+  useEffect(() => {
+    if (!isOpen || !showBaseArea) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await fetchBaseAreaConfig();
+        if (cancelled) return;
+        setBaseCfg(cfg);
+        for (const kw of cfg.baseAreaKeywords) {
+          if (cancelled) return;
+          try {
+            const shape = await getBaseAreaOutline(kw);
+            if (cancelled) return;
+            if (shape?.geometry) setBaseShapes((prev) => ({ ...prev, [kw]: shape.geometry }));
+          } catch (err) {
+            console.warn('[MapPicker] base-area outline failed for', kw, err.message);
+          }
+        }
+      } catch (err) {
+        console.warn('[MapPicker] base-area config failed:', err.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, showBaseArea]);
+
+  // Inside / outside note for the spot currently chosen. Display only — the server
+  // recalculates the fee itself. Shown only when this map's role is one of the locations
+  // the admin's rule actually charges on.
+  const roleCounts = baseCfg && (baseCfg.basis === 'either' || baseCfg.basis === baseAreaRole);
+  const baseInside = (showBaseArea && roleCounts && hasSelected && !loading)
+    ? isInsideBaseArea({ city: resolvedCity, province: resolvedProvince, county: resolvedCounty }, baseCfg.baseAreaKeywords)
+    : null;
+  const peso = (n) => `₱${Number(n || 0).toLocaleString()}`;
+  const baseAreaNote = baseInside === false ? (
+    <div role="note" className="mb-2.5 sm:mb-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
+      <p className="text-[11px] sm:text-xs font-black text-amber-800">Outside our base area</p>
+      <p className="text-[10px] sm:text-xs text-amber-800 mt-0.5">
+        An extra {peso(baseCfg.extraFeeOutsideArea)} applies to this booking. If you choose a chauffeur,
+        the driver's fee is {peso(baseCfg.driversFeeOutsideArea)} instead of {peso(baseCfg.driversFeeBaseArea)}.
+      </p>
+    </div>
+  ) : baseInside === true ? (
+    <p className="text-[10px] sm:text-xs text-green-700 font-semibold mb-2.5 sm:mb-3">Inside our base area — no extra fee.</p>
+  ) : null;
 
   if (!isOpen) return null;
 
@@ -385,12 +443,26 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
               attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            {showBaseArea && Object.entries(baseShapes).map(([kw, geometry]) => (
+              <GeoJSON
+                key={kw}
+                data={geometry}
+                interactive={false}
+                style={{ color: '#16a34a', weight: 2, fillColor: '#22c55e', fillOpacity: 0.12, dashArray: '4 4' }}
+              />
+            ))}
             <MapClickHandler onLocationChange={readOnly ? () => {} : handleLocationChange} />
             {flyTarget && <MapFlyTo coords={flyTarget} />}
             {readOnly
               ? <Marker position={markerPos} />
               : <DraggableMarker position={markerPos} onDrag={handleLocationChange} />}
           </MapContainer>
+
+          {showBaseArea && Object.keys(baseShapes).length > 0 && (
+            <div className="absolute left-2 bottom-2 z-[500] flex items-center gap-1.5 rounded-lg bg-white/90 px-2 py-1 shadow text-[10px] sm:text-xs text-gray-700">
+              <span className="inline-block h-3 w-3 rounded-sm border border-green-600 bg-green-400/40" /> Base area
+            </div>
+          )}
 
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[500]">
@@ -408,6 +480,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
           {pickError && (
             <p className="text-[10px] sm:text-xs text-red-500 mb-2.5 sm:mb-3">{pickError}</p>
           )}
+          {baseAreaNote}
           <div className="flex gap-2 sm:gap-3">
             {readOnly ? (
               <button onClick={onClose}

@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info, Clock } from 'luc
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
 import { useToast } from '../context/ToastContext';
+import { useActiveTerms } from '../utils/terms';
 import gcashLogo  from '../assets/images/GCash_Logo.png';
 import mayaLogo   from '../assets/images/PayMayaLogo.jpg';
 import qrphLogo   from '../assets/images/qr-ph-logo-6f76723590.webp';
@@ -396,13 +397,24 @@ const TRIP_PARTS = [
     ],
   },
   {
+    key: 'schedule', label: 'Date & Time',
+    title: 'When do you need it?',
+    description: 'Pick your pickup date and time first. Your return is calculated from your duration, and we use these dates to check Number Coding for your locations next.',
+    points: [
+      { level: 'must', headline: 'Choose your pickup time carefully', detail: 'The system will not estimate your travel time, so make sure your schedule fits the whole trip.', ref: 'Rental Time & Destination Selection' },
+      { level: 'must', headline: 'Late return is charged per hour', detail: 'Time past your agreed return is billed hourly.', ref: 'Late Return & Penalties' },
+      { headline: 'Reschedule 24 hours ahead', detail: 'Subject to vehicle availability.', ref: 'Cancellation & Refund Policy' },
+    ],
+  },
+  {
     key: 'pickup', label: 'Pickup & Driver',
     title: 'Pickup and driver',
-    description: 'Choose where we hand over the car (drop-off is the same place) and who will drive.',
+    description: 'Choose where we hand over the car (drop-off is the same place) and who will drive. The map shades our base area.',
     points: [
       { level: 'must', headline: 'Bring a valid government ID', detail: 'No valid ID on pickup day means the booking may be cancelled and the deposit is not refunded.', ref: 'Vehicle Pickup & Customer Identification' },
       { level: 'must', headline: 'Without Driver: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license on pickup day.', ref: 'Driver Requirements (Self-Drive)' },
-      { headline: "With Driver: driver's fee applies", detail: 'The amount is shown on the option below and as its own line in your price breakdown.' },
+      { headline: "With Driver: driver's fee applies", detail: 'The amount is shown on the option below and as its own line in your price breakdown. It is higher outside our base area.' },
+      { headline: 'Outside our base area: extra fee', detail: 'A pickup or destination outside the shaded base area adds an extra fee. We tell you the amount as soon as you pick the spot.', ref: 'Booking Guidelines' },
       { headline: 'We inspect the car with you', detail: 'Existing damage is noted first. The car is released once your payment is confirmed.', ref: 'Booking Guidelines' },
     ],
   },
@@ -412,21 +424,15 @@ const TRIP_PARTS = [
     description: 'Tell us where you are headed. This is saved for our records only.',
     points: [
       { level: 'must', headline: 'We cannot compute your travel time', detail: 'The destination is for documentation only. Choosing enough time for the trip is up to you.', ref: 'Rental Time & Destination Selection' },
-      { headline: 'Number coding applies', detail: 'Metro Manila, weekdays 7 AM to 7 PM. If your car is restricted, we will ask you to change the date or the car.', ref: 'Number Coding Scheme' },
+      { headline: 'Number coding is checked for your dates', detail: 'We check your pickup, destination and every stop against every day of your rental. A short trip on a coded day cannot be booked; on a longer trip we list the dates and ask you to confirm.', ref: 'Number Coding Scheme' },
       { headline: 'Fuel and tolls are yours', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
     ],
   },
-  {
-    key: 'schedule', label: 'Date & Time',
-    title: 'When do you need it?',
-    description: 'Pick your pickup date and time. Your return is calculated from your duration.',
-    points: [
-      { level: 'must', headline: 'Choose your pickup time carefully', detail: 'The system will not estimate your travel time, so make sure your schedule fits the whole trip.', ref: 'Rental Time & Destination Selection' },
-      { level: 'must', headline: 'Late return is charged per hour', detail: 'Time past your agreed return is billed hourly.', ref: 'Late Return & Penalties' },
-      { headline: 'Reschedule 24 hours ahead', detail: 'Subject to vehicle availability.', ref: 'Cancellation & Refund Policy' },
-    ],
-  },
 ];
+
+// Position (1-based) of each Trip part — the order lives only in TRIP_PARTS above, so
+// reordering the parts never needs the numbers below to be touched again.
+const PART = Object.fromEntries(TRIP_PARTS.map((part, i) => [part.key, i + 1]));
 
 const TripPartIntro = ({ part, index, total }) => (
   <div className="mb-5">
@@ -602,7 +608,7 @@ const HelpButton = ({ open, onClick, label }) => (
 
 
 // ── Location input with map button ────────────────────────────
-const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null }) => {
+const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null, showBaseArea = false, baseAreaRole = 'pickup' }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   return (
@@ -640,15 +646,17 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
         <MapPicker
           isOpen={mapOpen}
           onClose={() => setMapOpen(false)}
-          onConfirm={({ address: addr, lat, lng, city, province, region }) => {
+          onConfirm={({ address: addr, lat, lng, city, province, region, county }) => {
             onValueChange(addr);
-            onCoordsChange?.({ lat, lng, city, province, region });
+            onCoordsChange?.({ lat, lng, city, province, region, county });
             setMapOpen(false);
           }}
           initialLabel={value}
           initialCoords={coords}
           restrictToServiceArea={restrictToServiceArea}
           readOnly={disabled}
+          showBaseArea={showBaseArea}
+          baseAreaRole={baseAreaRole}
         />
       )}
     </div>
@@ -870,7 +878,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // computed for. `codingError` (derived below) only counts while that key still
   // matches the current car/date/time/destination, so a stale answer can never
   // show up and nothing can "hide" a restriction without it being re-checked.
-  const [codingState,      setCodingState]      = useState({ key: '', error: '', violations: [] });
+  const [codingState,      setCodingState]      = useState({ key: '', error: '', violations: [], warnings: [], warningMessage: '' });
+  const [codingAck,        setCodingAck]        = useState(false); // customer confirmed a multi-day Number Coding warning
   const [codingChecking,   setCodingChecking]   = useState(false);
 
   const [errors,           setErrors]           = useState({});
@@ -1003,12 +1012,18 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const codingStops = extraDestinations
     .filter(d => (d.address || '').trim() || d.city)
     .map(d => ({ id: d.id, address: d.address || '', city: d.city || '' }));
-  const codingKey = [selectedCar?.carID, startDate, startTime, endDate, endTime, destination, destinationCoords?.city || '', JSON.stringify(codingStops)].join('|');
+  const codingKey = [selectedCar?.carID, startDate, startTime, endDate, endTime, pickupLocation, pickupCoords?.city || '', destination, destinationCoords?.city || '', JSON.stringify(codingStops)].join('|');
   const codingReqRef   = useRef(0);
   const codingAlertRef = useRef(null);
   const codingError    = codingState.key === codingKey ? codingState.error : '';
   const codingViolations = codingState.key === codingKey ? (codingState.violations || []) : []; // which locations are restricted
-  const codingNeeded   = currentStep === 2 && !!(selectedCar?.carID && startDate && startTime && destination);
+  // Multi-day bookings aren't blocked — the days the plate is coded come back as warnings
+  // the customer must confirm. A new answer (any input changed) clears the confirmation.
+  const codingWarnings = codingState.key === codingKey ? (codingState.warnings || []) : [];
+  const codingNeedsAck = codingWarnings.length > 0;
+  useEffect(() => { setCodingAck(false); }, [codingKey]);
+  // The date comes BEFORE the locations now, so the check runs from the pickup part onward.
+  const codingNeeded   = currentStep === 2 && tripPart >= PART.pickup && !!(selectedCar?.carID && startDate && startTime && (pickupLocation || destination));
   const codingPending  = codingNeeded && codingState.key !== codingKey; // inputs changed, answer not back yet
 
   useEffect(() => {
@@ -1023,6 +1038,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         carID: selectedCar.carID,
         startDate, startTime, endDate, endTime, destination,
         destinationCity: destinationCoords?.city || "",
+        pickup: pickupLocation,
+        pickupCity: pickupCoords?.city || "",
         codingStops,
         key: codingKey, reqId,
       });
@@ -1038,36 +1055,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
   }, [codingError]);
 
-  // ── Date-independent Number Coding heads-up for the Destination step ──
-  // Same locations as the real check, but needs no date: asks the backend which
-  // days/hours this plate is coded in each picked location. Purely informational —
-  // if it fails the real check still runs later, so errors are ignored.
-  const [codingNotices, setCodingNotices] = useState({ key: '', items: [] });
-  const noticeKey = [selectedCar?.carID, destination, destinationCoords?.city || '', JSON.stringify(codingStops)].join('|');
-  useEffect(() => {
-    if (!(currentStep === 2 && selectedCar?.carID && destination)) return;
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/coding-notice`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            carID: selectedCar.carID,
-            destination,
-            destinationCity: destinationCoords?.city || "",
-            codingStops,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!cancelled && res.ok) setCodingNotices({ key: noticeKey, items: Array.isArray(data.notices) ? data.notices : [] });
-      } catch (err) {
-        console.warn("Coding notice failed:", err);
-      }
-    }, 500);
-    return () => { cancelled = true; clearTimeout(timer); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noticeKey, currentStep]);
+  // ── Terms & Conditions acceptance (Review step) ──
+  // The customer must tick the box before Confirm works. The hash of the text they were shown is sent
+  // with the booking; the server only accepts it while it is still the current text, and records it.
+  const { terms: activeTerms, error: termsError, reload: reloadTerms } = useActiveTerms();
+  const [termsAgreed, setTermsAgreed] = useState(false);
 
   const handleStartTimeChange = (time) => {
     setStartTime(time);
@@ -1100,7 +1092,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // checkout both recompute their own authoritative totals independently).
   const [quote, setQuote] = useState({
     days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0,
-    driversFeeBaseArea: null, driversFeeOutsideArea: null, // what "With Driver" costs (null = not known yet)
+    driversFeeBaseArea: null, driversFeeOutsideArea: null, outsideArea: false, pickupOutside: false, destinationOutside: false, extraFeeOutsideArea: null, // what "With Driver" costs (null = not known yet)
     serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0,
     grandTotal: 0, payNow: 0, balance: 0,
   });
@@ -1108,7 +1100,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   useEffect(() => {
     if (!selectedCar?.carID || !duration) {
-      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, driversFeeBaseArea: null, driversFeeOutsideArea: null, serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
+      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, driversFeeBaseArea: null, driversFeeOutsideArea: null, outsideArea: false, pickupOutside: false, destinationOutside: false, extraFeeOutsideArea: null, serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
       return;
     }
     let cancelled = false;
@@ -1126,6 +1118,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             // for the base-area fee (see pricing.js isBaseArea).
             destinationCity:     destinationCoords?.city     || "",
             destinationProvince: destinationCoords?.province || "",
+            destinationCounty:   destinationCoords?.county   || "",
+            // The pickup counts toward the out-of-area charge too (see utils/pricing.js).
+            pickupCity:          pickupCoords?.city          || "",
+            pickupProvince:      pickupCoords?.province      || "",
+            pickupCounty:        pickupCoords?.county        || "",
           }),
         });
         const data = await res.json();
@@ -1138,6 +1135,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             driversFee: data.driversFee || 0,
             driversFeeBaseArea:    data.driversFeeBaseArea    ?? null,
             driversFeeOutsideArea: data.driversFeeOutsideArea ?? null,
+            outsideArea:        !!data.outsideArea,
+            pickupOutside:      !!data.pickupOutside,
+            destinationOutside: !!data.destinationOutside,
+            extraFeeOutsideArea: data.extraFeeOutsideArea ?? null,
             serviceFee: data.serviceFee || 0,
             gatewayFee: data.gatewayFee || 0,
             serviceFeeRate: data.serviceFeeRate || 0,
@@ -1156,7 +1157,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }, 300); // debounce — avoid a request per keystroke/calendar click
 
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [selectedCar?.carID, duration, startDate, startTime, endDate, endTime, destination, driveType, paymentAmount]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCar?.carID, duration, startDate, startTime, endDate, endTime, destination, driveType, paymentAmount,
+      destinationCoords?.city, destinationCoords?.province, destinationCoords?.county,
+      pickupCoords?.city, pickupCoords?.province, pickupCoords?.county]);
 
   const { days, total, diffHrs, extraFee, driversFee, serviceFee, gatewayFee, serviceFeeRate, gatewayFeeRate, securityDeposit, grandTotal } = quote;
   const getPayNow  = () => quote.payNow;
@@ -1365,12 +1369,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const canProceed = () => {
     if (currentStep === 1) return !!selectedCar;
     if (currentStep === 2) {
-      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError);
+      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError && (!codingNeedsAck || codingAck));
       if (tripPart === 1) return !!serviceType && !(serviceType === 'Others' && !otherServiceNote.trim());
       if (tripPart === 2) return !!duration;
-      if (tripPart === 3) return !!(pickupLocation && pickupCoords && dropoffLocation);
-      if (tripPart === 4) return !!destination;
-      return allOk; // last part (Date & Time): everything must be complete
+      if (tripPart === PART.schedule) return !!(startDate && startTime && endDate && endTime) && !maxDaysError;
+      // Pickup: the dated Number Coding check already runs here (the dates come first now)
+      if (tripPart === PART.pickup) return !!(pickupLocation && pickupCoords && dropoffLocation) && !codingError && !codingPending && (!codingNeedsAck || codingAck);
+      return allOk; // last part (Destination): everything must be complete
     }
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
     if (currentStep === 4) {
@@ -1378,6 +1383,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if (isPaymongoMethod(paymentMethod)) return true;
       return !!(gcashReference && paymentScreenshot);
     }
+    if (currentStep === 5) return !!(termsAgreed && activeTerms); // must tick the Terms & Conditions
     return true;
   };
 
@@ -1394,14 +1400,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === 1) && !serviceType)            missing.push('a service type');
       if ((last || tripPart === 1) && serviceType === 'Others' && !otherServiceNote.trim()) missing.push('a description of the service');
       if ((last || tripPart === 2) && !duration)                missing.push('a duration');
-      if ((last || tripPart === 5) && (!startDate || !startTime)) missing.push('a pickup date & time');
-      if ((last || tripPart === 5) && (!endDate || !endTime))     missing.push('an end date & time');
-      if ((last || tripPart === 3) && (!pickupLocation || !pickupCoords)) missing.push('a pickup location chosen on the map');
-      if ((last || tripPart === 3) && !dropoffLocation)         missing.push('a drop-off location');
-      if ((last || tripPart === 4) && !destination)             missing.push('a destination');
-      if (tripPart >= 5 && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
-      if (tripPart >= 5 && !codingError && codingPending) missing.push('a moment while we check Number Coding');
-      if (tripPart >= 5 && maxDaysError)             missing.push('a shorter rental period (under 10 days)');
+      if ((last || tripPart === PART.schedule) && (!startDate || !startTime)) missing.push('a pickup date & time');
+      if ((last || tripPart === PART.schedule) && (!endDate || !endTime))     missing.push('an end date & time');
+      if ((last || tripPart === PART.pickup) && (!pickupLocation || !pickupCoords)) missing.push('a pickup location chosen on the map');
+      if ((last || tripPart === PART.pickup) && !dropoffLocation)         missing.push('a drop-off location');
+      if ((last || tripPart === PART.destination) && !destination)             missing.push('a destination');
+      if (tripPart >= PART.pickup && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
+      if (tripPart >= PART.pickup && !codingError && codingPending) missing.push('a moment while we check Number Coding');
+      if (tripPart >= PART.pickup && !codingError && codingNeedsAck && !codingAck) missing.push('your confirmation of the Number Coding warning');
+      if (tripPart >= PART.schedule && maxDaysError)             missing.push('a shorter rental period (under 10 days)');
     } else if (currentStep === 3) {
       if (!firstName) missing.push('your first name');
       if (!lastName)  missing.push('your last name');
@@ -1418,6 +1425,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         if (!gcashReference)    missing.push('a reference number');
         if (!paymentScreenshot) missing.push('a payment screenshot');
       }
+    } else if (currentStep === 5) {
+      if (!activeTerms) return termsError ? 'We could not load the Terms & Conditions. Please try again.' : 'Loading the Terms & Conditions…';
+      if (!termsAgreed) missing.push('your agreement to the Terms & Conditions');
     }
     if (missing.length === 0) return '';
     if (missing.length === 1) return `Add ${missing[0]} to continue.`;
@@ -1435,15 +1445,16 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === 1) && !serviceType)     e.serviceType     = 'Choose a service.';
       if ((last || tripPart === 1) && serviceType === 'Others' && !otherServiceNote.trim()) e.serviceType = 'Please describe the service.';
       if ((last || tripPart === 2) && !duration)        e.duration        = 'Choose a duration.';
-      if ((last || tripPart === 5) && !startDate)       e.startDate       = 'Select a start date.';
-      if ((last || tripPart === 5) && !startTime)       e.startTime       = 'Set a pickup time.';
-      if ((last || tripPart === 5) && (!endDate || !endTime)) e.endDate     = 'End date/time is required.';
-      if ((last || tripPart === 3) && !pickupLocation)  e.pickupLocation  = 'Choose a pickup location on the map.';
-      else if ((last || tripPart === 3) && !pickupCoords) e.pickupLocation = 'Please pick your location on the map so we can confirm it is within our service area.';
-      if ((last || tripPart === 3) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
-      if ((last || tripPart === 4) && !destination)     e.destination     = 'Please enter a destination.';
-      if (tripPart >= 5 && codingError)      e.coding          = codingError;
-      if (tripPart >= 5 && maxDaysError)     e.maxDays         = maxDaysError;
+      if ((last || tripPart === PART.schedule) && !startDate)       e.startDate       = 'Select a start date.';
+      if ((last || tripPart === PART.schedule) && !startTime)       e.startTime       = 'Set a pickup time.';
+      if ((last || tripPart === PART.schedule) && (!endDate || !endTime)) e.endDate     = 'End date/time is required.';
+      if ((last || tripPart === PART.pickup) && !pickupLocation)  e.pickupLocation  = 'Choose a pickup location on the map.';
+      else if ((last || tripPart === PART.pickup) && !pickupCoords) e.pickupLocation = 'Please pick your location on the map so we can confirm it is within our service area.';
+      if ((last || tripPart === PART.pickup) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
+      if ((last || tripPart === PART.destination) && !destination)     e.destination     = 'Please enter a destination.';
+      if (tripPart >= PART.pickup && codingError)      e.coding          = codingError;
+      if (tripPart >= PART.pickup && !codingError && codingNeedsAck && !codingAck) e.codingAck = 'Please confirm the Number Coding warning to continue.';
+      if (tripPart >= PART.schedule && maxDaysError)     e.maxDays         = maxDaysError;
     }
     if (currentStep === 3) {
       if (!firstName) e.firstName = 'Required.';
@@ -1481,16 +1492,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // Returns true when the booking is blocked (or could not be verified).
   // `reqId` = null forces the result to be applied (used by Next); otherwise a
   // result is dropped if a newer check has started since.
-  const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination, destinationCity, codingStops = [], key, reqId = null }) => {
+  const runCodingCheck = useCallback(async ({ carID, startDate, startTime, endDate, endTime, destination, destinationCity, pickup = '', pickupCity = '', codingStops = [], key, reqId = null }) => {
     if (!carID || !startDate || !startTime) return false; // not enough info yet
     const isLatest = () => reqId === null || reqId === codingReqRef.current;
     setCodingChecking(true);
     let blocked = false;
     let error   = '';
     let violations = [];
+    let warnings = [];
+    let warningMessage = '';
     try {
-      const startDT = new Date(`${startDate}T${startTime}:00`);
-      const endDT   = endDate && endTime ? new Date(`${endDate}T${endTime}:00`) : null;
+      // Date/time are Manila wall-clock — pin +08:00 so the check is the same on any device timezone.
+      const startDT = new Date(`${startDate}T${startTime}:00+08:00`);
+      const endDT   = endDate && endTime ? new Date(`${endDate}T${endTime}:00+08:00`) : null;
       const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/check-coding`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("arl_token")}` },
@@ -1502,6 +1516,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           // Structured city from the map pin, when we have one; the backend uses it
           // together with the typed address.
           destinationCity: destinationCity || "",
+          // The pickup is checked too, since the car starts its trip there.
+          pickup,
+          pickupCity,
           // Every additional stop — the backend checks each one, not just the primary destination.
           codingStops,
         }),
@@ -1512,20 +1529,23 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         // silently disappeared. Treat it like a failed check instead.
         blocked = true;
         error   = "Could not verify Number Coding rules. Please check your connection and try again.";
-      } else if (data.holiday) {
-        blocked = false; // public holiday — coding is suspended
       } else if (data.blocked) {
         blocked = true;
         error   = data.reason || "This vehicle is not allowed due to Number Coding Scheme on the selected date/time.";
         violations = Array.isArray(data.violations) ? data.violations : [];
+      } else if (data.warning) {
+        // Longer booking touching coded days: allowed, but the customer has to confirm the dates.
+        warnings = Array.isArray(data.warnings) ? data.warnings : [];
+        warningMessage = data.warningMessage || '';
       }
+      // (public holidays are already removed day-by-day by the server)
     } catch (err) {
       console.warn("Coding rule check failed:", err);
       blocked = true; // block on error to be safe
       error   = "Could not verify Number Coding rules. Please check your connection and try again.";
     }
     if (isLatest()) {
-      setCodingState({ key, error, violations });
+      setCodingState({ key, error, violations, warnings, warningMessage });
       setCodingChecking(false);
     }
     return blocked;
@@ -1591,6 +1611,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           carID: selectedCar.carID,
           startDate, startTime, endDate, endTime, destination,
           destinationCity: destinationCoords?.city || "",
+          pickup: pickupLocation,
+          pickupCity: pickupCoords?.city || "",
           codingStops,
           key: codingKey, // reqId omitted → this result is always applied
         });
@@ -1654,6 +1676,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           // the regions saved in the database before accepting the booking.
           pickupProvince:  pickupCoords?.province  || "",
           pickupRegion:    pickupCoords?.region    || "",
+          // Geocoder "county" — often the province; one more name for the base-area match.
+          pickupCounty:    pickupCoords?.county    || "",
+          destinationCounty: destinationCoords?.county || "",
+          // The customer confirmed the multi-day Number Coding warning (the server re-checks and requires it).
+          codingAcknowledged: codingAck,
           destinationCity: destinationCoords?.city || "",
           // Same reasoning as destinationCity — exact match preferred over
           // substring-matching the raw address for the base-area fee.
@@ -1677,12 +1704,23 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           paymentMethod,
           referenceNumber: gcashReference,
           proofBase64,
+          // Hash of the Terms & Conditions text on screen when they ticked the box — the server checks it
+          // is the current one and saves it with the booking as the acceptance.
+          termsHash: activeTerms?.hash || null,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        // The Terms & Conditions changed since the page loaded (or weren't accepted): the old
+        // acceptance no longer counts. Reload the current text and make them tick the box again.
+        if (data.termsChanged || data.termsRequired) {
+          setTermsAgreed(false);
+          reloadTerms();
+          showToast(data.message || "Please review and accept the Terms & Conditions to continue.");
+          return;
+        }
         // For the duplicate-booking guard specifically, the backend now also
         // sends the conflicting booking's own dates — show them instead of
         // just repeating the generic message, so it's clear which existing
@@ -1774,7 +1812,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         <p className="text-sm font-black text-red-700 mb-1">Number Coding Restriction</p>
         <p className="text-sm text-red-600">{codingError}</p>
         <p className="text-xs text-red-500 mt-2">
-          Please choose a different date, time, or select another vehicle{codingViolations.some(v => v.id !== 'primary') ? ', or remove the restricted stop' : ''}.
+          Please choose a different date, time, or select another vehicle{codingViolations.some(v => v.id === 'pickup') ? ', or a different pickup' : ''}{codingViolations.some(v => v.id !== 'primary' && v.id !== 'pickup') ? ', or remove the restricted stop' : ''}.
         </p>
         {codingViolations.length > 0 && (
           <p className="text-[11px] text-red-400 mt-2">
@@ -1785,54 +1823,80 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     </div>
   ) : null;
 
-  // ── Heads-up on the Destination step ──
-  // That step comes BEFORE the pickup date/time, so there is nothing date-specific to
-  // check yet. Instead we list the days/hours this car's plate is coded in each
-  // picked location (primary + every extra stop) — it never blocks; the real check
-  // runs once a date and time are chosen.
-  const scheduleText = (schedule) => {
-    const byDay = [];
-    schedule.forEach(sc => {
-      let g = byDay.find(x => x.day === sc.dayName);
-      if (!g) { g = { day: sc.dayName, wins: [] }; byDay.push(g); }
-      g.wins.push(`${sc.startTime} – ${sc.endTime}`);
-    });
-    return byDay.map(g => `${g.day} ${g.wins.join(', ')}`).join(' · ');
+  // "Wed, Oct 21" from "2026-10-21" (a plain calendar date — no timezone shift)
+  const fmtCodingDate = (iso) => {
+    const [y, m, d] = String(iso || '').split('-').map(Number);
+    if (!y) return '';
+    return new Date(y, m - 1, d).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
   };
-  const codingNoticeItems = codingNotices.key === noticeKey ? codingNotices.items : [];
-  // Small per-location marker shown under each destination field.
+  // One row per (day, location), with all of that day's coded hours
+  const codingWarningRows = (() => {
+    const rows = {};
+    codingWarnings.forEach(w => {
+      const k = `${w.date}|${w.id}`;
+      if (!rows[k]) rows[k] = { date: w.date, city: w.city, location: w.location, wins: [] };
+      rows[k].wins.push(`${w.startTime} – ${w.endTime}`);
+    });
+    return Object.values(rows);
+  })();
+  // Small per-location marker shown under each location field.
   const codingNote = (id) => {
-    const v = codingViolations.find(x => x.id === id);
-    if (v) return (
+    const vs = codingViolations.filter(x => x.id === id);
+    if (vs.length) return (
       <p className="text-xs text-red-600 font-semibold mt-1">
-        Number Coding applies here: {v.city || 'this area'}, {v.dayName} {v.startTime} – {v.endTime}.
+        Number Coding applies here: {vs.map(v => `${v.city || 'this area'}, ${fmtCodingDate(v.date) || v.dayName} ${v.startTime} – ${v.endTime}`).join('; ')}.
       </p>
     );
-    const n = codingNoticeItems.find(x => x.id === id);
-    if (n) return (
+    const w = codingWarnings.filter(x => x.id === id);
+    if (w.length) return (
       <p className="text-xs text-amber-700 font-semibold mt-1">
-        Number Coding applies here: {scheduleText(n.schedule)}.
+        Number Coding applies here on {new Set(w.map(x => x.date)).size} day(s) of your rental — see the warning below.
       </p>
     );
     return null;
   };
-  const codingNoticeBox = (!codingError && codingNoticeItems.length > 0) ? (
-    <div role="note" className="mt-2 flex gap-3 items-start bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
-      <div className="min-w-0">
-        <p className="text-sm font-black text-amber-800 mb-1">Number Coding heads-up</p>
-        <p className="text-xs text-amber-800">
-          This vehicle's plate is under Number Coding at {codingNoticeItems.length} of your locations (marked above).
-          On the next step you'll need to choose a date and time outside the restricted hours, or pick another vehicle.
-        </p>
-        <p className="text-[11px] text-amber-700 mt-2">
-          Coding schedules can change (holidays, MMDA advisories). This uses the schedule we have on file — please confirm with MMDA or your city if you're unsure.
-        </p>
-      </div>
+  // Multi-day booking: allowed, but the customer lists-and-confirms the coded dates.
+  const codingWarningBox = codingNeedsAck ? (
+    <div role="alert" className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+      <p className="text-sm font-black text-amber-800 mb-1">Number Coding warning</p>
+      <p className="text-xs sm:text-sm text-amber-800 mb-2">
+        Your rental runs for several days, so it overlaps days when this vehicle's plate is under Number Coding.
+        You can still book — keep the car off the road in these areas during these hours:
+      </p>
+      <ul className="space-y-1 mb-3">
+        {codingWarningRows.map(r => (
+          <li key={`${r.date}|${r.location}`} className="text-xs sm:text-sm text-amber-900">
+            <span className="font-bold">{fmtCodingDate(r.date)}</span> — {r.city || r.location || 'this area'}: {r.wins.join(', ')}
+          </li>
+        ))}
+      </ul>
+      <label className="flex items-start gap-2 text-xs sm:text-sm font-semibold text-amber-900 cursor-pointer">
+        <input type="checkbox" checked={codingAck} onChange={(e) => setCodingAck(e.target.checked)}
+          className="mt-0.5 w-4 h-4 accent-arl-primary flex-shrink-0" />
+        <span>I understand and will follow the Number Coding schedule for this trip.</span>
+      </label>
+      {errors.codingAck && !codingAck && <p className="text-arl-cta text-xs mt-1">{errors.codingAck}</p>}
+      <p className="text-[11px] text-amber-700 mt-2">
+        Coding schedules can change (holidays, MMDA advisories). This uses the schedule we have on file — please confirm with MMDA or your city if you're unsure.
+      </p>
     </div>
   ) : null;
 
   // ── Payment step: detail rows (each has a "?" explanation) + split amounts ──
   const peso = (n) => `₱${Number(n || 0).toLocaleString()}`;
+  // Shown under the pickup / destination field when the server's quote says that location is
+  // outside the base area. All amounts come from the quote (the admin's System Settings).
+  const outsideAreaNote = (where) => (
+    <div role="note" className="rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
+      <p className="text-xs font-black text-amber-800">Your {where} is outside our base area</p>
+      <p className="text-[11px] sm:text-xs text-amber-800 mt-0.5">
+        An extra {peso(quote.extraFeeOutsideArea)} applies to this booking.{' '}
+        {driveType === 'chauffeur'
+          ? `Because you chose a driver, the driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`
+          : `If you choose a driver, the driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`}
+      </p>
+    </div>
+  );
   const depositPaidUpfront = Math.min(Math.max(0, securityDeposit || 0), grandTotal || 0);
   // Mirrors the server's computePaymentSplit: Partial = full deposit + 50% of everything else.
   const partialNow     = depositPaidUpfront + Math.floor(((grandTotal || 0) - depositPaidUpfront) * 0.5);
@@ -2106,7 +2170,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </>)}
 
                   {/* ── LOCATIONS ── */}
-                  {tripPart === 3 && (
+                  {tripPart === PART.pickup && (
                   <div className="space-y-4 mb-6">
                     {storeInfo.configured && (
                       <div className="flex items-center gap-2">
@@ -2134,8 +2198,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       disabled={pickupInStore}
                       restrictToServiceArea
                       coords={pickupCoords}
+                      showBaseArea
+                      baseAreaRole="pickup"
                     />
                     {errors.pickupLocation && <p className="text-arl-cta text-xs mt-1">{errors.pickupLocation}</p>}
+                    {quote.outsideArea && quote.pickupOutside && outsideAreaNote('pickup')}
+                    {codingNote('pickup')}
 
                     <div className="flex items-center gap-2">
                       <input
@@ -2162,7 +2230,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </div>
                   )}
 
-                  {tripPart === 3 && (
+                  {tripPart === PART.pickup && (
                   <div className="mt-6">
                     <p className="text-sm font-semibold text-arl-dark mb-1">Who will drive?</p>
                     <p className="text-xs text-gray-500 mb-3">Choose one. The extra cost of a driver is shown on the option.</p>
@@ -2189,12 +2257,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                                       <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">A professional driver. The driver's fee shows in your price breakdown.</span>
                                     ) : (
                                       <>
-                                        <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} inside our service area</span>
-                                        <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} outside our service area</span>
+                                        <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} inside our base area</span>
+                                        <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} outside our base area</span>
+                                        {quote.outsideArea && (
+                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700">
+                                            Your trip is outside our base area, so the driver's fee is {peso(outside)}.
+                                          </span>
+                                        )}
                                         {selected && driversFee > 0 ? (
-                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)} (based on your destination)</span>
+                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)}</span>
                                         ) : (
-                                          <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The exact amount depends on your destination, which you choose next.</span>
+                                          !quote.outsideArea && <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The amount depends on whether your pickup and destination are inside our base area.</span>
                                         )}
                                       </>
                                     )
@@ -2216,7 +2289,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </div>
                   )}
 
-                  {tripPart === 4 && (
+                  {tripPart === PART.destination && (
                   <div className="space-y-4 mb-6">
                     <LocationInput
                       label="Destination"
@@ -2226,7 +2299,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       onValueChange={(v) => { setDestination(v); }}
                       onCoordsChange={setDestinationCoords}
                       placeholder="Search for a destination…"
+                      showBaseArea
+                      baseAreaRole="destination"
                     />
+                    {quote.outsideArea && quote.destinationOutside && outsideAreaNote('destination')}
                     <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
                       Your destination is for documentation purposes only. Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.
                     </p>
@@ -2263,10 +2339,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </div>
                   )}
 
-                  {tripPart === 4 && codingAlert}
-                  {tripPart === 4 && codingNoticeBox}
-
-                  {tripPart === 5 && (<>
+                  {tripPart === PART.schedule && (<>
                   {/* ── CALENDAR ── */}
                   {duration && (
                     <div className="mb-6">
@@ -2325,7 +2398,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </>)}
 
 
-                  {tripPart >= 5 && (<>
+                  {tripPart >= PART.schedule && (<>
                   {/* ── Max rental length error ── */}
                   {maxDaysError && (
                     <div className="mt-6 flex gap-3 items-start bg-red-50 border-2 border-red-300 rounded-2xl p-4">
@@ -2336,8 +2409,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     </div>
                   )}
 
-                  {/* ── Number Coding error ── */}
-                  {codingAlert}
+                  </>)}
+
+                  {/* ── Number Coding: blocked (red) or multi-day warning to confirm (amber) ── */}
+                  {tripPart >= PART.pickup && (<>
+                    {codingAlert}
+                    {codingWarningBox}
                   </>)}
                 </div>
               )}
@@ -2743,14 +2820,32 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 </div>
               )}
 
-              {/* Step 5 — consent notice. There is no separate checkbox: pressing Confirm is the agreement. */}
+              {/* Step 5 — Terms & Conditions acceptance. Confirm stays disabled until this is ticked; the hash of
+                  the text on screen is sent with the booking and recorded by the server. */}
               {currentStep === 5 && (
                 <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-3 sm:px-4 py-3 text-xs sm:text-sm text-gray-700">
-                  By clicking <strong>Confirm</strong>, you automatically agree to our{' '}
-                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-arl-primary">Terms &amp; Conditions</a>
-                  {isPaymongoMethod(paymentMethod)
-                    ? ' and will be redirected to PayMongo to complete your payment.'
-                    : ' and your booking will be submitted.'}
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input type="checkbox" checked={termsAgreed} disabled={!activeTerms}
+                      onChange={e => setTermsAgreed(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 accent-arl-primary" />
+                    <span>
+                      I have read and agree to the{' '}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-arl-primary">Terms &amp; Conditions</a>
+                      {activeTerms && <span className="text-gray-500"> (version {activeTerms.version})</span>},
+                      including the Number Coding and Traffic Violations, Fines &amp; Charges sections.
+                    </span>
+                  </label>
+                  {termsError && !activeTerms && (
+                    <p className="mt-2 text-red-600">
+                      We couldn't load the Terms &amp; Conditions.{' '}
+                      <button type="button" onClick={reloadTerms} className="underline font-semibold">Try again</button>
+                    </p>
+                  )}
+                  <p className="mt-2 text-gray-600">
+                    {isPaymongoMethod(paymentMethod)
+                      ? 'After you confirm, you will be redirected to PayMongo to complete your payment.'
+                      : 'After you confirm, your booking will be submitted.'}
+                  </p>
                 </div>
               )}
 
