@@ -18,6 +18,12 @@ const peso = (v) => `₱${Number(v || 0).toLocaleString()}`;
 // Flat codingWarnings [{ city, plateLastDigit, ruleID, dayOfWeek, startTime, endTime }, …]
 // -> grouped by city: [{ city, plateLastDigit, text: "Mon 7:00 AM - 10:00 AM, 3:00 PM - 7:00 PM; Fri 7:00 AM - 10:00 AM" }]
 const DAY_SHORT = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]; // dayOfWeek 1-7, Monday = 1
+// "7:00 AM" / "08:00 PM" -> minutes from midnight (used only to sort the hours; unknown -> 0)
+const timeMins = (t) => {
+  const m = String(t || "").trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return 0;
+  return ((Number(m[1]) % 12) + (m[3].toUpperCase() === "PM" ? 12 : 0)) * 60 + Number(m[2]);
+};
 const groupCodingByCity = (list) => {
   const cities = [];
   (Array.isArray(list) ? list : []).forEach((w) => {
@@ -27,14 +33,14 @@ const groupCodingByCity = (list) => {
     if (!c) { c = { city, plateLastDigit: w.plateLastDigit, days: [] }; cities.push(c); }
     let d = c.days.find((x) => x.dow === Number(w.dayOfWeek));
     if (!d) { d = { dow: Number(w.dayOfWeek), wins: [] }; c.days.push(d); }
-    d.wins.push(`${w.startTime} - ${w.endTime}`);
+    d.wins.push({ m: timeMins(w.startTime), t: `${String(w.startTime || "").trim()} - ${String(w.endTime || "").trim()}` });
   });
   return cities.map((c) => ({
     city: c.city,
     plateLastDigit: c.plateLastDigit,
     text: c.days
       .sort((a, b) => a.dow - b.dow)
-      .map((d) => `${DAY_SHORT[d.dow] || "Day " + d.dow} ${d.wins.join(", ")}`)
+      .map((d) => `${DAY_SHORT[d.dow] || "Day " + d.dow} ${d.wins.sort((a, b) => a.m - b.m).map((x) => x.t).join(", ")}`)
       .join("; "),
   }));
 };
@@ -509,7 +515,7 @@ export default function BookingDetailsPage() {
               <div className="mb-3">
                 <DR label="Terms & Conditions accepted"
                     value={`${fmtDT(data.terms.acceptedAt)}${data.terms.version ? ` · version ${data.terms.version}` : ""}`} />
-                <a href={`/terms?v=${encodeURIComponent(data.terms.hash)}`} target="_blank" rel="noopener noreferrer"
+                <a href={`/terms?v=${encodeURIComponent(data.terms.viewID)}`} target="_blank" rel="noopener noreferrer"
                    className="inline-block mt-1 text-xs font-semibold text-arl-secondary hover:underline">
                   View the exact text you accepted →
                 </a>

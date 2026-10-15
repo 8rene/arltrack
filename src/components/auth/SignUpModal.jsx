@@ -573,7 +573,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
   const [selBar,     setSelBar]     = useState(null);
   const [street,     setStreet]     = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [termsInfo,     setTermsInfo]     = useState(null); // { hash, version } of the text the customer actually accepted
+  const [termsInfo,     setTermsInfo]     = useState(null); // { termsVersionID, version } of the text the customer actually accepted
   const [showTerms,     setShowTerms]     = useState(false);
   const [addrErr,       setAddrErr]       = useState("");
 
@@ -680,7 +680,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
         driverLicenseBase64:  s3.licenseImage,
         selfieWithIdBase64:   s3.selfieImage,
         // Hash of the Terms & Conditions text they accepted — the server checks it is the current one and records it.
-        termsHash:            termsInfo?.hash || null,
+        termsVersionID:       termsInfo?.termsVersionID || null,
       }),
     });
 

@@ -1704,9 +1704,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           paymentMethod,
           referenceNumber: gcashReference,
           proofBase64,
-          // Hash of the Terms & Conditions text on screen when they ticked the box — the server checks it
-          // is the current one and saves it with the booking as the acceptance.
-          termsHash: activeTerms?.hash || null,
+          // termsVersionID of the Terms & Conditions text on screen when they ticked the box — the server
+          // checks it is the current one and saves it with the booking as the acceptance.
+          termsVersionID: activeTerms?.termsVersionID || null,
         }),
       });
 

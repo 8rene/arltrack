@@ -1,12 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { useActiveTerms } from "../../utils/terms/terms";
+import TermsMarkdown from "./TermsMarkdown";
 
-// Same text as the Terms & Conditions page — both read it from the server
-// (GET /api/terms/active). This modal used to carry its own shorter, differently-worded
-// copy; one canonical text means what the customer reads here is what is recorded.
+// Same text as the Terms & Conditions page — both read the current version the admin published
+// (GET /api/terms/active). One canonical text means what the customer reads here is what is recorded.
 const TandC = ({ isOpen, onAgree, onCancel }) => {
   const { terms, loading, error, reload } = useActiveTerms();
-  const SECTIONS = terms?.sections || [];
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -52,43 +51,7 @@ const TandC = ({ isOpen, onAgree, onCancel }) => {
                 <button onClick={reload} className="px-5 py-2 rounded-full bg-arl-primary text-white text-sm font-semibold">Try again</button>
               </div>
             )}
-            {SECTIONS.map((s) => (
-              <div key={s.num} className="flex gap-4">
-                {/* Section number */}
-                <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-arl-primary/8 flex items-center justify-center mt-0.5"
-                  style={{ backgroundColor: "rgba(26,95,122,0.08)" }}>
-                  <span className="text-xs font-black text-arl-primary">{s.num}</span>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-gray-800 mb-1.5">{s.title}</h3>
-
-                  {s.highlight && (
-                    <div className="inline-flex items-center gap-1.5 bg-arl-secondary/10 text-arl-primary text-xs font-bold px-3 py-1 rounded-full mb-2"
-                      style={{ backgroundColor: "rgba(79,195,247,0.12)" }}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-arl-secondary inline-block" />
-                      {s.highlight}
-                    </div>
-                  )}
-
-                  {s.body && (
-                    <p className="text-xs text-gray-500 leading-relaxed">{s.body}</p>
-                  )}
-
-                  {s.list && (
-                    <div className="mt-2 flex flex-col gap-1.5">
-                      {s.list.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
-                          <span className="text-xs text-gray-500">{item.label}</span>
-                          <span className="text-xs font-bold text-arl-primary">{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+            {terms && <TermsMarkdown source={terms.content} compact />}
 
             {/* Acknowledgment note */}
             <div className="mt-2 p-4 rounded-2xl border border-arl-primary/20 bg-arl-light"
@@ -109,9 +72,9 @@ const TandC = ({ isOpen, onAgree, onCancel }) => {
             Cancel
           </button>
           <button
-            // Passes back the hash + version of the text that was on screen — the server checks it
-            // and records it as the acceptance when the account is created.
-            onClick={() => terms && onAgree({ hash: terms.hash, version: terms.version })}
+            // Passes back the termsVersionID + version of the text that was on screen — the server
+            // checks it and records it as the acceptance when the account is created.
+            onClick={() => terms && onAgree({ termsVersionID: terms.termsVersionID, version: terms.version })}
             disabled={!terms}
             className="flex-1 bg-arl-cta text-white py-3 rounded-2xl text-sm font-bold hover:opacity-90 transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
