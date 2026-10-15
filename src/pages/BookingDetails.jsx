@@ -456,6 +456,13 @@ export default function BookingDetailsPage() {
                 <div>
                   <h1 className="font-black text-lg sm:text-xl text-arl-primary">{booking.carName || "Unknown Vehicle"}</h1>
                   <p className="text-xs text-gray-400 font-mono mt-0.5">{booking.bookingID}</p>
+                  {booking.plateNumber ? (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Plate no. <span className="font-mono font-bold text-gray-800 tracking-wider">{booking.plateNumber}</span>
+                    </p>
+                  ) : booking.plateRevealsAt ? (
+                    <p className="text-xs text-gray-400 mt-1">Plate number is shown {fmtDT(booking.plateRevealsAt)} (2 hours before pickup).</p>
+                  ) : null}
                 </div>
                 {/* Header badge priority: a matched refund request's own
                     status (most specific) → the payment's own "refunded"

@@ -207,7 +207,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
   const { showToast } = useToast();
 
   const {
-    bookingID, carName, carImage, carBodyType,
+    bookingID, carName, carImage, carBodyType, plateNumber, plateRevealsAt,
     serviceType, duration, startDateTime, endDateTime,
     totalDays, totalFee,
     status, cancellationReason,
@@ -349,6 +349,14 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
               <p className="text-xs text-gray-500">
                 <span className="font-semibold text-gray-600">Service:</span> {serviceType || "—"}
               </p>
+              {plateNumber ? (
+                <p className="text-xs text-gray-500">
+                  <span className="font-semibold text-gray-600">Plate no.:</span>{" "}
+                  <span className="font-mono font-bold text-gray-800 tracking-wider">{plateNumber}</span>
+                </p>
+              ) : plateRevealsAt ? (
+                <p className="text-xs text-gray-400">Plate no. shown {fmtDT(plateRevealsAt)}</p>
+              ) : null}
               <p className="text-xs text-gray-500">
                 <span className="font-semibold text-gray-600">Start:</span> {fmtDT(startDateTime)}
               </p>
