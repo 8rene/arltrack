@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import Footer from "../components/layout/Footer";
 import TermsMarkdown from "../components/shared/TermsMarkdown";
-import { useTermsDocument } from "../utils/terms/terms";
+import { useTermsDocument } from "../utils/terms";
 
 // The text is not hard-coded here: it comes from the server (GET /api/terms/active), which reads
 // the newest version the admin published. `/terms?v=<id>` shows an earlier version by its ID

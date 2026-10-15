@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { useActiveTerms } from "../../utils/terms/terms";
+import { useActiveTerms } from "../../utils/terms";
 import TermsMarkdown from "./TermsMarkdown";
 
 // Same text as the Terms & Conditions page — both read the current version the admin published
