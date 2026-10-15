@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { useActiveTerms } from "../../utils/terms";
+import { useActiveTerms } from "../../utils/terms/terms";
 
 // Same text as the Terms & Conditions page — both read it from the server
 // (GET /api/terms/active). This modal used to carry its own shorter, differently-worded

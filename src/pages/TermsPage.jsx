@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import Footer from "../components/layout/Footer";
-import { useTermsDocument } from "../utils/terms";
+import { useTermsDocument } from "../utils/terms/terms";
 
 // The text is no longer hard-coded here: it comes from the server (GET /api/terms/active),
 // which also records exactly which text a customer accepted. `/terms?v=<hash>` shows an

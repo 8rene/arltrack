@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info, Clock } from 'luc
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
 import { useToast } from '../context/ToastContext';
-import { useActiveTerms } from '../utils/terms';
+import { useActiveTerms } from '../utils/terms/terms';
 import gcashLogo  from '../assets/images/GCash_Logo.png';
 import mayaLogo   from '../assets/images/PayMayaLogo.jpg';
 import qrphLogo   from '../assets/images/qr-ph-logo-6f76723590.webp';
