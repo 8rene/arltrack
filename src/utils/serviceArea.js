@@ -12,7 +12,7 @@ const CACHE_MS = 5 * 60_000;
 /** Resolves to { regions: [{regionID, regionName}] }. Rejects on failure so callers can fail closed. */
 export const fetchServiceArea = async () => {
   if (cache && Date.now() < cacheExpiresAt) return cache;
-  const res = await fetch(`${BASE_URL}/service-area`);
+  const res = await fetch(`${BASE_URL}/service-area`, { method: "POST", headers: { "Content-Type": "application/json" } });
   if (!res.ok) throw new Error(`Failed to fetch service area: ${res.status}`);
   const data = await res.json();
   cache = { regions: Array.isArray(data.regions) ? data.regions : [] };
@@ -26,8 +26,11 @@ export const serviceAreaLabel = (area) =>
 
 /** Asks the server whether this region/province/city is inside the service area. Throws on network failure. */
 export const checkInServiceArea = async ({ region = '', province = '', city = '' }) => {
-  const params = new URLSearchParams({ region, province, city });
-  const res = await fetch(`${BASE_URL}/service-area/check?${params.toString()}`);
+  const res = await fetch(`${BASE_URL}/service-area/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ region, province, city }),
+  });
   if (!res.ok) throw new Error(`Service area check failed: ${res.status}`);
   const data = await res.json();
   return !!data.allowed;

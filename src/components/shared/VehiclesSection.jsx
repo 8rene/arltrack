@@ -57,7 +57,7 @@ const VehiclesSection = () => {
   useEffect(() => {
     const fetchFeaturedCars = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/cars/featured`);
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/cars/featured`, { method: "POST", headers: { "Content-Type": "application/json" } });
         if (!res.ok) throw new Error("Failed to load cars.");
         const data = await res.json();
         setMostReviewed(data.mostReviewed || []);

@@ -28,7 +28,7 @@ const toPolicy = (d = {}) => {
 export const fetchPolicySettings = async () => {
   if (cache && Date.now() < cacheExpiresAt) return cache;
   try {
-    const res = await fetch(BASE_URL);
+    const res = await fetch(BASE_URL, { method: "POST", headers: { "Content-Type": "application/json" } });
     if (!res.ok) throw new Error(`status ${res.status}`);
     cache = toPolicy(await res.json());
     cacheExpiresAt = Date.now() + CACHE_MS;

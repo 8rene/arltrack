@@ -17,7 +17,7 @@ const CONFIG_MS = 60_000;
 /** Resolves to { baseAreaKeywords, basis, extraFeeOutsideArea, driversFeeBaseArea, driversFeeOutsideArea }. Rejects on failure. */
 export const fetchBaseAreaConfig = async () => {
   if (configCache && Date.now() < configExpiresAt) return configCache;
-  const res = await fetch(`${API}/bookings/base-area`);
+  const res = await fetch(`${API}/bookings/base-area`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
   if (!res.ok) throw new Error(`Failed to load base area: ${res.status}`);
   const data = await res.json();
   configCache = {

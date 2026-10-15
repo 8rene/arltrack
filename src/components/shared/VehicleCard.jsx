@@ -37,7 +37,7 @@ const ViewDetailsModal = ({ car, onClose }) => {
   const [fetched, setFetched] = useState(false);
   if (!fetched) {
     setFetched(true);
-    fetch(`${process.env.REACT_APP_API_URL}/cars/${car.carID}/details`)
+    fetch(`${process.env.REACT_APP_API_URL}/cars/${car.carID}/details`, { method: "POST", headers: { "Content-Type": "application/json" } })
       .then((r) => r.ok ? r.json() : Promise.reject())
       .then((json) => { setData(json); setLoading(false); })
       .catch(() => { setData({ error: true }); setLoading(false); });

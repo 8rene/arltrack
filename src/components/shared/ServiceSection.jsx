@@ -32,7 +32,7 @@ const ServiceSection = () => {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/services`);
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/services`, { method: "POST", headers: { "Content-Type": "application/json" } });
         if (!res.ok) throw new Error("Failed to fetch services");
         const data = await res.json();
         setServices(data);

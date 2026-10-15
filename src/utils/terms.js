@@ -16,7 +16,7 @@ let cacheAt = 0;
 // a fallback would be a text the server never recorded).
 export const fetchActiveTerms = async ({ force = false } = {}) => {
   if (!force && cache && Date.now() - cacheAt < CACHE_MS) return cache;
-  const res = await fetch(`${BASE_URL}/active`);
+  const res = await fetch(`${BASE_URL}/active`, { method: "POST", headers: { "Content-Type": "application/json" } });
   if (res.status === 404) throw new Error("The Terms & Conditions have not been published yet.");
   if (!res.ok) throw new Error("Could not load the Terms & Conditions. Please try again.");
   cache = await res.json(); // { termsVersionID, version, content, effectiveAt }
@@ -25,7 +25,7 @@ export const fetchActiveTerms = async ({ force = false } = {}) => {
 };
 
 export const fetchTermsVersion = async (id) => {
-  const res = await fetch(`${BASE_URL}/version/${encodeURIComponent(id)}`);
+  const res = await fetch(`${BASE_URL}/version/${encodeURIComponent(id)}`, { method: "POST", headers: { "Content-Type": "application/json" } });
   if (res.status === 404) throw new Error("That version of the Terms & Conditions was not found.");
   if (!res.ok) throw new Error("Could not load that version. Please try again.");
   return res.json();

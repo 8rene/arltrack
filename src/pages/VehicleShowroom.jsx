@@ -185,7 +185,7 @@ const VehicleShowroom = () => {
   useEffect(() => {
     const fetchCars = async () => {
       try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/cars/all`);
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/cars/all`, { method: "POST", headers: { "Content-Type": "application/json" } });
         if (!res.ok) throw new Error("Failed to fetch cars");
         const data = await res.json();
         setCars(data);

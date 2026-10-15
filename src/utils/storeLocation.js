@@ -20,7 +20,7 @@ export const fetchStoreLocation = async () => {
   if (cache && Date.now() < cacheExpiresAt) return cache;
 
   try {
-    const res = await fetch(`${BASE_URL}/store`);
+    const res = await fetch(`${BASE_URL}/store`, { method: "POST", headers: { "Content-Type": "application/json" } });
     if (!res.ok) throw new Error(`Failed to fetch store location: ${res.status}`);
     const data = await res.json();
 

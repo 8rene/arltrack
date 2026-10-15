@@ -903,7 +903,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   // ── Fetch cars ───────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/cars/all`)
+    fetch(`${process.env.REACT_APP_API_URL}/cars/all`, { method: "POST", headers: { "Content-Type": "application/json" } })
       .then(r => r.json()).then(d => { setCars(d); setCarsLoading(false); })
       .catch(() => { setCarsError('Could not load vehicles.'); setCarsLoading(false); });
   }, []);
@@ -949,7 +949,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   // ── Fetch service types ──────────────────────────────────────
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/services/types`)
+    fetch(`${process.env.REACT_APP_API_URL}/services/types`, { method: "POST", headers: { "Content-Type": "application/json" } })
       .then(r => r.json()).then(d => { setServiceTypes(d); setServiceTypesLoading(false); })
       .catch(() => setServiceTypesLoading(false));
   }, []);
