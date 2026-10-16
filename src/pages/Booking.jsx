@@ -1871,11 +1871,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           </li>
         ))}
       </ul>
-      <label className="flex items-start gap-2 text-xs sm:text-sm font-semibold text-amber-900 cursor-pointer">
-        <input type="checkbox" checked={codingAck} onChange={(e) => setCodingAck(e.target.checked)}
-          className="mt-0.5 w-4 h-4 accent-arl-primary flex-shrink-0" />
-        <span>I understand and will follow the Number Coding schedule for this trip.</span>
-      </label>
+      <p className="text-xs sm:text-sm font-semibold text-amber-900 mb-2">
+        By confirming, you agree to follow the Number Coding schedule above for this trip.
+      </p>
+      <button
+        type="button"
+        aria-pressed={codingAck}
+        onClick={() => setCodingAck(v => !v)}
+        className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition border-2 ${
+          codingAck
+            ? 'bg-green-600 border-green-600 text-white hover:bg-green-700'
+            : 'bg-arl-primary border-arl-primary text-white hover:bg-arl-secondary'}`}>
+        {codingAck ? '✓ Confirmed — tap to undo' : 'Confirm Number Coding warning'}
+      </button>
       {errors.codingAck && !codingAck && <p className="text-arl-cta text-xs mt-1">{errors.codingAck}</p>}
       <p className="text-[11px] text-amber-700 mt-2">
         Coding schedules can change (holidays, MMDA advisories). This uses the schedule we have on file — please confirm with MMDA or your city if you're unsure.
@@ -2336,6 +2344,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
                       Number Coding is checked for every destination you add.
                     </p>
+                    {/* Warning list + confirm button, directly under the destinations */}
+                    {codingWarningBox}
                   </div>
                   )}
 
@@ -2414,7 +2424,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* ── Number Coding: blocked (red) or multi-day warning to confirm (amber) ── */}
                   {tripPart >= PART.pickup && (<>
                     {codingAlert}
-                    {codingWarningBox}
+                    {tripPart === PART.pickup && codingWarningBox}
                   </>)}
                 </div>
               )}
