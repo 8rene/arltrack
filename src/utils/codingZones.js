@@ -9,20 +9,30 @@
 
 const BASE_URL = `${process.env.REACT_APP_API_URL}/bookings`;
 
-let citiesCache = null;
-let citiesExpiresAt = 0;
+// One cache entry per (car, dates) so changing the car or dates refetches.
+const citiesCache = new Map(); // key -> { value, expiresAt }
 const CACHE_MS = 60_000;
 
-/** Resolves to { cities: ["Quezon City", ...] }. Never rejects — resolves to an empty list on failure. */
-export const fetchCodingCities = async () => {
-  if (citiesCache && Date.now() < citiesExpiresAt) return citiesCache;
+/**
+ * Resolves to { cities: ["Quezon City", ...] }. Never rejects — resolves to an empty list on failure.
+ * Pass { carID, startDateTime, endDateTime } (ISO strings) to get only the cities where that
+ * car's plate is actually coded on those dates; without a carID it returns every coding city.
+ */
+export const fetchCodingCities = async ({ carID = "", startDateTime = "", endDateTime = "" } = {}) => {
+  const key = [carID, startDateTime, endDateTime].join("|");
+  const hit = citiesCache.get(key);
+  if (hit && Date.now() < hit.expiresAt) return hit.value;
   try {
-    const res = await fetch(`${BASE_URL}/coding-cities`, { method: "POST", headers: { "Content-Type": "application/json" } });
+    const res = await fetch(`${BASE_URL}/coding-cities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ carID, startDateTime, endDateTime }),
+    });
     if (!res.ok) throw new Error(`Failed to fetch coding cities: ${res.status}`);
     const data = await res.json();
-    citiesCache = { cities: Array.isArray(data.cities) ? data.cities : [] };
-    citiesExpiresAt = Date.now() + CACHE_MS;
-    return citiesCache;
+    const value = { cities: Array.isArray(data.cities) ? data.cities : [] };
+    citiesCache.set(key, { value, expiresAt: Date.now() + CACHE_MS });
+    return value;
   } catch (err) {
     console.error("[codingZones] fetchCodingCities failed:", err.message);
     return { cities: [] };

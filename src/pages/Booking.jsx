@@ -608,7 +608,7 @@ const HelpButton = ({ open, onClick, label }) => (
 
 
 // ── Location input with map button ────────────────────────────
-const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false }) => {
+const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false, codingCarID = '', codingStart = '', codingEnd = '' }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   return (
@@ -658,6 +658,9 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
           showBaseArea={showBaseArea}
           baseAreaRole={baseAreaRole}
           showCodingZones={showCodingZones}
+          codingCarID={codingCarID}
+          codingStart={codingStart}
+          codingEnd={codingEnd}
         />
       )}
     </div>
@@ -1013,6 +1016,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     .filter(d => (d.address || '').trim() || d.city)
     .map(d => ({ id: d.id, address: d.address || '', city: d.city || '' }));
   const codingKey = [selectedCar?.carID, startDate, startTime, endDate, endTime, pickupLocation, pickupCoords?.city || '', destination, destinationCoords?.city || '', JSON.stringify(codingStops)].join('|');
+  // Booking window as ISO instants (Manila wall-clock, pinned +08:00) — the Destination map uses
+  // these with the car so it only shades the cities where THIS plate is coded on THESE dates.
+  const codingStartISO = (startDate && startTime) ? new Date(`${startDate}T${startTime}:00+08:00`).toISOString() : '';
+  const codingEndISO   = (endDate && endTime)     ? new Date(`${endDate}T${endTime}:00+08:00`).toISOString()     : '';
   const codingReqRef   = useRef(0);
   const codingAlertRef = useRef(null);
   const codingError    = codingState.key === codingKey ? codingState.error : '';
@@ -2308,6 +2315,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       onCoordsChange={setDestinationCoords}
                       placeholder="Search for a destination…"
                       showCodingZones
+                      codingCarID={selectedCar?.carID || ''}
+                      codingStart={codingStartISO}
+                      codingEnd={codingEndISO}
                     />
                     <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
                       Your destination is for documentation purposes only. Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.
@@ -2324,6 +2334,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           onCoordsChange={(c) => updateExtraDestinationCoords(d.id, c)}
                           placeholder="Search for another stop…"
                           showCodingZones
+                          codingCarID={selectedCar?.carID || ''}
+                          codingStart={codingStartISO}
+                          codingEnd={codingEndISO}
                         />
                         {codingNote(d.id)}
                         <button

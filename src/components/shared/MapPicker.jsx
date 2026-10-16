@@ -153,7 +153,7 @@ const searchAddress = async (query) => {
 // showBaseArea  — shade the base area on the map and say whether the chosen spot is inside/outside it.
 // baseAreaRole  — 'pickup' | 'destination': which location this map is picking. The note only shows
 //                 when that location is one that decides the out-of-area charge.
-const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false, readOnly = false, initialCoords = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false }) => {
+const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false, readOnly = false, initialCoords = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false, codingCarID = '', codingStart = '', codingEnd = '' }) => {
   const [markerPos,    setMarkerPos]    = useState(DEFAULT_COORDS);
   const [address,      setAddress]      = useState(initialLabel);
   const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
@@ -413,7 +413,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setCodingShapes({});
     (async () => {
       try {
-        const { cities } = await fetchCodingCities();
+        const { cities } = await fetchCodingCities({ carID: codingCarID, startDateTime: codingStart, endDateTime: codingEnd });
         if (cancelled) return;
         setCodingCities(cities);
         for (const city of cities) {
@@ -431,7 +431,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, showCodingZones]);
+  }, [isOpen, showCodingZones, codingCarID, codingStart, codingEnd]);
 
   // Is the currently-picked spot inside one of those coding-rule cities?
   // Display only — Booking.jsx's exact date/plate check is what actually warns/blocks.
@@ -465,9 +465,13 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   // does the real date+plate-accurate warning/block right after.
   const codingZoneNote = inCodingCity ? (
     <div role="note" className="mb-2.5 sm:mb-3 rounded-xl border-2 border-orange-300 bg-orange-50 px-3 py-2">
-      <p className="text-[11px] sm:text-xs font-black text-orange-800">This city has a vehicle coding restriction</p>
+      <p className="text-[11px] sm:text-xs font-black text-orange-800">
+        {codingCarID ? 'Your car is under number coding in this city' : 'This city has a vehicle coding restriction'}
+      </p>
       <p className="text-[10px] sm:text-xs text-orange-800 mt-0.5">
-        Some plate numbers can't drive here on certain days/times. We'll check your exact dates once you pick a car.
+        {codingCarID
+          ? 'Your car\'s plate is coded here on at least one day of your booking. The exact days and hours are listed below the destination.'
+          : 'Some plate numbers can\'t drive here on certain days/times. We\'ll check your exact dates once you pick a car.'}
       </p>
     </div>
   ) : null;
@@ -615,7 +619,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
               )}
               {showCodingZones && Object.keys(codingShapes).length > 0 && (
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-sm border border-orange-600 bg-orange-400/40" /> May coding restriction — checked once car/dates are set
+                  <span className="inline-block h-3 w-3 rounded-sm border border-orange-600 bg-orange-400/40" /> {codingCarID ? 'Your car is coded here on your booking dates' : 'May coding restriction — checked once car/dates are set'}
                 </div>
               )}
             </div>
