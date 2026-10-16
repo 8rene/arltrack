@@ -424,7 +424,7 @@ const TRIP_PARTS = [
     description: 'Tell us where you are headed. This is saved for our records only.',
     points: [
       { level: 'must', headline: 'We cannot compute your travel time', detail: 'The destination is for documentation only. Choosing enough time for the trip is up to you.', ref: 'Rental Time & Destination Selection' },
-      { headline: 'Number coding is checked for your dates', detail: 'We check your pickup, destination and every stop against every day of your rental. A short trip on a coded day cannot be booked; on a longer trip we list the dates and ask you to confirm.', ref: 'Number Coding Scheme' },
+      { headline: 'Number coding is checked for your dates', detail: 'We check your pickup, destination and every stop against every day of your rental. If your pickup location is coded on your pickup date, it cannot be booked. Other coded days or stops are listed and you confirm them by continuing.', ref: 'Number Coding Scheme' },
       { headline: 'Fuel and tolls are yours', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
     ],
   },
