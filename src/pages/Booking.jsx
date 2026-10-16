@@ -2268,7 +2268,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                                         {selected && driversFee > 0 ? (
                                           <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)}</span>
                                         ) : (
-                                          !quote.outsideArea && <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The amount depends on whether your pickup and destination are inside our base area.</span>
+                                          !quote.outsideArea && <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The amount depends on whether your pickup is inside our base area.</span>
                                         )}
                                       </>
                                     )
@@ -2304,7 +2304,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       baseAreaRole="destination"
                       showCodingZones
                     />
-                    {quote.outsideArea && quote.destinationOutside && outsideAreaNote('destination')}
                     <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
                       Your destination is for documentation purposes only. Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.
                     </p>
