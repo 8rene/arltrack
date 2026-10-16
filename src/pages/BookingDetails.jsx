@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PenaltyPayButton from "../components/shared/PenaltyPayButton";
-import HandoverCard from "../components/booking/HandoverCard";
 import ViolationsCard from "../components/booking/ViolationsCard";
 import PaymentsReceiptsCard from "../components/booking/PaymentsReceiptsCard";
 
@@ -554,8 +553,7 @@ export default function BookingDetailsPage() {
           </div>
         )}
 
-        {/* Pickup handover signature + traffic notices (each card hides itself when it doesn't apply) */}
-        <HandoverCard bookingID={booking.bookingID || bookingID} />
+        {/* Traffic notices (the card hides itself when it doesn't apply) */}
         <ViolationsCard bookingID={booking.bookingID || bookingID} bookingStatus={booking.status} />
 
         {/* Payment */}
