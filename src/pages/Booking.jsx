@@ -1825,15 +1825,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (!y) return '';
     return new Date(y, m - 1, d).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
   };
-  // One row per (day, location), with all of that day's coded hours
-  const codingWarningRows = (() => {
-    const rows = {};
+  // One group per location (pickup / destination / each extra stop), each with its coded days + hours
+  const codingWarningGroups = (() => {
+    const groups = {};
     codingWarnings.forEach(w => {
-      const k = `${w.date}|${w.id}`;
-      if (!rows[k]) rows[k] = { date: w.date, city: w.city, location: w.location, wins: [] };
-      rows[k].wins.push(`${w.startTime} – ${w.endTime}`);
+      if (!groups[w.id]) {
+        const kind = w.id === 'pickup' ? 'Pickup' : w.id === 'primary' ? 'Destination' : 'Additional destination';
+        groups[w.id] = { id: w.id, kind, place: w.location || w.city || 'this area', days: {} };
+      }
+      const g = groups[w.id];
+      if (!g.days[w.date]) g.days[w.date] = { date: w.date, city: w.city, wins: [] };
+      g.days[w.date].wins.push(`${w.startTime} – ${w.endTime}`);
     });
-    return Object.values(rows);
+    return Object.values(groups).map(g => ({ ...g, days: Object.values(g.days) }));
   })();
   // Small per-location marker shown under each location field.
   const codingNote = (id) => {
@@ -1859,15 +1863,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       <p className="text-xs sm:text-sm text-amber-800 mb-2">
         The selected destination and time may have problems with the Number Coding restriction.
         Please see the <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Terms &amp; Conditions</a>.
-        It may apply on these days, in these areas, during these hours:
       </p>
-      <ul className="space-y-1 mb-3">
-        {codingWarningRows.map(r => (
-          <li key={`${r.date}|${r.location}`} className="text-xs sm:text-sm text-amber-900">
-            <span className="font-bold">{fmtCodingDate(r.date)}</span> — {r.city || r.location || 'this area'}: {r.wins.join(', ')}
-          </li>
+      <div className="space-y-3 mb-3">
+        {codingWarningGroups.map(g => (
+          <div key={g.id} className="rounded-xl bg-white/70 border border-amber-200 px-3 py-2">
+            <p className="text-xs sm:text-sm font-black text-amber-900">
+              ⚠ Warning — {g.kind}: <span className="font-semibold">{g.place}</span>
+            </p>
+            <p className="text-[11px] sm:text-xs text-amber-800 mb-1">Coded restricted area that may affect your trip:</p>
+            <ul className="space-y-0.5">
+              {g.days.map(d => (
+                <li key={d.date} className="text-xs sm:text-sm text-amber-900">
+                  <span className="font-bold">{fmtCodingDate(d.date)}</span>{d.city ? ` — ${d.city}` : ''}: {d.wins.join(', ')}
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
       <p className="text-xs sm:text-sm font-semibold text-amber-900">
         Continuing means you accept the details about the Number Coding restriction.
       </p>
