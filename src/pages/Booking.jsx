@@ -608,7 +608,7 @@ const HelpButton = ({ open, onClick, label }) => (
 
 
 // ── Location input with map button ────────────────────────────
-const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null, showBaseArea = false, baseAreaRole = 'pickup' }) => {
+const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   return (
@@ -657,6 +657,7 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
           readOnly={disabled}
           showBaseArea={showBaseArea}
           baseAreaRole={baseAreaRole}
+          showCodingZones={showCodingZones}
         />
       )}
     </div>
@@ -2301,6 +2302,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       placeholder="Search for a destination…"
                       showBaseArea
                       baseAreaRole="destination"
+                      showCodingZones
                     />
                     {quote.outsideArea && quote.destinationOutside && outsideAreaNote('destination')}
                     <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
@@ -2317,6 +2319,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           onValueChange={(v) => updateExtraDestinationAddress(d.id, v)}
                           onCoordsChange={(c) => updateExtraDestinationCoords(d.id, c)}
                           placeholder="Search for another stop…"
+                          showCodingZones
                         />
                         {codingNote(d.id)}
                         <button

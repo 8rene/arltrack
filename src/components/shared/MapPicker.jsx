@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { fetchServiceArea, checkInServiceArea, serviceAreaLabel } from '../../utils/serviceArea';
+import { fetchServiceArea, checkInServiceArea, serviceAreaLabel, getServiceAreaOutline } from '../../utils/serviceArea';
 import { fetchBaseAreaConfig, getBaseAreaOutline, isInsideBaseArea } from '../../utils/baseArea';
+import { fetchCodingCities, getCodingZoneOutline } from '../../utils/codingZones';
 
 // Fix default marker icon (Leaflet webpack issue)
 delete L.Icon.Default.prototype._getIconUrl;
@@ -21,6 +22,37 @@ const DEFAULT_COORDS = [14.7619, 120.9603];
 // water between islands (still inside this box) — that's handled separately
 // below via the reverse-geocode country check.
 const PH_BOUNDS = L.latLngBounds([4.5, 116.0], [21.5, 127.0]);
+
+// ── "Fog of war" mask for the service area ───────────────────────────────
+// Everywhere is orange/undiscovered by default; a hole is cut for each
+// allowed region as its outline loads in, revealing it. A big outer ring
+// well past PH_BOUNDS guarantees the fog always covers the full visible
+// map regardless of zoom/pan. GeoJSON coordinates are [lng, lat].
+const FOG_OUTER_RING = [
+  [111, -1], [132, -1], [132, 27], [111, 27], [111, -1],
+];
+
+// Loose place-name match for the coding-zone note — same normalisation idea as
+// utils/baseArea.js's normalizePlace (lowercase, drop "City of"/"City", punctuation).
+const normalizePlaceLoose = (v) =>
+  String(v || '')
+    .toLowerCase()
+    .replace(/\b(city|province|municipality) of\b/g, ' ')
+    .replace(/\bcity\b/g, ' ')
+    .replace(/[^a-z0-9ñ ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// Pull just the outer ring(s) out of a region's geometry to use as holes.
+// Any inner holes already in the source geometry are ignored — fine for a
+// large-scale visual mask, and the client-side pick is only a UX hint
+// anyway (the server is the real authority — see isWithinServiceArea).
+const extractOuterRings = (geometry) => {
+  if (!geometry) return [];
+  if (geometry.type === 'Polygon') return geometry.coordinates?.[0] ? [geometry.coordinates[0]] : [];
+  if (geometry.type === 'MultiPolygon') return (geometry.coordinates || []).map((poly) => poly?.[0]).filter(Boolean);
+  return [];
+};
 
 // Inner component: handles map click + drag
 const MapClickHandler = ({ onLocationChange }) => {
@@ -121,7 +153,7 @@ const searchAddress = async (query) => {
 // showBaseArea  — shade the base area on the map and say whether the chosen spot is inside/outside it.
 // baseAreaRole  — 'pickup' | 'destination': which location this map is picking. The note only shows
 //                 when that location is one that decides the out-of-area charge.
-const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false, readOnly = false, initialCoords = null, showBaseArea = false, baseAreaRole = 'pickup' }) => {
+const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false, readOnly = false, initialCoords = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false }) => {
   const [markerPos,    setMarkerPos]    = useState(DEFAULT_COORDS);
   const [address,      setAddress]      = useState(initialLabel);
   const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
@@ -130,8 +162,11 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   const [resolvedCounty, setResolvedCounty] = useState('');     // geocoder "county" — often the province (base-area match)
   const [baseCfg,     setBaseCfg]     = useState(null);   // { baseAreaKeywords, basis, fee amounts }
   const [baseShapes,  setBaseShapes]  = useState({});     // keyword -> GeoJSON geometry (progressively filled)
+  const [codingCities, setCodingCities] = useState([]);   // city names with at least one coding rule
+  const [codingShapes, setCodingShapes] = useState({});   // city name -> GeoJSON geometry (progressively filled)
   // Allowed regions from the database. null = not loaded yet; 'error' = load failed.
   const [serviceArea, setServiceArea] = useState(null);
+  const [serviceAreaShapes, setServiceAreaShapes] = useState({}); // regionID -> GeoJSON geometry (progressively filled)
   const [searchQuery,  setSearchQuery]  = useState('');
   const [searchResults,setSearchResults]= useState([]);
   const [searching,    setSearching]    = useState(false);
@@ -165,11 +200,47 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     if (!isOpen || !restrictToServiceArea) return;
     let cancelled = false;
     setServiceArea(null);
+    setServiceAreaShapes({});
     fetchServiceArea()
       .then((a) => { if (!cancelled) setServiceArea(a); })
       .catch((err) => { console.error('[MapPicker] fetchServiceArea failed:', err.message); if (!cancelled) setServiceArea('error'); });
     return () => { cancelled = true; };
   }, [isOpen, restrictToServiceArea]);
+
+  // Once the allowed regions are known, fetch each one's outline so the fog
+  // mask below can cut a hole for it — one at a time, revealing regions
+  // progressively as they come in (see utils/serviceArea.js for the cache).
+  useEffect(() => {
+    if (!isOpen || !restrictToServiceArea) return undefined;
+    if (!serviceArea || serviceArea === 'error') return undefined;
+    let cancelled = false;
+    (async () => {
+      for (const r of serviceArea.regions || []) {
+        if (cancelled) return;
+        try {
+          const shape = await getServiceAreaOutline(r.regionName);
+          if (cancelled) return;
+          if (shape?.geometry) setServiceAreaShapes((prev) => ({ ...prev, [r.regionID]: shape.geometry }));
+        } catch (err) {
+          console.warn('[MapPicker] service-area outline failed for', r.regionName, err.message);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, restrictToServiceArea, serviceArea]);
+
+  // The orange fog: a world-covering polygon with a hole punched out for
+  // every allowed region whose outline has loaded so far. Nothing to show
+  // until restrictToServiceArea is on and at least loading has started.
+  const fogMask = useMemo(() => {
+    if (!restrictToServiceArea) return null;
+    const holes = Object.values(serviceAreaShapes).flatMap(extractOuterRings);
+    return {
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'Polygon', coordinates: [FOG_OUTER_RING, ...holes] },
+    };
+  }, [restrictToServiceArea, serviceAreaShapes]);
 
   // Returns an error string if `addr` is outside the service area, else ''.
   // The server decides (using the regions saved in the database).
@@ -325,6 +396,45 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     return () => { cancelled = true; };
   }, [isOpen, showBaseArea]);
 
+  // ── Coding-rule cities: general heads-up shading for the Destination map ──
+  // Loads the distinct cities with at least one coding rule, then each
+  // one's outline, one at a time (cached — see utils/codingZones.js). This
+  // is NOT the exact date/plate check (that stays in Booking.jsx's
+  // runCodingCheck/codingNote, which fires once a car + dates are chosen) —
+  // it's just a proactive "this city may have coding" visual.
+  useEffect(() => {
+    if (!isOpen || !showCodingZones) return undefined;
+    let cancelled = false;
+    setCodingCities([]);
+    setCodingShapes({});
+    (async () => {
+      try {
+        const { cities } = await fetchCodingCities();
+        if (cancelled) return;
+        setCodingCities(cities);
+        for (const city of cities) {
+          if (cancelled) return;
+          try {
+            const shape = await getCodingZoneOutline(city);
+            if (cancelled) return;
+            if (shape?.geometry) setCodingShapes((prev) => ({ ...prev, [city]: shape.geometry }));
+          } catch (err) {
+            console.warn('[MapPicker] coding-zone outline failed for', city, err.message);
+          }
+        }
+      } catch (err) {
+        console.warn('[MapPicker] coding cities failed:', err.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, showCodingZones]);
+
+  // Is the currently-picked spot inside one of those coding-rule cities?
+  // Display only — Booking.jsx's exact date/plate check is what actually warns/blocks.
+  const inCodingCity = showCodingZones && hasSelected && !loading
+    ? codingCities.some((c) => normalizePlaceLoose(c) && normalizePlaceLoose(c) === (normalizePlaceLoose(resolvedCity) || normalizePlaceLoose(resolvedCounty)))
+    : false;
+
   // Inside / outside note for the spot currently chosen. Display only — the server
   // recalculates the fee itself. Shown only when this map's role is one of the locations
   // the admin's rule actually charges on.
@@ -343,6 +453,19 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     </div>
   ) : baseInside === true ? (
     <p className="text-[10px] sm:text-xs text-green-700 font-semibold mb-2.5 sm:mb-3">Inside our base area — no extra fee.</p>
+  ) : null;
+
+  // General coding-restriction heads-up for the chosen destination. This is NOT
+  // the exact check — just lets the customer know this city has SOME coding rule
+  // before they've even picked a car/date; Booking.jsx's runCodingCheck/codingNote
+  // does the real date+plate-accurate warning/block right after.
+  const codingZoneNote = inCodingCity ? (
+    <div role="note" className="mb-2.5 sm:mb-3 rounded-xl border-2 border-orange-300 bg-orange-50 px-3 py-2">
+      <p className="text-[11px] sm:text-xs font-black text-orange-800">This city has a vehicle coding restriction</p>
+      <p className="text-[10px] sm:text-xs text-orange-800 mt-0.5">
+        Some plate numbers can't drive here on certain days/times. We'll check your exact dates once you pick a car.
+      </p>
+    </div>
   ) : null;
 
   if (!isOpen) return null;
@@ -443,12 +566,28 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
               attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            {restrictToServiceArea && fogMask && (
+              <GeoJSON
+                key={`fog-${Object.keys(serviceAreaShapes).length}`}
+                data={fogMask}
+                interactive={false}
+                style={{ stroke: false, fillColor: '#f97316', fillOpacity: 0.45 }}
+              />
+            )}
             {showBaseArea && Object.entries(baseShapes).map(([kw, geometry]) => (
               <GeoJSON
                 key={kw}
                 data={geometry}
                 interactive={false}
                 style={{ color: '#16a34a', weight: 2, fillColor: '#22c55e', fillOpacity: 0.12, dashArray: '4 4' }}
+              />
+            ))}
+            {showCodingZones && Object.entries(codingShapes).map(([city, geometry]) => (
+              <GeoJSON
+                key={city}
+                data={geometry}
+                interactive={false}
+                style={{ color: '#ea580c', weight: 2, fillColor: '#fb923c', fillOpacity: 0.18, dashArray: '2 6' }}
               />
             ))}
             <MapClickHandler onLocationChange={readOnly ? () => {} : handleLocationChange} />
@@ -458,9 +597,23 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
               : <DraggableMarker position={markerPos} onDrag={handleLocationChange} />}
           </MapContainer>
 
-          {showBaseArea && Object.keys(baseShapes).length > 0 && (
-            <div className="absolute left-2 bottom-2 z-[500] flex items-center gap-1.5 rounded-lg bg-white/90 px-2 py-1 shadow text-[10px] sm:text-xs text-gray-700">
-              <span className="inline-block h-3 w-3 rounded-sm border border-green-600 bg-green-400/40" /> Base area
+          {(restrictToServiceArea || (showBaseArea && Object.keys(baseShapes).length > 0) || (showCodingZones && Object.keys(codingShapes).length > 0)) && (
+            <div className="absolute left-2 bottom-2 z-[500] flex flex-col gap-1 rounded-lg bg-white/90 px-2 py-1.5 shadow text-[10px] sm:text-xs text-gray-700">
+              {restrictToServiceArea && (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-sm bg-orange-400/60" /> Outside service area — not available for pickup
+                </div>
+              )}
+              {showBaseArea && Object.keys(baseShapes).length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-sm border border-green-600 bg-green-400/40" /> Base area (fee zone)
+                </div>
+              )}
+              {showCodingZones && Object.keys(codingShapes).length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-sm border border-orange-600 bg-orange-400/40" /> May coding restriction — checked once car/dates are set
+                </div>
+              )}
             </div>
           )}
 
@@ -481,6 +634,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             <p className="text-[10px] sm:text-xs text-red-500 mb-2.5 sm:mb-3">{pickError}</p>
           )}
           {baseAreaNote}
+          {codingZoneNote}
           <div className="flex gap-2 sm:gap-3">
             {readOnly ? (
               <button onClick={onClose}

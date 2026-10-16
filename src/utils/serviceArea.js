@@ -35,3 +35,72 @@ export const checkInServiceArea = async ({ region = '', province = '', city = ''
   const data = await res.json();
   return !!data.allowed;
 };
+
+// ── Outlines for the map (OpenStreetMap / Nominatim) — one per allowed
+// region, so MapPicker can shade the ALLOWED pickup regions and fog out
+// everything else. Separate cache from base-area outlines (different
+// purpose: this is the pickup restriction, not the fee zone), but same
+// strategy — cached in memory + localStorage, fetched ~1.1s apart to
+// respect Nominatim's public-usage limit.
+const LS_KEY = 'arl_service_area_outlines_v1';
+const LS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const outlineMemory = new Map(); // regionName -> { geometry } | null
+
+const readStore = () => {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
+};
+const writeStore = (store) => {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch { /* storage full/blocked — memory cache still works */ }
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let outlineQueueTail = Promise.resolve();
+
+const fetchRegionBoundary = async (name) => {
+  const params = new URLSearchParams({
+    format: 'json',
+    polygon_geojson: '1',
+    polygon_threshold: '0.005', // regions are large — a looser simplification keeps the outline light
+    limit: '5',
+    countrycodes: 'ph',
+    'accept-language': 'en',
+    q: `${name}, Philippines`,
+  });
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+  if (!res.ok) throw new Error(`Nominatim HTTP ${res.status} for ${name}`);
+  const results = await res.json();
+  const isPoly = (r) => r?.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon');
+  const polys = (results || []).filter(isPoly);
+  const hit = polys.find((r) => r.class === 'boundary') || polys[0];
+  return hit ? { geometry: hit.geojson } : null;
+};
+
+/**
+ * Outline for one allowed region → { geometry } | null (no outline found).
+ * Throws on a network failure so the caller can tell "no outline" from "try again".
+ */
+export const getServiceAreaOutline = (regionName) => {
+  const key = String(regionName || '').trim().toLowerCase();
+  if (!key) return Promise.resolve(null);
+  if (outlineMemory.has(key)) return Promise.resolve(outlineMemory.get(key));
+
+  const store = readStore();
+  const saved = store[key];
+  if (saved && Date.now() - saved.at < LS_TTL_MS) {
+    outlineMemory.set(key, saved.shape);
+    return Promise.resolve(saved.shape);
+  }
+
+  const run = outlineQueueTail.then(async () => {
+    if (outlineMemory.has(key)) return outlineMemory.get(key);
+    const shape = await fetchRegionBoundary(key);
+    outlineMemory.set(key, shape);
+    const next = readStore();
+    next[key] = { shape, at: Date.now() };
+    writeStore(next);
+    await sleep(1100);
+    return shape;
+  });
+  outlineQueueTail = run.catch(() => sleep(1100));
+  return run;
+};
