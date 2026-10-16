@@ -476,7 +476,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col h-[95vh] sm:h-[90vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-100">
@@ -556,14 +556,14 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
         )}
 
         {/* Map */}
-        <div className="flex-1 relative" style={{ minHeight: '240px' }}>
+        <div className="flex-1 relative min-h-0" style={{ minHeight: '320px' }}>
           <MapContainer
             center={DEFAULT_COORDS}
             zoom={15}
             minZoom={5}
             maxBounds={PH_BOUNDS}
             maxBoundsViscosity={1.0}
-            style={{ height: '100%', width: '100%', minHeight: '240px' }}
+            style={{ height: '100%', width: '100%', minHeight: '320px' }}
             scrollWheelZoom
           >
             <TileLayer
