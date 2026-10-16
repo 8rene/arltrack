@@ -9,25 +9,6 @@ import gcashLogo  from '../assets/images/GCash_Logo.png';
 import mayaLogo   from '../assets/images/PayMayaLogo.jpg';
 import qrphLogo   from '../assets/images/qr-ph-logo-6f76723590.webp';
 
-const LS_KEY = 'arl_booking_draft';
-// Bump this whenever a field's meaning/default changes (like removing
-// DEFAULT_LOCATION) so an old draft sitting in someone's browser gets
-// discarded instead of silently resurfacing stale values forever — this
-// exact class of bug (stale endDate, stale pickupLocation) has bitten
-// multiple fixes in this file already.
-const DRAFT_VERSION = 2;
-const loadDraft = () => {
-  try {
-    const r = localStorage.getItem(LS_KEY);
-    if (!r) return {};
-    const parsed = JSON.parse(r);
-    if (parsed.__v !== DRAFT_VERSION) return {}; // stale shape — discard, don't trust it
-    return parsed;
-  } catch { return {}; }
-};
-const saveDraft = (data) => { try { localStorage.setItem(LS_KEY, JSON.stringify({ ...data, __v: DRAFT_VERSION })); } catch {} };
-const clearDraft = () => { try { localStorage.removeItem(LS_KEY); } catch {} };
-
 // ── Date helpers ───────────────────────────────────────────────
 const toMidnight  = (d) => { const c = new Date(d); c.setHours(0,0,0,0); return c; };
 // ── Local calendar-date string, e.g. "2026-08-13" ──────────────
@@ -705,14 +686,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // ── Booking form ─────────────────────────────────────────────
   // Pre-populate from Hero form if navigated from there
   const heroState = location.state || {};
-  // Merge: heroState (from navigation) takes priority, then localStorage draft, then defaults
-  const draft = loadDraft();
-  const initVal = (heroKey, draftKey, fallback = '') =>
+  // Values only come from the Hero form hand-off (heroState). Nothing is saved or
+  // restored between visits — a fresh /booking visit always starts blank.
+  const initVal = (heroKey, _unused, fallback = '') =>
     (heroState[heroKey] !== undefined && heroState[heroKey] !== '')
       ? heroState[heroKey]
-      : (draft[draftKey] !== undefined && draft[draftKey] !== '')
-        ? draft[draftKey]
-        : fallback;
+      : fallback;
 
   // pickupLocation/dropoffLocation/destination should never be recalled from
   // a past draft — only an explicit, same-visit hand-off from the Hero form
@@ -723,7 +702,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       : fallback;
 
   // Guard against a stale/past date inherited from Hero navigation state or
-  // a leftover localStorage draft (e.g. from an earlier session) — never
+  // a stale value — never
   // trust an inbound startDate/endDate that's already in the past.
   const todayStrInit = toLocalDateStr(new Date());
   const inboundStartDate = initVal('startDate', 'startDate');
@@ -911,17 +890,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       .catch(() => { setCarsError('Could not load vehicles.'); setCarsLoading(false); });
   }, []);
 
-  // ── Persist booking draft to localStorage whenever fields change ──
-  // pickupLocation/dropoffLocation/destination are deliberately excluded —
-  // those should never be recalled on a fresh visit, only carried over
-  // live via heroState within the same navigation.
-  useEffect(() => {
-    saveDraft({ duration, startDate, startTime, endDate, endTime });
-  }, [duration, startDate, startTime, endDate, endTime]);
-
   // ── Auto-revalidate the current date selection against live availability ──
   // startDate/endDate can end up populated WITHOUT ever going through
-  // handleDayClick's checks — e.g. restored from a stale localStorage draft,
+  // handleDayClick's checks — e.g. carried over from stale state,
   // or carried over from Hero navigation state. Previously that meant a
   // range that's no longer available (booked by someone else since it was
   // saved, or spans days that are now blocked) could sit there unvalidated
@@ -972,10 +943,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const handleCarSelect = useCallback(async (car) => {
     setSelectedCar(car);
     setCarBookingsLoaded(false);
-    // Only reset date fields if no pre-filled draft data exists
+    // Only reset date fields if nothing is pre-filled
     // (so navigating from Hero with pre-filled data is preserved)
-    const hasDraft = !!(duration || startDate || startTime);
-    if (!hasDraft) {
+    const hasPrefill = !!(duration || startDate || startTime);
+    if (!hasPrefill) {
       setDuration('');
       setStartDate(''); setStartTime(''); setEndDate(''); setEndTime('');
     }
@@ -1778,7 +1749,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   };
 
   const resetBooking = () => {
-    clearDraft();
     setShowConfirmModal(false); setCurrentStep(1); setTripPart(1); setPayPart(1); setShowBreakdown(false); setSelectedCar(null);
     setServiceType(''); setOtherServiceNote(''); setDuration(''); setStartDate(''); setStartTime('');
     setEndDate(''); setEndTime(''); setPickupLocation(''); setPickupInStore(false);
@@ -2093,18 +2063,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   )}
 
                   <TripPartIntro part={TRIP_PARTS[tripPart - 1]} index={tripPart - 1} total={TRIP_PARTS.length} />
-
-                  {/* Draft restored notice */}
-                  {tripPart === 1 && (duration || startDate || startTime || destination) && (
-                    <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 text-sm">
-                      <span className="text-green-700 font-medium">Your previous selections were restored. You can change them below.</span>
-                      <button
-                        type="button"
-                        onClick={() => { clearDraft(); setDuration(''); setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); setDestination(''); setPickupLocation(''); setPickupInStore(false); setDropoffLocation(''); setPickupCoords(null); setDropoffCoords(null); setDestinationCoords(null); setExtraDestinations([]); preLockPickup.current = { location: '', coords: null }; }}
-                        className="ml-auto text-xs text-red-500 hover:text-red-700 font-semibold underline"
-                      >Clear</button>
-                    </div>
-                  )}
 
                   {tripPart === 1 && (<>
                   {/* Service type — from Firestore */}
