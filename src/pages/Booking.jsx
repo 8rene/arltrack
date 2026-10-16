@@ -2300,8 +2300,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       onValueChange={(v) => { setDestination(v); }}
                       onCoordsChange={setDestinationCoords}
                       placeholder="Search for a destination…"
-                      showBaseArea
-                      baseAreaRole="destination"
                       showCodingZones
                     />
                     <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
