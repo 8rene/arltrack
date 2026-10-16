@@ -183,6 +183,13 @@ const PenaltiesBox = ({ bookingID }) => {
   const hasDeposit = depositAmount !== null && !depositWaived;
   if (depositAmount === null && penalties.length === 0) return null; // nothing to show pre-pickup
 
+  // Every Confirmed penalty that still has money owing. The customer can pay this online at any time -- the
+  // server (createPenaltyPaymentLink) charges exactly this total. Anything paid here is no longer taken from the
+  // deposit at settlement (settleBooking only deducts what is still unpaid), so the deposit comes back larger.
+  const unpaidNow = penalties
+    .filter((p) => p.status === "Confirmed")
+    .reduce((sum, p) => sum + Math.max(0, p.amount - p.paidAmount), 0);
+
   const badgeKey = settlement?.status || (hasDeposit ? "Held" : depositWaived ? "Waived" : null);
   const badge = badgeKey ? DEPOSIT_BADGE[badgeKey] : null;
   const showRefundRow = hasDeposit && (refundAmount > 0 || stillOwed === 0);
@@ -193,6 +200,27 @@ const PenaltiesBox = ({ bookingID }) => {
         <p className="text-xs font-black text-arl-primary uppercase tracking-widest">Security Deposit &amp; Penalties</p>
         {badge && <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${badge.cls}`}>{badge.label}</span>}
       </div>
+
+      {/* 0 ── Pay-now banner: first thing the customer sees when this card has something to pay */}
+      {unpaidNow > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 mb-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-red-700">
+              {onlinePaymentPending ? "Penalty payment pending" : "Penalty payment required"}
+            </p>
+            <span className="text-xl font-black text-red-600">{peso(unpaidNow)}</span>
+          </div>
+          <p className="text-xs text-red-500 mt-0.5 mb-3">
+            {onlinePaymentPending
+              ? "You started an online payment but it isn't finished yet. Tap below to complete it."
+              : "Pay online with GCash, Maya or QR Ph. You can't make a new booking until it is paid."}
+            {hasDeposit && !depositSettled && " Whatever you pay now is not deducted from your deposit."}
+          </p>
+          <PenaltyPayButton bookingID={bookingID} amount={unpaidNow}
+            label={onlinePaymentPending ? `Finish payment · ${peso(unpaidNow)}` : `Pay ${peso(unpaidNow)} now`}
+            className="w-full text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition" />
+        </div>
+      )}
 
       {/* 1 ── Deposit received */}
       {hasDeposit && (
@@ -249,18 +277,8 @@ const PenaltiesBox = ({ bookingID }) => {
                   <span className="text-base font-bold text-red-600">{peso(stillOwed)}</span>
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
-                {hasDeposit && !depositSettled
-                  ? "Your deposit doesn't fully cover the penalties. Once the deposit is settled, the remaining balance is paid online right here."
-                  : onlinePaymentPending
-                    ? "You started an online payment but it isn't finished yet. Tap below to complete it."
-                    : "This balance must be paid online (GCash, Maya or QR Ph). You can't make a new booking until it is paid."}
-              </p>
-              {/* Online payment only once the deposit is settled — until then the deposit still covers it. */}
-              {(!hasDeposit || depositSettled) && (
-                <PenaltyPayButton bookingID={bookingID} amount={stillOwed}
-                  label={onlinePaymentPending ? `Finish payment · ${peso(stillOwed)}` : `Pay ${peso(stillOwed)} now`}
-                  className="w-full text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition" />
+              {hasDeposit && !depositSettled && (
+                <p className="text-xs text-gray-400">Your deposit doesn't fully cover the penalties. You can pay this online now using the button above.</p>
               )}
             </>
           )}
@@ -478,6 +496,9 @@ export default function BookingDetailsPage() {
           </div>
         </div>
 
+        {/* Penalties first: if the customer owes something they must see it (and the Pay button) without scrolling */}
+        {payment && <PenaltiesBox bookingID={bookingID} />}
+
         {/* Trip details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Trip Details</p>
@@ -603,7 +624,6 @@ export default function BookingDetailsPage() {
         {/* every payment / refund with its receipt, plus the booking statement (same documents the ARL staff print) */}
         {payment && <PaymentsReceiptsCard bookingID={booking.bookingID || bookingID} />}
 
-        {payment && <PenaltiesBox bookingID={bookingID} />}
       </div>
     </div>
   );
