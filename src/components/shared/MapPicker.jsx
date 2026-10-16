@@ -235,6 +235,10 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   const fogMask = useMemo(() => {
     if (!restrictToServiceArea) return null;
     const holes = Object.values(serviceAreaShapes).flatMap(extractOuterRings);
+    // Until at least one allowed region's outline has loaded, draw no fog: an
+    // all-orange map would wrongly suggest nowhere is available (the server
+    // still enforces the real service area when a location is picked).
+    if (holes.length === 0) return null;
     return {
       type: 'Feature',
       properties: {},

@@ -42,9 +42,12 @@ export const checkInServiceArea = async ({ region = '', province = '', city = ''
 // purpose: this is the pickup restriction, not the fee zone), but same
 // strategy — cached in memory + localStorage, fetched ~1.1s apart to
 // respect Nominatim's public-usage limit.
-const LS_KEY = 'arl_service_area_outlines_v1';
+// v2: v1 could hold a saved "no outline found" (null) for 7 days, which left
+// the whole map orange. Bumping the key discards those poisoned entries.
+const LS_KEY = 'arl_service_area_outlines_v2';
 const LS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const outlineMemory = new Map(); // regionName -> { geometry } | null
+const NULL_TTL_MS = 5 * 60 * 1000;              // a miss is only remembered briefly, in memory only
+const outlineMemory = new Map();                // regionName -> { shape, at }
 
 const readStore = () => {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
@@ -56,7 +59,23 @@ const writeStore = (store) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let outlineQueueTail = Promise.resolve();
 
-const fetchRegionBoundary = async (name) => {
+// OpenStreetMap doesn't know "Region III (Central Luzon)" — it knows "Central
+// Luzon". Same idea as regionAliases() on the server: try the bracketed name,
+// the name without the bracket, then the full text. Acronyms like (CAR) / (NCR)
+// are too short to search on their own, so they are skipped.
+const regionQueries = (name) => {
+  const full = String(name || '').trim();
+  const paren = (full.match(/\(([^)]+)\)/) || [])[1]?.trim();
+  const outside = full.replace(/\([^)]*\)/, '').trim();
+  const out = [];
+  if (paren && paren.length > 4) out.push(paren);
+  if (outside && !/^region\s+[ivx]+(-[a-z])?$/i.test(outside)) out.push(outside);
+  if (/national capital region/i.test(full)) out.push('Metro Manila');
+  out.push(full);
+  return [...new Set(out.filter(Boolean))];
+};
+
+const searchBoundary = async (q) => {
   const params = new URLSearchParams({
     format: 'json',
     polygon_geojson: '1',
@@ -64,15 +83,27 @@ const fetchRegionBoundary = async (name) => {
     limit: '5',
     countrycodes: 'ph',
     'accept-language': 'en',
-    q: `${name}, Philippines`,
+    q: `${q}, Philippines`,
   });
   const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
-  if (!res.ok) throw new Error(`Nominatim HTTP ${res.status} for ${name}`);
+  if (!res.ok) throw new Error(`Nominatim HTTP ${res.status} for ${q}`);
   const results = await res.json();
   const isPoly = (r) => r?.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon');
   const polys = (results || []).filter(isPoly);
-  const hit = polys.find((r) => r.class === 'boundary') || polys[0];
+  const hit = polys.find((r) => r.class === 'boundary' && r.type === 'administrative')
+    || polys.find((r) => r.class === 'boundary')
+    || polys[0];
   return hit ? { geometry: hit.geojson } : null;
+};
+
+const fetchRegionBoundary = async (name) => {
+  const queries = regionQueries(name);
+  for (let i = 0; i < queries.length; i += 1) {
+    const shape = await searchBoundary(queries[i]);   // a network error throws → caller retries later
+    if (shape) return shape;
+    if (i < queries.length - 1) await sleep(1100);    // stay under Nominatim's 1 request/second
+  }
+  return null;
 };
 
 /**
@@ -82,22 +113,26 @@ const fetchRegionBoundary = async (name) => {
 export const getServiceAreaOutline = (regionName) => {
   const key = String(regionName || '').trim().toLowerCase();
   if (!key) return Promise.resolve(null);
-  if (outlineMemory.has(key)) return Promise.resolve(outlineMemory.get(key));
 
-  const store = readStore();
-  const saved = store[key];
-  if (saved && Date.now() - saved.at < LS_TTL_MS) {
-    outlineMemory.set(key, saved.shape);
+  const mem = outlineMemory.get(key);
+  if (mem && (mem.shape || Date.now() - mem.at < NULL_TTL_MS)) return Promise.resolve(mem.shape);
+
+  const saved = readStore()[key];
+  if (saved?.shape && Date.now() - saved.at < LS_TTL_MS) {
+    outlineMemory.set(key, { shape: saved.shape, at: saved.at });
     return Promise.resolve(saved.shape);
   }
 
   const run = outlineQueueTail.then(async () => {
-    if (outlineMemory.has(key)) return outlineMemory.get(key);
+    const again = outlineMemory.get(key);
+    if (again?.shape) return again.shape;
     const shape = await fetchRegionBoundary(key);
-    outlineMemory.set(key, shape);
-    const next = readStore();
-    next[key] = { shape, at: Date.now() };
-    writeStore(next);
+    outlineMemory.set(key, { shape, at: Date.now() });
+    if (shape) {                                      // only real outlines are saved to the browser
+      const next = readStore();
+      next[key] = { shape, at: Date.now() };
+      writeStore(next);
+    }
     await sleep(1100);
     return shape;
   });
