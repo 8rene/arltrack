@@ -880,7 +880,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // matches the current car/date/time/destination, so a stale answer can never
   // show up and nothing can "hide" a restriction without it being re-checked.
   const [codingState,      setCodingState]      = useState({ key: '', error: '', violations: [], warnings: [], warningMessage: '' });
-  const [codingAck,        setCodingAck]        = useState(false); // customer confirmed a multi-day Number Coding warning
   const [codingChecking,   setCodingChecking]   = useState(false);
 
   const [errors,           setErrors]           = useState({});
@@ -1021,8 +1020,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // Multi-day bookings aren't blocked — the days the plate is coded come back as warnings
   // the customer must confirm. A new answer (any input changed) clears the confirmation.
   const codingWarnings = codingState.key === codingKey ? (codingState.warnings || []) : [];
-  const codingNeedsAck = codingWarnings.length > 0;
-  useEffect(() => { setCodingAck(false); }, [codingKey]);
+  const codingHasWarnings = codingWarnings.length > 0;
   // The date comes BEFORE the locations now, so the check runs from the pickup part onward.
   const codingNeeded   = currentStep === 2 && tripPart >= PART.pickup && !!(selectedCar?.carID && startDate && startTime && (pickupLocation || destination));
   const codingPending  = codingNeeded && codingState.key !== codingKey; // inputs changed, answer not back yet
@@ -1370,12 +1368,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const canProceed = () => {
     if (currentStep === 1) return !!selectedCar;
     if (currentStep === 2) {
-      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError && (!codingNeedsAck || codingAck));
+      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError);
       if (tripPart === 1) return !!serviceType && !(serviceType === 'Others' && !otherServiceNote.trim());
       if (tripPart === 2) return !!duration;
       if (tripPart === PART.schedule) return !!(startDate && startTime && endDate && endTime) && !maxDaysError;
       // Pickup: the dated Number Coding check already runs here (the dates come first now)
-      if (tripPart === PART.pickup) return !!(pickupLocation && pickupCoords && dropoffLocation) && !codingError && !codingPending && (!codingNeedsAck || codingAck);
+      if (tripPart === PART.pickup) return !!(pickupLocation && pickupCoords && dropoffLocation) && !codingError && !codingPending;
       return allOk; // last part (Destination): everything must be complete
     }
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
@@ -1408,7 +1406,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === PART.destination) && !destination)             missing.push('a destination');
       if (tripPart >= PART.pickup && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
       if (tripPart >= PART.pickup && !codingError && codingPending) missing.push('a moment while we check Number Coding');
-      if (tripPart >= PART.pickup && !codingError && codingNeedsAck && !codingAck) missing.push('your confirmation of the Number Coding warning');
       if (tripPart >= PART.schedule && maxDaysError)             missing.push('a shorter rental period (under 10 days)');
     } else if (currentStep === 3) {
       if (!firstName) missing.push('your first name');
@@ -1454,7 +1451,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === PART.pickup) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
       if ((last || tripPart === PART.destination) && !destination)     e.destination     = 'Please enter a destination.';
       if (tripPart >= PART.pickup && codingError)      e.coding          = codingError;
-      if (tripPart >= PART.pickup && !codingError && codingNeedsAck && !codingAck) e.codingAck = 'Please confirm the Number Coding warning to continue.';
       if (tripPart >= PART.schedule && maxDaysError)     e.maxDays         = maxDaysError;
     }
     if (currentStep === 3) {
@@ -1681,7 +1677,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           pickupCounty:    pickupCoords?.county    || "",
           destinationCounty: destinationCoords?.county || "",
           // The customer confirmed the multi-day Number Coding warning (the server re-checks and requires it).
-          codingAcknowledged: codingAck,
           destinationCity: destinationCoords?.city || "",
           // Same reasoning as destinationCity — exact match preferred over
           // substring-matching the raw address for the base-area fee.
@@ -1856,13 +1851,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     );
     return null;
   };
-  // Multi-day booking: allowed, but the customer lists-and-confirms the coded dates.
-  const codingWarningBox = codingNeedsAck ? (
+  // Warning list shown where the destination is picked. There is no separate confirm step:
+  // continuing with the booking means the customer accepts the coding restriction details.
+  const codingWarningBox = codingHasWarnings ? (
     <div role="alert" className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
       <p className="text-sm font-black text-amber-800 mb-1">Number Coding warning</p>
       <p className="text-xs sm:text-sm text-amber-800 mb-2">
-        Your rental runs for several days, so it overlaps days when this vehicle's plate is under Number Coding.
-        You can still book — keep the car off the road in these areas during these hours:
+        The selected destination and time may have problems with the Number Coding restriction.
+        Please see the <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Terms &amp; Conditions</a>.
+        It may apply on these days, in these areas, during these hours:
       </p>
       <ul className="space-y-1 mb-3">
         {codingWarningRows.map(r => (
@@ -1871,20 +1868,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           </li>
         ))}
       </ul>
-      <p className="text-xs sm:text-sm font-semibold text-amber-900 mb-2">
-        By confirming, you agree to follow the Number Coding schedule above for this trip.
+      <p className="text-xs sm:text-sm font-semibold text-amber-900">
+        Continuing means you accept the details about the Number Coding restriction.
       </p>
-      <button
-        type="button"
-        aria-pressed={codingAck}
-        onClick={() => setCodingAck(v => !v)}
-        className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition border-2 ${
-          codingAck
-            ? 'bg-green-600 border-green-600 text-white hover:bg-green-700'
-            : 'bg-arl-primary border-arl-primary text-white hover:bg-arl-secondary'}`}>
-        {codingAck ? '✓ Confirmed — tap to undo' : 'Confirm Number Coding warning'}
-      </button>
-      {errors.codingAck && !codingAck && <p className="text-arl-cta text-xs mt-1">{errors.codingAck}</p>}
       <p className="text-[11px] text-amber-700 mt-2">
         Coding schedules can change (holidays, MMDA advisories). This uses the schedule we have on file — please confirm with MMDA or your city if you're unsure.
       </p>
