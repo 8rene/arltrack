@@ -176,7 +176,7 @@ const PenaltiesBox = ({ bookingID }) => {
   if (info === null || info === false) return null; // loading or failed — never block the page
 
   const {
-    depositAmount, depositStatus, depositSettled, penalties,
+    onlinePaymentPending, depositAmount, depositStatus, depositSettled, penalties,
     deductedFromDeposit, refundAmount, refundMethod, refundedAt, stillOwed, settlement,
   } = info;
   const depositWaived = depositStatus === "Waived";
@@ -240,16 +240,26 @@ const PenaltiesBox = ({ bookingID }) => {
             <>
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-semibold text-gray-700">Balance you owe</span>
-                <span className="text-base font-bold text-red-600">{peso(stillOwed)}</span>
+                <span className="flex items-center gap-2">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    onlinePaymentPending ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-red-100 text-red-700 border-red-300"
+                  }`}>
+                    {onlinePaymentPending ? "Payment pending" : "Payment required"}
+                  </span>
+                  <span className="text-base font-bold text-red-600">{peso(stillOwed)}</span>
+                </span>
               </div>
               <p className="text-xs text-gray-400">
                 {hasDeposit && !depositSettled
-                  ? "Your deposit doesn't fully cover the penalties. Please settle the remaining balance with our staff."
-                  : "Pay it online below, or settle it in store on your next visit."}
+                  ? "Your deposit doesn't fully cover the penalties. Once the deposit is settled, the remaining balance is paid online right here."
+                  : onlinePaymentPending
+                    ? "You started an online payment but it isn't finished yet. Tap below to complete it."
+                    : "This balance must be paid online (GCash, Maya or QR Ph). You can't make a new booking until it is paid."}
               </p>
               {/* Online payment only once the deposit is settled — until then the deposit still covers it. */}
               {(!hasDeposit || depositSettled) && (
                 <PenaltyPayButton bookingID={bookingID} amount={stillOwed}
+                  label={onlinePaymentPending ? `Finish payment · ${peso(stillOwed)}` : `Pay ${peso(stillOwed)} now`}
                   className="w-full text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition" />
               )}
             </>
@@ -289,7 +299,11 @@ export default function BookingDetailsPage() {
     setPayingNow(true); setPayError("");
     try {
       const token = localStorage.getItem("arl_token");
-      const phase = pay.balanceStatus === "pending" ? "balance" : "deposit";
+      // Balance phase = the deposit is already paid on a Partial booking and the balance isn't (not only while a balance
+      // checkout is open): the balance is required now, so "Pay balance" must be able to start it from scratch.
+      const depositPaidNow = ["paid", "approved"].includes(String(pay.status || "").toLowerCase());
+      const isPartialPay   = String(pay.methodOfPayment || "").toLowerCase() === "partial";
+      const phase = (pay.balanceStatus === "pending" || (depositPaidNow && isPartialPay && pay.balanceStatus !== "paid")) ? "balance" : "deposit";
       const res = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/create-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -376,6 +390,13 @@ export default function BookingDetailsPage() {
   }
 
   const { booking, pickupLocation, dropoffLocation, payment } = data;
+  // The remaining balance is REQUIRED and paid online before pickup (staff block the pickup until it is settled).
+  const balanceRequired = !!payment && booking?.status === "upcoming"
+    && ["paid", "approved"].includes(String(payment.status || "").toLowerCase())
+    && String(payment.methodOfPayment || "").toLowerCase() === "partial"
+    && String(payment.balanceStatus || "").toLowerCase() !== "paid"
+    && Number(payment.balanceDue) > 0;
+  const balancePending = balanceRequired && String(payment.balanceStatus || "").toLowerCase() === "pending";
   // pickupLocation/dropoffLocation come back as { address, lat, lng } objects
   // (or null) — never plain strings, so we must pull .address out here
   // rather than handing the whole object to <DR>, which would crash trying
@@ -536,7 +557,26 @@ export default function BookingDetailsPage() {
               <DR label="Payment Method"    value={payment.methodOfPayment} />
               <DR label="Reference No."     value={payment.referenceNumber} mono />
             </div>
-            {payment.checkoutUrl && (payment.status === "pending" || payment.balanceStatus === "pending") && (
+            {balanceRequired && (
+              <div className="mt-3">
+                <div className={`rounded-xl border px-3 py-2 mb-3 ${balancePending ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
+                  <p className={`text-sm font-bold ${balancePending ? "text-amber-700" : "text-red-700"}`}>
+                    {balancePending ? "Balance payment pending" : "Balance payment required"} — {peso(payment.balanceDue)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {balancePending
+                      ? "You started paying online but it isn't finished yet. Finish it before pickup."
+                      : "Pay the remaining balance online before pickup — we can't release the vehicle until it's paid."}
+                  </p>
+                </div>
+                <button type="button" onClick={handleCompletePayment} disabled={payingNow}
+                  className="inline-block px-5 py-2.5 bg-red-600 text-white rounded-full text-sm font-bold hover:bg-red-700 disabled:opacity-60 transition">
+                  {payingNow ? "Opening…" : balancePending ? "Finish balance payment →" : "Pay balance now →"}
+                </button>
+                {payError && <p className="text-xs text-red-500 mt-2">{payError}</p>}
+              </div>
+            )}
+            {!balanceRequired && payment.checkoutUrl && (payment.status === "pending" || payment.balanceStatus === "pending") && (
               <>
                 <button type="button" onClick={handleCompletePayment} disabled={payingNow}
                   className="inline-block px-5 py-2.5 bg-arl-cta text-white rounded-full text-sm font-bold hover:bg-arl-secondary disabled:opacity-60 transition">

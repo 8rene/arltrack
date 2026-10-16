@@ -138,17 +138,45 @@ const RefundStatusBadge = ({ status }) => {
   );
 };
 
-// ── Refund modal ──
-const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
-  const [reason, setReason] = useState(REFUND_REASONS[0]);
-  const [notes, setNotes]   = useState("");
+// ── Cancel / Refund modal ──
+// ONE button on the card ("Cancel / Refund") opens this; what it does depends on the booking:
+//   mode "refund" -- money was paid: sends a refund request for staff review (48-hour policy applies; the booking is
+//                    cancelled once it is approved). Shows what the customer would get back before they confirm.
+//   mode "cancel" -- nothing was paid yet (a "to pay" booking): cancels it right away, nothing to refund.
+const RefundModal = ({ booking, mode = "refund", onConfirm, onClose, loading }) => {
+  const [reason, setReason]   = useState(REFUND_REASONS[0]);
+  const [notes, setNotes]     = useState("");
+  const [preview, setPreview] = useState(null);   // what a refund would be right now (refund mode only)
   const { amountPaid } = getPaymentInfo(booking.payment);
+  const isRefund  = mode === "refund";
+  const paymentID = booking.payment?.paymentID;
+
+  useEffect(() => {
+    if (!isRefund || !paymentID) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem("arl_token");
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/refunds/preview/${paymentID}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (!cancelled && res.ok) setPreview(json);
+      } catch {
+        // non-critical -- the modal still works without the preview
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isRefund, paymentID]);
+
+  const blocked = isRefund && preview && preview.eligible === false;   // the server would reject it anyway
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-        <h3 className="text-lg font-black text-gray-800 mb-1">Request Refund</h3>
+        <h3 className="text-lg font-black text-gray-800 mb-1">Cancel / Refund</h3>
         <p className="text-sm text-gray-500 mb-4">
-          {booking.carName} — {peso(amountPaid)} paid
+          {booking.carName}{isRefund ? ` — ${peso(amountPaid)} paid` : " — not paid yet"}
         </p>
 
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
@@ -168,13 +196,29 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
         <textarea
           className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
           rows={3}
-          placeholder="Tell us more about your refund request..."
+          placeholder={isRefund ? "Tell us more about your refund request..." : "Tell us why you're cancelling..."}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
 
+        {isRefund && preview && preview.eligible && (
+          <div className="mt-3 rounded-xl bg-green-50 border border-green-100 px-3 py-2">
+            <p className="text-sm font-bold text-green-700">You'll get back {peso(preview.refundAmount)}</p>
+            {preview.depositForfeited > 0 && (
+              <p className="text-xs text-green-700/80 mt-0.5">
+                {peso(preview.depositForfeited)} security deposit is kept because this is under {preview.windowHours || 48} hours before pickup.
+              </p>
+            )}
+          </div>
+        )}
+        {blocked && preview.message && (
+          <p className="mt-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{preview.message}</p>
+        )}
+
         <p className="text-xs text-gray-400 mt-3">
-          The refund covers everything you've paid for this booking ({peso(amountPaid)}) and the booking will be cancelled once it's approved. Our team will review it and you'll be notified once it's processed.
+          {isRefund
+            ? `The refund covers what you've paid for this booking (${peso(amountPaid)}, less any deposit kept under the 48-hour policy) and the booking will be cancelled once it's approved. Our team will review it and you'll be notified once it's processed.`
+            : "This booking hasn't been paid yet, so nothing will be charged or refunded. It will be cancelled right away."}
         </p>
 
         <div className="flex gap-3 mt-4">
@@ -182,13 +226,13 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
             onClick={onClose}
             disabled={loading}
             className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition">
-            Cancel
+            Keep booking
           </button>
           <button
             onClick={() => onConfirm(reason, notes)}
-            disabled={loading}
+            disabled={loading || blocked}
             className="flex-1 py-2.5 rounded-xl bg-arl-cta text-white text-sm font-bold hover:bg-arl-secondary transition disabled:opacity-60">
-            {loading ? "Sending…" : "Confirm & Send"}
+            {loading ? "Sending…" : isRefund ? "Confirm & Send" : "Cancel booking"}
           </button>
         </div>
       </div>
@@ -197,7 +241,7 @@ const RefundModal = ({ booking, onConfirm, onClose, loading }) => {
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested }) => {
+const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested, onBookingChanged = () => {} }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
 
@@ -213,6 +257,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
     status, cancellationReason,
     modeOfDriving, destination, passengerName, createdAt,
     payment, carID,
+    codingWarningCount = 0, codingCities = [],
   } = booking;
 
   const p = payment || {};
@@ -232,20 +277,41 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
     });
   };
 
-  const handleRefundRequest = async (reason, notes) => {
-    if (!p.paymentID) return;
+  // ONE "Cancel / Refund" button, two outcomes by payment state:
+  //   paid (upcoming)  -> a refund request for staff review (POST /paymongo/refunds); the booking is cancelled on approval
+  //   unpaid (to pay)  -> cancelled straight away (PATCH /bookings/:id/cancel); there is nothing to refund
+  const payLower        = String(p.status || "").toLowerCase();
+  const isPaidDeposit   = ["paid", "approved"].includes(payLower);
+  const canRefund       = status === "upcoming" && isPaidDeposit && !hasActiveRefund;
+  const canCancelUnpaid = status === "to pay" && !isPaidDeposit && !hasActiveRefund;
+
+  const handleCancelRefund = async (reason, notes) => {
+    if (canRefund && !p.paymentID) return;
     setRefunding(true);
     try {
       const token = localStorage.getItem("arl_token");
-      const res   = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/refunds`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ paymentID: p.paymentID, reason, notes }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to send refund request.");
-      setShowRefundModal(false);
-      onRefundRequested(); // re-fetch refund requests in the parent
+      if (canRefund) {
+        const res   = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/refunds`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body:    JSON.stringify({ paymentID: p.paymentID, reason, notes }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to send refund request.");
+        setShowRefundModal(false);
+        onRefundRequested(); // re-fetch refund requests in the parent
+      } else {
+        const res   = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${bookingID}/cancel`, {
+          method:  "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body:    JSON.stringify({ reason: notes ? `${reason} — ${notes}` : reason }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to cancel the booking.");
+        setShowRefundModal(false);
+        showToast("Booking cancelled.");
+        onBookingChanged(); // re-fetch the bookings list in the parent
+      }
     } catch (err) {
       showToast(err.message);
     } finally {
@@ -259,9 +325,12 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
   const depositPaid   = p.status === "paid";
   const isPartialPlan = String(p.methodOfPayment || "").toLowerCase() === "partial";
   const balanceDue    = depositPaid && isPartialPlan && p.balanceStatus !== "paid" && !p.balanceCollected;
-  // The deposit alone confirms a booking ("upcoming"); the balance is normally
-  // settled at pickup. Paying it early online is an OPTIONAL convenience.
+  // The deposit alone confirms a booking ("upcoming"), but the balance is now REQUIRED and is paid ONLINE
+  // before pickup (staff block the pickup until it is settled; collecting it in store is only the exception).
   const canPayBalanceOnline = status === "upcoming" && balanceDue && !hasActiveRefund;
+  const balancePending      = canPayBalanceOnline && String(p.balanceStatus || "").toLowerCase() === "pending"; // checkout opened, not finished
+  const balanceInfo         = getPaymentInfo(payment);
+  const balanceText         = balanceInfo.key === "partial" ? balanceInfo.extra : "";
 
   // "Pay Now" / "Pay Balance" — for "to pay" bookings only. Same call
   // Booking.jsx's own handlePaymongoCheckout makes right after creating the
@@ -305,7 +374,8 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
       {showRefundModal && (
         <RefundModal
           booking={booking}
-          onConfirm={handleRefundRequest}
+          mode={canRefund ? "refund" : "cancel"}
+          onConfirm={handleCancelRefund}
           onClose={() => setShowRefundModal(false)}
           loading={refunding}
         />
@@ -366,6 +436,16 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
               <p className="text-xs text-gray-400">
                 <span className="font-semibold text-gray-500">Booked on:</span> {fmtDT(createdAt)}
               </p>
+              {/* Number Coding heads-up: only while the trip is still ahead of / underway. The full schedule is on Details. */}
+              {codingWarningCount > 0 && ["to pay", "upcoming", "ongoing"].includes(status) && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/booking/${bookingID}/details`)}
+                  title={codingCities.length ? `Coding in: ${codingCities.join(", ")}` : "Number coding applies to this vehicle"}
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-full px-2 py-0.5 transition">
+                  ⚠ {codingWarningCount} coding restriction{codingWarningCount === 1 ? "" : "s"}
+                </button>
+              )}
               {cancellationReason && (
                 <p className="text-xs text-red-500 font-medium mt-1">
                   Reason: {cancellationReason}
@@ -400,6 +480,19 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                 <span className="text-xs text-gray-400">{totalDays} day(s)</span>
               </div>
 
+              {canPayBalanceOnline && (
+                <div className={`rounded-lg border px-2.5 py-1.5 ${balancePending ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
+                  <p className={`text-xs font-bold ${balancePending ? "text-amber-700" : "text-red-700"}`}>
+                    {balancePending ? "Balance payment pending" : "Balance payment required"}{balanceText ? ` — ${balanceText}` : ""}
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {balancePending
+                      ? "You started paying online but it isn't finished yet. Finish it before pickup."
+                      : "Pay the remaining balance online before pickup — we can't release the vehicle until it's paid."}
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Pay Now / Pay Balance — the primary action for a "to
                     pay" booking. Re-opens PayMongo checkout for whichever
@@ -416,14 +509,14 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   </button>
                 )}
 
-                {/* Optional: pay the remaining balance online now instead of at
-                    pickup. Only for a confirmed (upcoming) Partial booking. */}
+                {/* REQUIRED: the remaining balance is paid online before pickup. Only for a confirmed
+                    (upcoming) Partial booking whose balance is still open. */}
                 {canPayBalanceOnline && (
                   <button
                     onClick={handlePayNow}
                     disabled={payingNow}
-                    className="text-xs font-bold text-arl-cta border border-arl-cta/40 hover:bg-arl-cta/10 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
-                    {payingNow ? "Redirecting…" : "Pay Balance Online (optional)"}
+                    className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 px-3 py-1.5 rounded-lg transition">
+                    {payingNow ? "Redirecting…" : balancePending ? "Finish balance payment" : "Pay balance now"}
                   </button>
                 )}
 
@@ -437,6 +530,8 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     through, which didn't make sense once refunds became
                     the standard path. */}
 
+                {/* Cancel / Refund — one button. Paid "upcoming" bookings send a refund request;
+                    an unpaid "to pay" booking is cancelled directly (see handleCancelRefund). Paid-booking notes: */}
                 {/* Request Refund — "upcoming" (fully paid) bookings only.
                     A "to pay" booking never qualifies anymore, even once
                     its deposit has cleared (Partial) — see requestRefund()
@@ -446,11 +541,11 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     active refund request already in flight. A past
                     Rejected/Failed request doesn't block this — the
                     customer can simply try again. */}
-                { (status === "upcoming" && ["paid", "approved"].includes(String(p.status || "").toLowerCase())) && !hasActiveRefund && (
+                { (canRefund || canCancelUnpaid) && (
                   <button
                     onClick={() => setShowRefundModal(true)}
                     className="text-xs font-bold text-orange-600 border border-orange-200 hover:bg-orange-50 px-3 py-1.5 rounded-lg transition">
-                    Request Refund
+                    Cancel / Refund
                   </button>
                 )}
 
@@ -768,7 +863,7 @@ const MyBookings = ({ user }) => {
                 Unpaid penalty: ₱{outstandingBalance.toLocaleString()}
               </p>
               <p className="text-xs text-red-500 mt-0.5">
-                Please settle this in store. You can't make a new booking until it is paid.
+                Penalties are paid online (GCash, Maya or QR Ph) — open the booking and tap Pay. You can't make a new booking until it is paid.
               </p>
               {outstandingBookings.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2">
@@ -776,13 +871,20 @@ const MyBookings = ({ user }) => {
                     <div key={b.bookingID} className="flex items-center justify-between gap-3 bg-white/70 rounded-xl px-3 py-2">
                       <div className="min-w-0">
                         <p className="text-xs text-gray-500 truncate">Booking #{String(b.bookingID).slice(-6).toUpperCase()}</p>
-                        <p className="text-sm font-bold text-red-700">₱{Number(b.amount).toLocaleString()}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-red-700">₱{Number(b.amount).toLocaleString()}</p>
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            b.pending ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-red-100 text-red-700 border-red-300"
+                          }`}>
+                            {b.pending ? "Payment pending" : "Payment required"}
+                          </span>
+                        </div>
                       </div>
                       <button
                         onClick={() => navigate(`/booking/${b.bookingID}/details`)}
                         className="whitespace-nowrap rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 transition-colors"
                       >
-                        View booking
+                        {b.pending ? "Finish payment" : "Pay now"}
                       </button>
                     </div>
                   ))}
@@ -801,6 +903,7 @@ const MyBookings = ({ user }) => {
                   existingRefund={b.payment?.paymentID ? findAnyRefund(b.payment.paymentID) : null}
                   hasActiveRefund={!!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
+                  onBookingChanged={fetchBookings}
                 />
               ))
             : (activeTab === "toPay" && penaltyCount > 0) ? null : <EmptyState tab={activeTab} />
