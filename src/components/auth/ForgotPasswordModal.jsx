@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+[\]{};':"\\|,.<>/?]).{8,16}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+[\]{};':"\\|,.<>/?]).{8,64}$/;
 
 const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
   const [step,     setStep]     = useState(1); // 1: email, 2: otp + new password, 3: success
@@ -83,7 +83,7 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
     const otp = digits.join("");
     if (otp.length < 6) { setError("Please enter all 6 digits."); return; }
     if (!PASSWORD_REGEX.test(newPw)) {
-      setError("Password must be 8–16 characters with at least 1 uppercase, 1 lowercase, 1 number, and 1 special character.");
+      setError("Password must be 8–64 characters with at least 1 uppercase, 1 lowercase, 1 number, and 1 special character.");
       return;
     }
     if (newPw !== confirmPw) { setError("Passwords do not match."); return; }

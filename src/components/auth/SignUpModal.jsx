@@ -739,8 +739,8 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
       if (!s0.phoneDigits)           return alert("Please enter your phone number.");
       if (!phoneValid)               return alert("Phone must be 10 digits starting with 9.");
       if (!s0.password)              return alert("Please enter a password.");
-      const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>/?]).{8,16}$/;
-      if (!pwdRegex.test(s0.password)) return alert("Password must be 8–16 characters with at least 1 uppercase, 1 lowercase, 1 number, and 1 special character.");
+      const pwdRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>/?]).{8,64}$/;
+      if (!pwdRegex.test(s0.password)) return alert("Password must be 8–64 characters with at least 1 uppercase, 1 lowercase, 1 number, and 1 special character.");
       if (s0.password !== s0.confirmPassword) return alert("Passwords do not match.");
 
       setCheckingFields(true);
@@ -884,10 +884,10 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     </button>
                   </div>
                   {s0.password.length > 0 && (() => {
-                    const ok = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{};':"\|,.<>\/?]).{8,16}$/.test(s0.password);
+                    const ok = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\]{};':"\|,.<>\/?]).{8,64}$/.test(s0.password);
                     return ok
                       ? <p className="text-green-600 text-xs mt-1">✓ Strong password</p>
-                      : <p className="text-orange-500 text-xs mt-1">8–16 chars · uppercase · lowercase · number · symbol</p>;
+                      : <p className="text-orange-500 text-xs mt-1">8–64 chars · uppercase · lowercase · number · symbol</p>;
                   })()}
                 </div>
 
