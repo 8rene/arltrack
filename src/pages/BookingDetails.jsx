@@ -146,6 +146,7 @@ const PenaltyRow = ({ p }) => {
           {p.status === "Voided" && "Removed — no charge"}
           {fullyPaid && "Paid"}
           {partlyPaid && `${peso(p.paidAmount)} paid · ${peso(p.amount - p.paidAmount)} left`}
+          {!removed && p.gatewayFeePaid > 0 && ` · + ${peso(p.gatewayFeePaid)} online payment fee paid`}
         </span>
       </div>
     </div>
@@ -188,6 +189,12 @@ const PenaltiesBox = ({ bookingID }) => {
   const unpaidNow = penalties
     .filter((p) => p.status === "Confirmed")
     .reduce((sum, p) => sum + Math.max(0, p.amount - p.paidAmount), 0);
+  // Paying online also costs the online payment fee (each penalty at its own saved %), added on top at checkout.
+  const payFee = Number(info.payableFee) || 0;
+  const payTotal = Math.round((unpaidNow + payFee) * 100) / 100;      // what PayMongo will charge
+  const feePaidTotal = Number(info.gatewayFeePaid) || 0;              // online fee already paid on this booking's penalties
+  // While the deposit can still absorb the whole penalty, settling from it is free; paying online only adds the fee.
+  const depositCovers = hasDeposit && !depositSettled && stillOwed === 0 && unpaidNow > 0;
 
   const badgeKey = settlement?.status || (hasDeposit ? "Held" : depositWaived ? "Waived" : null);
   const badge = badgeKey ? DEPOSIT_BADGE[badgeKey] : null;
@@ -207,17 +214,28 @@ const PenaltiesBox = ({ bookingID }) => {
             <p className="text-sm font-bold text-red-700">
               {onlinePaymentPending ? "Penalty payment pending" : "Penalty payment required"}
             </p>
-            <span className="text-xl font-black text-red-600">{peso(unpaidNow)}</span>
+            <span className="text-xl font-black text-red-600">{peso(payFee > 0 ? payTotal : unpaidNow)}</span>
           </div>
+          {payFee > 0 && (
+            <p className="text-xs text-red-600 mt-0.5">
+              {peso(unpaidNow)} penalty + {peso(payFee)} online payment fee{info.gatewayFeeRate ? ` (${info.gatewayFeeRate}%)` : ""}
+            </p>
+          )}
           <p className="text-xs text-red-500 mt-0.5 mb-3">
             {onlinePaymentPending
               ? "You started an online payment but it isn't finished yet. Tap below to complete it."
-              : "Pay online with GCash, Maya or QR Ph. You can't make a new booking until it is paid."}
+              : depositCovers
+                ? "Your security deposit will cover this when the booking is settled, at no extra charge. You can still pay online now, but that adds the online payment fee."
+                : "Pay online with GCash, Maya or QR Ph. You can't make a new booking until it is paid."}
             {hasDeposit && !depositSettled && " Whatever you pay now is not deducted from your deposit."}
           </p>
-          <PenaltyPayButton bookingID={bookingID} amount={unpaidNow}
-            label={onlinePaymentPending ? `Finish payment · ${peso(unpaidNow)}` : `Pay ${peso(unpaidNow)} now`}
-            className="w-full text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition" />
+          <PenaltyPayButton bookingID={bookingID} amount={unpaidNow} fee={payFee} soft={depositCovers && !onlinePaymentPending}
+            label={onlinePaymentPending
+              ? `Finish payment · ${peso(payTotal)}`
+              : depositCovers ? `Pay ${peso(payTotal)} online anyway` : `Pay ${peso(payTotal)} now`}
+            className={depositCovers && !onlinePaymentPending
+              ? "w-full text-sm font-bold text-red-600 bg-white border border-red-300 hover:bg-red-50 px-4 py-2.5 rounded-xl transition"
+              : "w-full text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition"} />
         </div>
       )}
 
@@ -277,7 +295,7 @@ const PenaltiesBox = ({ bookingID }) => {
                 </span>
               </div>
               {hasDeposit && !depositSettled && (
-                <p className="text-xs text-gray-400">Your deposit doesn't fully cover the penalties. You can pay this online now using the button above.</p>
+                <p className="text-xs text-gray-400">Your deposit doesn't fully cover the penalties. You can pay this online now using the button above{payFee > 0 ? "; the online payment fee is added at checkout" : ""}.</p>
               )}
             </>
           )}

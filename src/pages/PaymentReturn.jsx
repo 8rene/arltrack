@@ -14,10 +14,10 @@ export default function PaymentReturn() {
   const [params]  = useSearchParams();
   const navigate  = useNavigate();
   const paymentID = params.get("paymentID");
-  // A penalty payment returns with penaltyCheckoutID instead of paymentID.
-  const penaltyCheckoutID = params.get("penaltyCheckoutID");
-  const isPenalty = !!penaltyCheckoutID;
-  const refID = penaltyCheckoutID || paymentID;
+  // A penalty payment returns with penaltyGroupID (the groupID shared by its paymentEntries rows) instead of paymentID.
+  const penaltyGroupID = params.get("penaltyGroupID");
+  const isPenalty = !!penaltyGroupID;
+  const refID = penaltyGroupID || paymentID;
 
   const [status,  setStatus]  = useState("checking"); // checking | paid | failed | notfound
   const [message, setMessage] = useState("Verifying your payment, please wait…");
@@ -41,7 +41,7 @@ export default function PaymentReturn() {
         const token = localStorage.getItem("arl_token");
         const res   = await fetch(
           isPenalty
-            ? `${process.env.REACT_APP_API_URL}/paymongo/penalty/status/${penaltyCheckoutID}`
+            ? `${process.env.REACT_APP_API_URL}/paymongo/penalty/status/${penaltyGroupID}`
             : `${process.env.REACT_APP_API_URL}/paymongo/status/${paymentID}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -90,7 +90,7 @@ export default function PaymentReturn() {
       cancelled = true;
       clearTimeout(pendingTimer);
     };
-  }, [refID, isPenalty, paymentID, penaltyCheckoutID, navigate]);
+  }, [refID, isPenalty, paymentID, penaltyGroupID, navigate]);
 
   const icons = {
     checking: (

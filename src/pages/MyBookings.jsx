@@ -748,7 +748,7 @@ const MyBookings = ({ user }) => {
   // bookings while this is > 0, so the banner is telling the customer
   // why, not just informing them.
   const [outstandingBalance, setOutstandingBalance] = useState(0);
-  const [outstandingBookings, setOutstandingBookings] = useState([]); // [{ bookingID, amount }]
+  const [outstandingBookings, setOutstandingBookings] = useState([]); // [{ bookingID, amount, fee, total, pending }]
   const fetchOutstandingBalance = async () => {
     try {
       const token = localStorage.getItem("arl_token");
@@ -796,6 +796,8 @@ const MyBookings = ({ user }) => {
   // Unpaid penalties belong under To Pay too (one entry per booking that owes).
   // Falls back to 1 if the balance is > 0 but the per-booking list is empty.
   const penaltyCount = outstandingBalance > 0 ? Math.max(outstandingBookings.length, 1) : 0;
+  // The online payment fee added when these penalties are paid online (each penalty at its own saved %).
+  const outstandingFee = Math.round(outstandingBookings.reduce((s, b) => s + (Number(b.fee) || 0), 0) * 100) / 100;
   const upcoming  = bookings.filter(b => b.status === "upcoming" && !hasActiveRefundStory(b));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   const refunded  = bookings.filter(hasActiveRefundStory);
@@ -861,9 +863,11 @@ const MyBookings = ({ user }) => {
             <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-4">
               <p className="text-sm font-bold text-red-700">
                 Unpaid penalty: ₱{outstandingBalance.toLocaleString()}
+                {outstandingFee > 0 && <span className="font-medium text-red-600"> + ₱{outstandingFee.toLocaleString()} online payment fee</span>}
               </p>
               <p className="text-xs text-red-500 mt-0.5">
                 Penalties are paid online (GCash, Maya or QR Ph) — open the booking and tap Pay. You can't make a new booking until it is paid.
+                {outstandingFee > 0 && " The online payment fee is added when you pay online."}
               </p>
               {outstandingBookings.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2">
@@ -873,6 +877,9 @@ const MyBookings = ({ user }) => {
                         <p className="text-xs text-gray-500 truncate">Booking #{String(b.bookingID).slice(-6).toUpperCase()}</p>
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-bold text-red-700">₱{Number(b.amount).toLocaleString()}</p>
+                          {Number(b.fee) > 0 && (
+                            <span className="text-[11px] text-red-500">+ ₱{Number(b.fee).toLocaleString()} fee · ₱{Number(b.total).toLocaleString()} total online</span>
+                          )}
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                             b.pending ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-red-100 text-red-700 border-red-300"
                           }`}>

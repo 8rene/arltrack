@@ -88,7 +88,11 @@ export default function PaymentsReceiptsCard({ bookingID }) {
                   </button>
                 </div>
               </div>
-              <p className={`text-sm font-bold whitespace-nowrap ${out ? "text-green-700" : "text-gray-900"}`}>{out ? "+ " : ""}{peso(m.amount)}</p>
+              <div className="text-right">
+                {/* a penalty paid online also carried the online payment fee: show what was really charged */}
+                <p className={`text-sm font-bold whitespace-nowrap ${out ? "text-green-700" : "text-gray-900"}`}>{out ? "+ " : ""}{peso(out ? m.amount : m.amount + (Number(m.fee) || 0))}</p>
+                {!out && Number(m.fee) > 0 && <p className="text-[11px] text-gray-400 whitespace-nowrap">incl. {peso(m.fee)} online fee</p>}
+              </div>
             </li>
           );
         })}

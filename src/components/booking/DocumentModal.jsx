@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 // One window for the two documents a customer can open from Booking Details:
@@ -154,7 +154,12 @@ function StatementBody({ s }) {
               <Row label="Penalty total">{peso(p.amount)}</Row>
               {p.active ? (
                 <>
-                  {p.payments.map((l) => <Item key={l.id} label="Paid" detail={detailLine(l)} amount={peso(l.amount)} bold={false} />)}
+                  {p.payments.map((l) => (
+                    <React.Fragment key={l.id}>
+                      <Item label="Paid" detail={detailLine(l)} amount={peso(l.amount)} bold={false} />
+                      {Number(l.fee) > 0 && <Item label="Online payment fee" amount={peso(l.fee)} bold={false} />}
+                    </React.Fragment>
+                  ))}
                   {p.coveredByDeposit > 0 && <Row label="Covered by security deposit">{peso(p.coveredByDeposit)}</Row>}
                   <Row label="Still owed on this penalty" strong>{peso(p.outstanding)}</Row>
                 </>
@@ -191,6 +196,7 @@ function StatementBody({ s }) {
         <Row label="Total charges">{peso(o.totalCharges)}</Row>
         <Row label="Total paid">{peso(o.paidIn)}</Row>
         {o.coveredByDeposit > 0 && <Row label="Covered by security deposit">{peso(o.coveredByDeposit)}</Row>}
+        {o.onlineFees > 0 && <Row label="Online payment fees (not counted above)">{peso(o.onlineFees)}</Row>}
         {o.refunded > 0 && <Row label="Refunded to you">{peso(o.refunded)}</Row>}
         {o.depositReturned > 0 && <Row label="Security deposit returned">{peso(o.depositReturned)}</Row>}
         <div className="border-t border-blue-200 mt-1 pt-1">
