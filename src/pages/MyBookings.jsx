@@ -241,7 +241,7 @@ const RefundModal = ({ booking, mode = "refund", onConfirm, onClose, loading }) 
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, onRefundRequested, onBookingChanged = () => {} }) => {
+const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, refundRejected = false, onRefundRequested, onBookingChanged = () => {} }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
 
@@ -282,7 +282,8 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
   //   unpaid (to pay)  -> cancelled straight away (PATCH /bookings/:id/cancel); there is nothing to refund
   const payLower        = String(p.status || "").toLowerCase();
   const isPaidDeposit   = ["paid", "approved"].includes(payLower);
-  const canRefund       = status === "upcoming" && isPaidDeposit && !hasActiveRefund;
+  // A refund request staff already rejected is final -- no button, and the server refuses a new one too.
+  const canRefund       = status === "upcoming" && isPaidDeposit && !hasActiveRefund && !refundRejected;
   const canCancelUnpaid = status === "to pay" && !isPaidDeposit && !hasActiveRefund;
 
   const handleCancelRefund = async (reason, notes) => {
@@ -465,6 +466,11 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                   </p>
                 </div>
               )}
+              {refundRejected && (
+                <p className="mt-1.5 text-xs text-gray-500">
+                  This refund can't be requested again. Please contact support if you need help.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-2.5">
@@ -539,8 +545,8 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, o
                     fully confirmed yet isn't something to refund, it's
                     something to finish paying or to cancel outright. No
                     active refund request already in flight. A past
-                    Rejected/Failed request doesn't block this — the
-                    customer can simply try again. */}
+                    Failed request (the refund itself errored) can be
+                    retried, but a Rejected one is final: no button. */}
                 { (canRefund || canCancelUnpaid) && (
                   <button
                     onClick={() => setShowRefundModal(true)}
@@ -767,8 +773,8 @@ const MyBookings = ({ user }) => {
     }
   };
 
-  // Only these statuses count as "there's already an active request" —
-  // Rejected/Failed lets the customer try requesting again.
+  // Only these statuses count as "there's already an active request".
+  // Failed lets the customer try again; Rejected is final (see hasRejectedRefund).
   const findActiveRefund = (paymentID) =>
     refundRequests.find((r) => r.paymentID === paymentID && ["Pending", "Approved", "Refunded"].includes(r.status));
 
@@ -776,6 +782,10 @@ const MyBookings = ({ user }) => {
   // tab (a true history/tracking view) and for the status badge, which
   // should still show e.g. "Rejected" even though that status doesn't
   // block a retry.
+  // A request staff rejected can't be filed again for that payment.
+  const hasRejectedRefund = (paymentID) =>
+    refundRequests.some((r) => r.paymentID === paymentID && r.status === "Rejected");
+
   const findAnyRefund = (paymentID) =>
     refundRequests.find((r) => r.paymentID === paymentID);
 
@@ -925,6 +935,7 @@ const MyBookings = ({ user }) => {
                   user={user}
                   existingRefund={b.payment?.paymentID ? findAnyRefund(b.payment.paymentID) : null}
                   hasActiveRefund={!!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID))}
+                  refundRejected={!!(b.payment?.paymentID && hasRejectedRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
                   onBookingChanged={fetchBookings}
                 />
