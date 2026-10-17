@@ -748,7 +748,9 @@ const MyBookings = ({ user }) => {
   // bookings while this is > 0, so the banner is telling the customer
   // why, not just informing them.
   const [outstandingBalance, setOutstandingBalance] = useState(0);
-  const [outstandingBookings, setOutstandingBookings] = useState([]); // [{ bookingID, amount, fee, total, pending }]
+  // [{ bookingID, amount, coveredByDeposit, onlineDue, fee, total, pending }]: amount = every unpaid penalty; a held
+  // deposit pays coveredByDeposit of it (no fee); onlineDue is paid online, with fee on top (total = onlineDue + fee).
+  const [outstandingBookings, setOutstandingBookings] = useState([]);
   const fetchOutstandingBalance = async () => {
     try {
       const token = localStorage.getItem("arl_token");
@@ -796,8 +798,6 @@ const MyBookings = ({ user }) => {
   // Unpaid penalties belong under To Pay too (one entry per booking that owes).
   // Falls back to 1 if the balance is > 0 but the per-booking list is empty.
   const penaltyCount = outstandingBalance > 0 ? Math.max(outstandingBookings.length, 1) : 0;
-  // The online payment fee added when these penalties are paid online (each penalty at its own saved %).
-  const outstandingFee = Math.round(outstandingBookings.reduce((s, b) => s + (Number(b.fee) || 0), 0) * 100) / 100;
   const upcoming  = bookings.filter(b => b.status === "upcoming" && !hasActiveRefundStory(b));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   const refunded  = bookings.filter(hasActiveRefundStory);
@@ -863,38 +863,54 @@ const MyBookings = ({ user }) => {
             <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-4">
               <p className="text-sm font-bold text-red-700">
                 Unpaid penalty: ₱{outstandingBalance.toLocaleString()}
-                {outstandingFee > 0 && <span className="font-medium text-red-600"> + ₱{outstandingFee.toLocaleString()} online payment fee</span>}
               </p>
               <p className="text-xs text-red-500 mt-0.5">
-                Penalties are paid online (GCash, Maya or QR Ph) — open the booking and tap Pay. You can't make a new booking until it is paid.
-                {outstandingFee > 0 && " The online payment fee is added when you pay online."}
+                {outstandingBookings.length > 0 && outstandingBookings.every((b) => (b.onlineDue ?? b.amount) <= 0)
+                  ? "Your security deposit pays these when the booking is settled, so there is nothing to pay online. You can't make a new booking until then."
+                  : "Penalties are paid online (GCash, Maya or QR Ph) — open the booking and tap Pay. You can't make a new booking until it is paid."}
               </p>
               {outstandingBookings.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2">
-                  {outstandingBookings.map((b) => (
-                    <div key={b.bookingID} className="flex items-center justify-between gap-3 bg-white/70 rounded-xl px-3 py-2">
-                      <div className="min-w-0">
-                        <p className="text-xs text-gray-500 truncate">Booking #{String(b.bookingID).slice(-6).toUpperCase()}</p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-bold text-red-700">₱{Number(b.amount).toLocaleString()}</p>
-                          {Number(b.fee) > 0 && (
-                            <span className="text-[11px] text-red-500">+ ₱{Number(b.fee).toLocaleString()} fee · ₱{Number(b.total).toLocaleString()} total online</span>
+                  {outstandingBookings.map((b) => {
+                    // Older backends send only `amount`: everything is then online with no fee.
+                    const due = b.onlineDue ?? b.amount;
+                    const fee = b.fee || 0;
+                    const covered = b.coveredByDeposit || 0;
+                    const total = b.total ?? b.amount;
+                    return (
+                      <div key={b.bookingID} className="flex items-center justify-between gap-3 bg-white/70 rounded-xl px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-500 truncate">Booking #{String(b.bookingID).slice(-6).toUpperCase()}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-bold text-red-700">₱{Number(due > 0 ? total : b.amount).toLocaleString()}</p>
+                            {due > 0 ? (
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                b.pending ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-red-100 text-red-700 border-red-300"
+                              }`}>
+                                {b.pending ? "Payment pending" : "Payment required"}
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-100 text-blue-700 border-blue-300">
+                                Covered by deposit
+                              </span>
+                            )}
+                          </div>
+                          {due > 0 && fee > 0 && (
+                            <p className="text-[11px] text-gray-500">₱{Number(due).toLocaleString()} penalty + ₱{Number(fee).toLocaleString()} online payment fee</p>
                           )}
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            b.pending ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-red-100 text-red-700 border-red-300"
-                          }`}>
-                            {b.pending ? "Payment pending" : "Payment required"}
-                          </span>
+                          {covered > 0 && (
+                            <p className="text-[11px] text-gray-500">₱{Number(covered).toLocaleString()} covered by your deposit (no fee)</p>
+                          )}
                         </div>
+                        <button
+                          onClick={() => navigate(`/booking/${b.bookingID}/details`)}
+                          className="whitespace-nowrap rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 transition-colors"
+                        >
+                          {due <= 0 ? "View" : b.pending ? "Finish payment" : "Pay now"}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => navigate(`/booking/${b.bookingID}/details`)}
-                        className="whitespace-nowrap rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 transition-colors"
-                      >
-                        {b.pending ? "Finish payment" : "Pay now"}
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

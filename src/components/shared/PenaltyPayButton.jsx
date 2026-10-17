@@ -5,14 +5,18 @@ import { createPortal } from "react-dom";
 // PenaltyPayButton
 //
 // "Pay ₱X penalty" → pick GCash / Maya / QR Ph → redirect to PayMongo checkout.
-// Used on the My Bookings history card and on Booking Details. The amount shown
-// is for display only: the server recomputes what is owed when it creates the
-// checkout and never trusts a figure from the browser.
+// Used on Booking Details. The amounts shown are for display only: the server
+// recomputes what is owed when it creates the checkout and never trusts a figure
+// from the browser.
 //
-// The customer also pays the online payment fee on top of the penalty (the same % the booking's gateway fee uses).
-// `amount` is the penalty money and `fee` the online payment fee the server will add, so the modal shows
-// penalty + fee = what PayMongo actually charges. `soft` is for a penalty the held security deposit can still
-// cover for free: the button is outlined and the modal says so, since paying online now only adds the fee.
+//   amount          what the checkout charges in total (penalty + online payment fee)
+//   penaltyAmount   the penalty money inside it            (optional, for the breakdown)
+//   gatewayFee      the online payment fee inside it       (optional, for the breakdown)
+//   gatewayFeeRate  the % behind the fee, when it is one   (optional, label only)
+//
+// The online payment fee exists only because the customer pays online: money taken
+// from the security deposit carries none, so the server only charges what the
+// deposit does not cover.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const METHODS = [
@@ -23,16 +27,14 @@ const METHODS = [
 const MIN_ONLINE = 20; // PayMongo minimum charge, in pesos
 const peso = (n) => `₱${Number(n || 0).toLocaleString()}`;
 
-export default function PenaltyPayButton({ bookingID, amount, fee = 0, soft = false, className = "", label }) {
+export default function PenaltyPayButton({ bookingID, amount, penaltyAmount, gatewayFee = 0, gatewayFeeRate = null, className = "", label }) {
   const [open, setOpen]     = useState(false);
   const [method, setMethod] = useState("gcash");
   const [busy, setBusy]     = useState(false);
   const [error, setError]   = useState("");
 
   if (!(amount > 0)) return null;
-  const onlineFee = Number(fee) > 0 ? Number(fee) : 0;
-  const total = Math.round((Number(amount) + onlineFee) * 100) / 100;   // what PayMongo charges
-  const tooSmall = total < MIN_ONLINE;
+  const tooSmall = amount < MIN_ONLINE;
 
   const pay = async () => {
     setBusy(true); setError("");
@@ -58,7 +60,7 @@ export default function PenaltyPayButton({ bookingID, amount, fee = 0, soft = fa
       <button
         onClick={() => { setError(""); setOpen(true); }}
         className={className || "text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition"}>
-        {label || `Pay ${peso(total)} penalty`}
+        {label || `Pay ${peso(amount)} penalty`}
       </button>
 
       {open && createPortal(
@@ -73,25 +75,27 @@ export default function PenaltyPayButton({ bookingID, amount, fee = 0, soft = fa
               <button onClick={() => !busy && setOpen(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
             </div>
 
-            <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 space-y-1">
-              <div className="flex items-baseline justify-between text-sm text-gray-600">
-                <span>Penalty</span>
-                <span className="font-medium">{peso(amount)}</span>
-              </div>
-              {onlineFee > 0 && (
-                <div className="flex items-baseline justify-between text-sm text-gray-600">
-                  <span>Online payment fee</span>
-                  <span className="font-medium">{peso(onlineFee)}</span>
-                </div>
+            <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 space-y-1.5">
+              {gatewayFee > 0 && (
+                <>
+                  <div className="flex items-baseline justify-between text-sm text-gray-600">
+                    <span>Penalty</span>
+                    <span>{peso(penaltyAmount != null ? penaltyAmount : amount - gatewayFee)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-sm text-gray-600">
+                    <span>Online payment fee{gatewayFeeRate ? ` (${gatewayFeeRate}%)` : ""}</span>
+                    <span>{peso(gatewayFee)}</span>
+                  </div>
+                </>
               )}
-              <div className="flex items-baseline justify-between border-t border-red-100 pt-1.5">
-                <span className="text-sm font-semibold text-gray-700">Total to pay</span>
-                <span className="text-lg font-bold text-red-600">{peso(total)}</span>
+              <div className={`flex items-baseline justify-between ${gatewayFee > 0 ? "border-t border-red-100 pt-1.5" : ""}`}>
+                <span className="text-sm text-gray-600">Amount due</span>
+                <span className="text-lg font-bold text-red-600">{peso(amount)}</span>
               </div>
             </div>
-            {soft && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                Your security deposit can cover this penalty at no extra charge. Paying online now adds the online payment fee.
+            {gatewayFee > 0 && (
+              <p className="text-[11px] text-gray-400 -mt-2">
+                The online payment fee covers the cost of paying through PayMongo. It isn't part of the penalty and is never taken from your deposit.
               </p>
             )}
 
@@ -120,7 +124,7 @@ export default function PenaltyPayButton({ bookingID, amount, fee = 0, soft = fa
                 className="flex-1 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100">Cancel</button>
               <button onClick={pay} disabled={busy || tooSmall}
                 className="flex-1 py-2 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                {busy ? "Opening…" : `Pay ${peso(total)}`}
+                {busy ? "Opening…" : `Pay ${peso(amount)}`}
               </button>
             </div>
             <p className="text-[11px] text-gray-400 text-center">You'll be taken to PayMongo's secure checkout.</p>

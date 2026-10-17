@@ -120,6 +120,7 @@ const DEPOSIT_BADGE = {
   OwedByCustomer: { label: "Balance Due",      cls: "bg-red-100 text-red-600 border-red-200" },
   Waived:         { label: "Deposit Waived",   cls: "bg-gray-100 text-gray-500 border-gray-200" },
   Held:           { label: "Deposit Held",     cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  Forfeited:      { label: "Deposit Forfeited", cls: "bg-gray-100 text-gray-500 border-gray-200" },
 };
 const fmtD = (iso) => {
   const d = iso ? new Date(iso) : null;
@@ -139,6 +140,9 @@ const PenaltyRow = ({ p }) => {
           <span className={`shrink-0 font-medium ${removed ? "text-gray-400 line-through" : "text-red-500"}`}>-{peso(i.amount)}</span>
         </div>
       ))}
+      {!removed && p.gatewayFeePaid > 0 && (
+        <p className="text-[11px] text-gray-400 mt-1">Online payment fee paid: {peso(p.gatewayFeePaid)} (on top of the penalty)</p>
+      )}
       <div className="flex items-center justify-between mt-1.5 text-[11px] text-gray-400">
         <span>{fmtD(p.createdAt)}</span>
         <span className={fullyPaid ? "text-green-600 font-semibold" : partlyPaid ? "text-amber-600 font-semibold" : removed ? "font-semibold" : ""}>
@@ -146,7 +150,6 @@ const PenaltyRow = ({ p }) => {
           {p.status === "Voided" && "Removed — no charge"}
           {fullyPaid && "Paid"}
           {partlyPaid && `${peso(p.paidAmount)} paid · ${peso(p.amount - p.paidAmount)} left`}
-          {!removed && p.gatewayFeePaid > 0 && ` · + ${peso(p.gatewayFeePaid)} online payment fee paid`}
         </span>
       </div>
     </div>
@@ -178,27 +181,33 @@ const PenaltiesBox = ({ bookingID }) => {
   const {
     onlinePaymentPending, depositAmount, depositStatus, depositSettled, penalties,
     deductedFromDeposit, refundAmount, refundMethod, refundedAt, stillOwed, settlement,
+    depositHeld, coveredByDeposit, payableNow, payableFee, payableTotal, gatewayFeeRate, gatewayFeeKnown,
   } = info;
   const depositWaived = depositStatus === "Waived";
   const hasDeposit = depositAmount !== null && !depositWaived;
   if (depositAmount === null && penalties.length === 0) return null; // nothing to show pre-pickup
 
-  // Every Confirmed penalty that still has money owing. The customer can pay this online at any time -- the
-  // server (createPenaltyPaymentLink) charges exactly this total. Anything paid here is no longer taken from the
-  // deposit at settlement (settleBooking only deducts what is still unpaid), so the deposit comes back larger.
+  // Every Confirmed penalty that still has money owing.
   const unpaidNow = penalties
     .filter((p) => p.status === "Confirmed")
     .reduce((sum, p) => sum + Math.max(0, p.amount - p.paidAmount), 0);
-  // Paying online also costs the online payment fee (each penalty at its own saved %), added on top at checkout.
-  const payFee = Number(info.payableFee) || 0;
-  const payTotal = Math.round((unpaidNow + payFee) * 100) / 100;      // what PayMongo will charge
-  const feePaidTotal = Number(info.gatewayFeePaid) || 0;              // online fee already paid on this booking's penalties
-  // While the deposit can still absorb the whole penalty, settling from it is free; paying online only adds the fee.
-  const depositCovers = hasDeposit && !depositSettled && stillOwed === 0 && unpaidNow > 0;
 
-  const badgeKey = settlement?.status || (hasDeposit ? "Held" : depositWaived ? "Waived" : null);
+  // What is really paid ONLINE. A security deposit that is still held pays penalties first when staff settle the booking,
+  // and money taken from the deposit carries no online payment fee. So only what the deposit does NOT cover is paid
+  // online (onlineDue), and only that carries the fee. Once the deposit is not held any more, everything unpaid is online.
+  // The server (createPenaltyPaymentLink) charges exactly payTotal. An older backend that sends none of this falls back to
+  // "everything unpaid, no fee".
+  const hasPlan = payableTotal !== undefined && payableTotal !== null;
+  const onlineDue = hasPlan ? Number(payableNow) || 0 : unpaidNow;
+  const fee = hasPlan ? Number(payableFee) || 0 : 0;
+  const payTotal = hasPlan ? Number(payableTotal) || 0 : unpaidNow;
+  const covered = hasPlan ? Number(coveredByDeposit) || 0 : 0;
+  const heldNow = depositHeld !== undefined ? !!depositHeld : hasDeposit && !depositSettled;   // a held deposit will pay at settlement
+  const ratePart = gatewayFeeRate ? ` (${gatewayFeeRate}%)` : "";
+
+  const badgeKey = settlement?.status || (heldNow ? "Held" : depositWaived ? "Waived" : DEPOSIT_BADGE[depositStatus] ? depositStatus : null);
   const badge = badgeKey ? DEPOSIT_BADGE[badgeKey] : null;
-  const showRefundRow = hasDeposit && (refundAmount > 0 || stillOwed === 0);
+  const showRefundRow = hasDeposit && (heldNow || depositSettled) && (refundAmount > 0 || stillOwed === 0);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -207,35 +216,40 @@ const PenaltiesBox = ({ bookingID }) => {
         {badge && <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${badge.cls}`}>{badge.label}</span>}
       </div>
 
-      {/* 0 ── Pay-now banner: first thing the customer sees when this card has something to pay */}
-      {unpaidNow > 0 && (
+      {/* 0 ── Pay-now banner: first thing the customer sees when this card has something to pay ONLINE */}
+      {onlineDue > 0 && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 mb-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-bold text-red-700">
               {onlinePaymentPending ? "Penalty payment pending" : "Penalty payment required"}
             </p>
-            <span className="text-xl font-black text-red-600">{peso(payFee > 0 ? payTotal : unpaidNow)}</span>
+            <span className="text-xl font-black text-red-600">{peso(payTotal)}</span>
           </div>
-          {payFee > 0 && (
+          {fee > 0 && (
             <p className="text-xs text-red-600 mt-0.5">
-              {peso(unpaidNow)} penalty + {peso(payFee)} online payment fee{info.gatewayFeeRate ? ` (${info.gatewayFeeRate}%)` : ""}
+              {peso(onlineDue)} penalty + {peso(fee)} online payment fee{ratePart}
             </p>
           )}
           <p className="text-xs text-red-500 mt-0.5 mb-3">
             {onlinePaymentPending
               ? "You started an online payment but it isn't finished yet. Tap below to complete it."
-              : depositCovers
-                ? "Your security deposit will cover this when the booking is settled, at no extra charge. You can still pay online now, but that adds the online payment fee."
-                : "Pay online with GCash, Maya or QR Ph. You can't make a new booking until it is paid."}
-            {hasDeposit && !depositSettled && " Whatever you pay now is not deducted from your deposit."}
+              : "Pay online with GCash, Maya or QR Ph. You can't make a new booking until it is paid."}
+            {heldNow && covered > 0 && ` Your deposit pays ${peso(covered)} of these penalties when the booking is settled, with no fee. Only the part it doesn't cover is paid online.`}
+            {hasPlan && gatewayFeeKnown === false && " An online payment fee may be added at checkout."}
           </p>
-          <PenaltyPayButton bookingID={bookingID} amount={unpaidNow} fee={payFee} soft={depositCovers && !onlinePaymentPending}
-            label={onlinePaymentPending
-              ? `Finish payment · ${peso(payTotal)}`
-              : depositCovers ? `Pay ${peso(payTotal)} online anyway` : `Pay ${peso(payTotal)} now`}
-            className={depositCovers && !onlinePaymentPending
-              ? "w-full text-sm font-bold text-red-600 bg-white border border-red-300 hover:bg-red-50 px-4 py-2.5 rounded-xl transition"
-              : "w-full text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition"} />
+          <PenaltyPayButton bookingID={bookingID} amount={payTotal} penaltyAmount={onlineDue} gatewayFee={fee} gatewayFeeRate={gatewayFeeRate}
+            label={onlinePaymentPending ? `Finish payment · ${peso(payTotal)}` : `Pay ${peso(payTotal)} now`}
+            className="w-full text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2.5 rounded-xl transition" />
+        </div>
+      )}
+
+      {/* 0b ── The held deposit pays all of it: nothing to pay online, so no online payment fee */}
+      {hasPlan && onlineDue <= 0 && unpaidNow > 0 && heldNow && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 mb-4">
+          <p className="text-sm font-bold text-blue-700">Covered by your security deposit</p>
+          <p className="text-xs text-blue-600 mt-0.5">
+            {peso(unpaidNow)} of penalties will be deducted from your deposit when the booking is settled. There is nothing to pay online, so no online payment fee applies.
+          </p>
         </div>
       )}
 
@@ -262,7 +276,7 @@ const PenaltiesBox = ({ bookingID }) => {
       {/* 3 + 4 ── Deducted, then what comes back / what is still owed */}
       {(hasDeposit || stillOwed > 0) && (
         <div className="border-t border-gray-100 pt-3 space-y-2">
-          {hasDeposit && penalties.some((p) => p.status === "Confirmed") && (
+          {hasDeposit && (heldNow || depositSettled) && penalties.some((p) => p.status === "Confirmed") && (
             <div className="flex items-baseline justify-between">
               <span className="text-sm text-gray-500">{depositSettled ? "Deducted from deposit" : "To be deducted from deposit"}</span>
               <span className="text-sm font-semibold text-red-500">-{peso(deductedFromDeposit)}</span>
@@ -294,13 +308,19 @@ const PenaltiesBox = ({ bookingID }) => {
                   <span className="text-base font-bold text-red-600">{peso(stillOwed)}</span>
                 </span>
               </div>
-              {hasDeposit && !depositSettled && (
-                <p className="text-xs text-gray-400">Your deposit doesn't fully cover the penalties. You can pay this online now using the button above{payFee > 0 ? "; the online payment fee is added at checkout" : ""}.</p>
+              {heldNow && (
+                <p className="text-xs text-gray-400">Your deposit doesn't fully cover the penalties. You can pay the rest online now using the button above.</p>
+              )}
+              {hasDeposit && !heldNow && !depositSettled && (
+                <p className="text-xs text-gray-400">Your security deposit is no longer held, so this is paid online.</p>
+              )}
+              {fee > 0 && (
+                <p className="text-xs text-gray-400">An online payment fee of {peso(fee)} is added when you pay online ({peso(payTotal)} in total). It isn't part of the penalty.</p>
               )}
             </>
           )}
 
-          {!depositSettled && hasDeposit && (
+          {heldNow && (
             <p className="text-xs text-gray-400">The final amounts are confirmed when the vehicle is returned and the deposit is settled.</p>
           )}
         </div>

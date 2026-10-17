@@ -14,10 +14,12 @@ export default function PaymentReturn() {
   const [params]  = useSearchParams();
   const navigate  = useNavigate();
   const paymentID = params.get("paymentID");
-  // A penalty payment returns with penaltyGroupID (the groupID shared by its paymentEntries rows) instead of paymentID.
-  const penaltyGroupID = params.get("penaltyGroupID");
-  const isPenalty = !!penaltyGroupID;
-  const refID = penaltyGroupID || paymentID;
+  // A penalty payment returns with a penalty checkout id instead of paymentID. The backend now sends it as
+  // penaltyGroupID (the shared groupID of the checkout's rows); penaltyCheckoutID is the older name, still accepted so a
+  // link from before the change keeps working. Both are looked up by /paymongo/penalty/status/:id.
+  const penaltyCheckoutID = params.get("penaltyGroupID") || params.get("penaltyCheckoutID");
+  const isPenalty = !!penaltyCheckoutID;
+  const refID = penaltyCheckoutID || paymentID;
 
   const [status,  setStatus]  = useState("checking"); // checking | paid | failed | notfound
   const [message, setMessage] = useState("Verifying your payment, please wait…");
@@ -41,7 +43,7 @@ export default function PaymentReturn() {
         const token = localStorage.getItem("arl_token");
         const res   = await fetch(
           isPenalty
-            ? `${process.env.REACT_APP_API_URL}/paymongo/penalty/status/${penaltyGroupID}`
+            ? `${process.env.REACT_APP_API_URL}/paymongo/penalty/status/${penaltyCheckoutID}`
             : `${process.env.REACT_APP_API_URL}/paymongo/status/${paymentID}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -90,7 +92,7 @@ export default function PaymentReturn() {
       cancelled = true;
       clearTimeout(pendingTimer);
     };
-  }, [refID, isPenalty, paymentID, penaltyGroupID, navigate]);
+  }, [refID, isPenalty, paymentID, penaltyCheckoutID, navigate]);
 
   const icons = {
     checking: (
