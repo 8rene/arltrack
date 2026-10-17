@@ -1113,13 +1113,19 @@ const ProfilePage = ({ user }) => {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body:    JSON.stringify(body),
     });
-    if (!res.ok) throw new Error("Failed to save.");
+    if (!res.ok) {
+      // Show the server's reason (e.g. "Username is already taken.") rather than a generic message.
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Failed to save.");
+    }
     const setters = {
       firstName: setFirstName, lastName: setLastName, middleName: setMiddleName,
       suffix: setSuffix, username: setUsername, street: setStreet, village: setVillage,
       birthDate: setBirthDate, postalCode: setPostalCode,
     };
-    if (setters[field]) setters[field](value);
+    // The server trims text and stores usernames in lowercase — show the saved value, not the typed one.
+    const saved = typeof value === "string" ? (field === "username" ? value.trim().toLowerCase() : value.trim()) : value;
+    if (setters[field]) setters[field](saved);
   };
 
   // Profile photo upload
