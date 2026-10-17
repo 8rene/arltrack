@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import Footer from "../components/layout/Footer";
 import { usePolicySettings } from "../utils/policySettings";
 
-const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, fullRefundHours }) => [
+const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, fullRefundHours, graceHours = 2 }) => [
   {
     num: "01",
     title: "How to Make a Reservation",
@@ -74,10 +74,11 @@ const buildSections = ({ depositText, serviceFeePercent, gatewayFeePercent, full
   {
     num: "10",
     title: "Cancellation & Rescheduling",
-    body: `If you need to cancel or reschedule your booking, please notify ARL Car Rental through official channels as early as possible. The ${fullRefundHours} hours are counted from the moment you send your refund request, not from the moment it is reviewed. Service and gateway fees are refunded together with your booking amount; when a refund falls under the ${fullRefundHours}-hour limit, only the ${depositText} deposit is withheld.`,
+    body: `If you need to cancel or reschedule your booking, please notify ARL Car Rental through official channels as early as possible. The ${fullRefundHours} hours are counted from the moment you send your refund request, not from the moment it is reviewed. Service and gateway fees are refunded together with your booking amount; when a refund falls under the ${fullRefundHours}-hour limit, only the ${depositText} deposit is withheld. If you send your refund request within ${graceHours} hours of paying your deposit, the ${depositText} deposit is returned as well, even when pickup is less than ${fullRefundHours} hours away (this does not apply once the pickup time has passed). A refund request that has been reviewed and rejected is final: your booking continues as scheduled and a new refund request cannot be made for it.`,
     list: [
       { label: `${fullRefundHours} hours or more before pickup`, value: "Full refund of everything you paid" },
       { label: `Less than ${fullRefundHours} hours before pickup`, value: `Everything refunded except the ${depositText} deposit` },
+      { label: `Within ${graceHours} hours of paying your deposit`, value: `Everything refunded, including the ${depositText} deposit (until pickup time)` },
       { label: "No-show on pickup date", value: `${depositText} deposit forfeited; everything else refunded` },
       { label: "Rescheduling notice", value: "At least 24 hours prior" },
     ],

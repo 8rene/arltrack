@@ -516,6 +516,12 @@ export default function BookingDetailsPage() {
                   </p>
                 </div>
               )}
+              {refund?.status === "Rejected" && ["upcoming", "ongoing"].includes(String(booking.status || "").toLowerCase()) && (
+                <p className="mt-2 text-xs text-gray-600 leading-snug">
+                  <span className="font-semibold">Your booking will continue as scheduled.</span>{" "}
+                  This refund can't be requested again — please contact support if you need help.
+                </p>
+              )}
               <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
                 {booking.serviceType && <span>{booking.serviceType}</span>}
                 <span>{booking.totalDays} day(s)</span>

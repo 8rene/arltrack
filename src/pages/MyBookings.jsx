@@ -471,9 +471,10 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
                   </p>
                 </div>
               )}
-              {refundRejected && (
-                <p className="mt-1.5 text-xs text-gray-500">
-                  This refund can't be requested again. Please contact support if you need help.
+              {refundRejected && ["upcoming", "ongoing"].includes(status) && (
+                <p className="mt-1.5 text-xs text-gray-600 leading-snug">
+                  <span className="font-semibold">Your booking will continue as scheduled.</span>{" "}
+                  This refund can't be requested again — please contact support if you need help.
                 </p>
               )}
             </div>
