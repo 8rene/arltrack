@@ -179,7 +179,7 @@ const PenaltiesBox = ({ bookingID }) => {
   if (info === null || info === false) return null; // loading or failed — never block the page
 
   const {
-    onlinePaymentPending, depositAmount, depositStatus, depositSettled, penalties,
+    onlinePaymentPending, depositAmount, depositStatus, depositSettled, appliedToDeposit, penalties,
     deductedFromDeposit, refundAmount, refundMethod, refundedAt, stillOwed, settlement,
     depositHeld, coveredByDeposit, payableNow, payableFee, payableTotal, gatewayFeeRate, gatewayFeeKnown,
   } = info;
@@ -278,7 +278,7 @@ const PenaltiesBox = ({ bookingID }) => {
         <div className="border-t border-gray-100 pt-3 space-y-2">
           {hasDeposit && (heldNow || depositSettled) && penalties.some((p) => p.status === "Confirmed") && (
             <div className="flex items-baseline justify-between">
-              <span className="text-sm text-gray-500">{depositSettled ? "Deducted from deposit" : "To be deducted from deposit"}</span>
+              <span className="text-sm text-gray-500">{depositSettled || (appliedToDeposit > 0 && appliedToDeposit >= deductedFromDeposit) ? "Deducted from deposit" : "To be deducted from deposit"}</span>
               <span className="text-sm font-semibold text-red-500">-{peso(deductedFromDeposit)}</span>
             </div>
           )}
