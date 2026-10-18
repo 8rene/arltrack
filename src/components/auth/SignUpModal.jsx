@@ -2,7 +2,7 @@
  * SignUpModal.jsx  –  ARL Track  –  Complete 5-step Registration
  *
  * Step 0 : Username · Email · Phone           (+ email duplicate check)
- * Step 1 : First/Middle/Last name · Suffix · Birthdate (18+, no numbers in names)
+ * Step 1 : First/Middle/Last name · Suffix · Birthdate (21+, no numbers in names)
  * Step 2 : Region → Province → Municipality → Barangay · Street · Terms checkbox
  * Step 3 : Gov ID (type + number + camera photo) · Driver's Licence (camera) · Selfie
  * Step 4 : OTP verification → writes to Firestore → approval modal
@@ -74,6 +74,9 @@ async function checkAvailability(email, username) {
 }
 
 /** Returns age in full completed years */
+// Minimum age to register. Keep in sync with MIN_SIGNUP_AGE in signup.controller.js (backend).
+const MIN_AGE = 21;
+
 function calcAge(yyyy, mm, dd) {
   const today = new Date();
   let age = today.getFullYear() - parseInt(yyyy);
@@ -562,8 +565,8 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
     if (mnErr) e.middleName = mnErr;
     if (!s1.bdMonth || !s1.bdDay || !s1.bdYear) {
       e.birthdate = "Please complete your date of birth.";
-    } else if (calcAge(s1.bdYear, MONTHS.indexOf(s1.bdMonth) + 1, s1.bdDay) < 18) {
-      e.birthdate = "You must be at least 18 years old to register.";
+    } else if (calcAge(s1.bdYear, MONTHS.indexOf(s1.bdMonth) + 1, s1.bdDay) < MIN_AGE) {
+      e.birthdate = `You must be at least ${MIN_AGE} years old to register.`;
     }
     setS1Err(e);
     return Object.keys(e).length === 0;
@@ -574,7 +577,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
   const birthdateISO = s1.bdYear && s1.bdMonth && s1.bdDay
     ? `${s1.bdYear}-${String(MONTHS.indexOf(s1.bdMonth)+1).padStart(2,"0")}-${String(s1.bdDay).padStart(2,"0")}`
     : "";
-  const ageOk = birthdateISO && calcAge(s1.bdYear, MONTHS.indexOf(s1.bdMonth)+1, s1.bdDay) >= 18;
+  const ageOk = birthdateISO && calcAge(s1.bdYear, MONTHS.indexOf(s1.bdMonth)+1, s1.bdDay) >= MIN_AGE;
 
   // ── Step 2: Address ────────────────────────────────────────────────────────
   const [regions,        setRegions]        = useState([]);
@@ -999,7 +1002,7 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
 
                 <div>
                   <label className={labelCls}>Date of Birth <span className="text-red-400">*</span></label>
-                  <p className="text-gray-400 text-xs mb-2">Must be at least 18 years old.</p>
+                  <p className="text-gray-400 text-xs mb-2">Must be at least {MIN_AGE} years old.</p>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <label className="text-xs text-gray-500 mb-1 block">Month</label>
