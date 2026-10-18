@@ -1032,6 +1032,42 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
   }, [codingError]);
 
+  // ── Chauffeur availability ─────────────────────────────────────
+  // Asks the server whether any driver is still free for the chosen dates/times
+  // (POST /bookings/driver-availability -> { available, message? }). It counts every chauffeur
+  // booking, assigned or not, so it stays right even if staff haven't assigned drivers yet.
+  // This is a convenience only: the booking endpoint re-checks inside its own transaction, so a
+  // request that fails here is simply not blocked (the server has the final say).
+  // The answer is tagged with the dates it was computed for, so a stale answer never applies.
+  const NO_DRIVER_MESSAGE = 'No drivers are available for the selected dates and times. Try a different schedule or choose Without Driver.';
+  const driverKey = [startDate, startTime, endDate, endTime].join('|');
+  const driverCheckNeeded = !!(startDate && startTime && endDate && endTime) && currentStep >= 2 && (currentStep > 2 || tripPart >= PART.schedule);
+  const [driverAvail, setDriverAvail] = useState({ key: '', available: true, message: '' });
+  const chauffeurFull = driverAvail.key === driverKey && !driverAvail.available;
+  const chauffeurBlocked = chauffeurFull && driveType === 'chauffeur'; // can't continue with "With Driver" for these dates
+
+  useEffect(() => {
+    if (!driverCheckNeeded) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/driver-availability`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startDate, startTime, endDate, endTime }),
+        });
+        const data = await res.json();
+        if (!cancelled && res.ok) {
+          setDriverAvail({ key: driverKey, available: data.available !== false, message: data.message || '' });
+        }
+      } catch (err) {
+        console.warn('Driver availability check failed:', err);
+      }
+    }, 300); // debounce — one request per settled date change
+    return () => { cancelled = true; clearTimeout(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverKey, driverCheckNeeded]);
+
   // ── Terms & Conditions acceptance (Review step) ──
   // The customer must tick the box before Confirm works. The hash of the text they were shown is sent
   // with the booking; the server only accepts it while it is still the current text, and records it.
@@ -1346,12 +1382,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const canProceed = () => {
     if (currentStep === 1) return !!selectedCar;
     if (currentStep === 2) {
-      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError);
+      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError && !chauffeurBlocked);
       if (tripPart === 1) return !!serviceType && !(serviceType === 'Others' && !otherServiceNote.trim());
       if (tripPart === 2) return !!duration;
       if (tripPart === PART.schedule) return !!(startDate && startTime && endDate && endTime) && !maxDaysError;
       // Pickup: the dated Number Coding check already runs here (the dates come first now)
-      if (tripPart === PART.pickup) return !!(pickupLocation && pickupCoords && dropoffLocation) && !codingError && !codingPending;
+      if (tripPart === PART.pickup) return !!(pickupLocation && pickupCoords && dropoffLocation) && !codingError && !codingPending && !chauffeurBlocked;
       return allOk; // last part (Destination): everything must be complete
     }
     if (currentStep === 3) return !!(firstName && lastName && /^(\+639|09)\d{9}$/.test(contact) && /\S+@\S+\.\S+/.test(email));
@@ -1382,6 +1418,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === PART.pickup) && (!pickupLocation || !pickupCoords)) missing.push('a pickup location chosen on the map');
       if ((last || tripPart === PART.pickup) && !dropoffLocation)         missing.push('a drop-off location');
       if ((last || tripPart === PART.destination) && !destination)             missing.push('a destination');
+      if (tripPart >= PART.pickup && chauffeurBlocked)         missing.push('a different schedule, or choose Without Driver (no drivers are free for these dates)');
       if (tripPart >= PART.pickup && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
       if (tripPart >= PART.pickup && !codingError && codingPending) missing.push('a moment while we check Number Coding');
       if (tripPart >= PART.schedule && maxDaysError)             missing.push('a shorter rental period (under 10 days)');
@@ -1428,6 +1465,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       else if ((last || tripPart === PART.pickup) && !pickupCoords) e.pickupLocation = 'Please pick your location on the map so we can confirm it is within our service area.';
       if ((last || tripPart === PART.pickup) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
       if ((last || tripPart === PART.destination) && !destination)     e.destination     = 'Please enter a destination.';
+      if (tripPart >= PART.pickup && chauffeurBlocked)  e.driverType      = NO_DRIVER_MESSAGE;
       if (tripPart >= PART.pickup && codingError)      e.coding          = codingError;
       if (tripPart >= PART.schedule && maxDaysError)     e.maxDays         = maxDaysError;
     }
@@ -1693,6 +1731,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           setTermsAgreed(false);
           reloadTerms();
           showToast(data.message || "Please review and accept the Terms & Conditions to continue.");
+          return;
+        }
+        // The last driver was taken between the check on screen and this click (or the dates were
+        // never checked). Send them back to the "Who will drive?" part with the warning showing.
+        if (response.status === 409 && data.code === 'NO_DRIVER_AVAILABLE') {
+          setDriverAvail({ key: driverKey, available: false, message: data.message || NO_DRIVER_MESSAGE });
+          setCurrentStep(2);
+          setTripPart(PART.pickup);
+          showToast(data.message || NO_DRIVER_MESSAGE);
           return;
         }
         // For the duplicate-booking guard specifically, the backend now also
@@ -2213,19 +2260,27 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         { type: 'self-drive', label: 'Without Driver' },
                       ].map(({ type, icon, label }) => {
                         const selected = driveType === type;
+                        const noDriver = type === 'chauffeur' && chauffeurFull; // no driver free for these dates
                         const base = quote.driversFeeBaseArea;
                         const outside = quote.driversFeeOutsideArea;
                         return (
-                          <div key={type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${selected ? 'border-arl-primary bg-blue-50' : 'border-gray-200 bg-white hover:border-arl-primary/50'}`}>
+                          <div key={type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${noDriver ? 'border-amber-300 bg-amber-50' : selected ? 'border-arl-primary bg-blue-50' : 'border-gray-200 bg-white hover:border-arl-primary/50'}`}>
                             <div className="flex items-start justify-between gap-2">
-                              <label className="flex items-start gap-2.5 cursor-pointer flex-1 min-w-0">
+                              <label className={`flex items-start gap-2.5 flex-1 min-w-0 ${noDriver ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                                 <input type="radio" name="driveType" value={type}
                                   checked={selected}
+                                  disabled={noDriver}
                                   onChange={() => setDriveType(type)}
                                   className="mt-1 w-4 h-4 accent-arl-primary flex-shrink-0" />
                                 <span className="min-w-0">
                                   <span className="block text-sm sm:text-base font-extrabold text-arl-dark">{label}</span>
-                                  {type === 'chauffeur' ? (
+                                  {noDriver ? (
+                                    <>
+                                      <span className="block mt-1 text-xs sm:text-sm font-bold text-amber-800">No driver available for these dates</span>
+                                      <span className="block mt-1 text-[11px] sm:text-xs text-amber-800">{driverAvail.message || NO_DRIVER_MESSAGE}</span>
+                                      {selected && <span className="block mt-1.5 text-[11px] sm:text-xs font-bold text-arl-cta">Choose Without Driver, or go back and pick a different schedule, to continue.</span>}
+                                    </>
+                                  ) : type === 'chauffeur' ? (
                                     base === null || base === undefined ? (
                                       <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">A professional driver. The driver's fee shows in your price breakdown.</span>
                                     ) : (
@@ -2390,6 +2445,16 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   )}
 
                   </>)}
+
+                  {/* ── No driver free for these dates (amber). Doesn't block here: Without Driver is still bookable ── */}
+                  {tripPart === PART.schedule && chauffeurBlocked && (
+                    <div role="alert" className="mt-6 flex gap-3 items-start bg-amber-50 border-2 border-amber-300 rounded-2xl p-4">
+                      <div>
+                        <p className="text-sm font-black text-amber-800 mb-1">No drivers available for these dates</p>
+                        <p className="text-sm text-amber-800">{driverAvail.message || NO_DRIVER_MESSAGE}</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* ── Number Coding: blocked (red) or multi-day warning to confirm (amber) ── */}
                   {tripPart >= PART.pickup && (<>
