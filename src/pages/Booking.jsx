@@ -96,6 +96,16 @@ const DATE_STYLES = {
 };
 const BLOCKED_STATUSES = new Set(['booked', 'preparation', 'maintenance']);
 
+// Days on which no driver is free the whole day (from POST /bookings/driver-availability/days). They are NOT
+// blocked: the date can still be picked, but only for a Without Driver booking.
+const NO_DRIVER_DAY_LABEL = 'No driver available — Without Driver only';
+// Legend swatches look like the day cells they describe, so the three kinds can be told apart at a glance.
+const LEGEND_ITEMS = [
+  { key: 'available',   label: 'Available',            swatch: 'bg-white border-2 border-gray-300' },
+  { key: 'unavailable', label: 'Unavailable',          swatch: 'bg-gray-300 border-2 border-gray-300' },
+  { key: 'nodriver',    label: 'No driver (self-drive only)', swatch: 'bg-orange-100 border-2 border-orange-400' },
+];
+
 // Pure helper (no component state) so it can be reused both at click-time
 // and for re-validating an already-set range (e.g. one restored from a
 // stale localStorage draft, or one that was valid when saved but got
@@ -1040,10 +1050,55 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // request that fails here is simply not blocked (the server has the final say).
   // The answer is tagged with the dates it was computed for, so a stale answer never applies.
   const NO_DRIVER_MESSAGE = 'No drivers are available for the selected dates and times. Try a different schedule or choose Without Driver.';
+  // ── Days with no driver (calendar shading) ─────────────────────
+  // One request per visible month, remembered for the session. Only the schedule part shows the calendar.
+  // Purely informational: the booking itself is checked on the server.
+  const [fullDaysByMonth, setFullDaysByMonth] = useState({}); // { 'YYYY-MM': ['YYYY-MM-DD', ...] }
+  const fullDaysRequested = useRef(new Set());
+  const calendarVisible = currentStep === 2 && tripPart === PART.schedule;
+  const calMonthsKey = calViews.map((v) => `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}`).join(',');
+  useEffect(() => {
+    if (!calendarVisible) return;
+    calViews.forEach(async (v) => {
+      const y = v.getFullYear(), m = v.getMonth();
+      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+      if (fullDaysRequested.current.has(key)) return;
+      fullDaysRequested.current.add(key);
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/driver-availability/days`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: toLocalDateStr(new Date(y, m, 1)), to: toLocalDateStr(new Date(y, m + 1, 0)) }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'failed');
+        setFullDaysByMonth((prev) => ({ ...prev, [key]: Array.isArray(data.fullDays) ? data.fullDays : [] }));
+      } catch (err) {
+        fullDaysRequested.current.delete(key); // not remembered: it retries the next time the month is shown
+        console.warn('Driver day availability failed:', err);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarVisible, calMonthsKey]);
+  const fullDaySet = useMemo(() => new Set(Object.values(fullDaysByMonth).flat()), [fullDaysByMonth]);
+
+  // The picked days (start..end) that have no driver the whole day.
+  const selectedFullDays = useMemo(() => {
+    if (!startDate || fullDaySet.size === 0) return [];
+    const out = [];
+    const last = toMidnight(new Date(`${endDate || startDate}T00:00:00`));
+    for (let cur = toMidnight(new Date(`${startDate}T00:00:00`)), n = 0; cur <= last && n < 62; cur = addDays(cur, 1), n += 1) {
+      const k = toLocalDateStr(cur);
+      if (fullDaySet.has(k)) out.push(k);
+    }
+    return out;
+  }, [startDate, endDate, fullDaySet]);
+
   const driverKey = [startDate, startTime, endDate, endTime].join('|');
   const driverCheckNeeded = !!(startDate && startTime && endDate && endTime) && currentStep >= 2 && (currentStep > 2 || tripPart >= PART.schedule);
   const [driverAvail, setDriverAvail] = useState({ key: '', available: true, message: '' });
-  const chauffeurFull = driverAvail.key === driverKey && !driverAvail.available;
+  // Full for the exact window (server answer), or the pick includes a day with no driver at all.
+  const chauffeurFull = (driverAvail.key === driverKey && !driverAvail.available) || selectedFullDays.length > 0;
   const chauffeurBlocked = chauffeurFull && driveType === 'chauffeur'; // can't continue with "With Driver" for these dates
 
   useEffect(() => {
@@ -1296,6 +1351,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             const style  = DATE_STYLES[ds] || DATE_STYLES.available;
             const isPast = date < today;
             const isBlocked = BLOCKED_STATUSES.has(ds) || isPast;
+            const noDriverDay = !isBlocked && fullDaySet.has(key); // selectable, but never with a driver
             const isStart   = sameDay(date, startDO);
             const isEnd     = sameDay(date, endDO);
             const inRange   = startDO && endDO && date > startDO && date < endDO;
@@ -1340,6 +1396,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               cls += 'bg-arl-secondary/20 text-arl-primary cursor-pointer ';
             } else if (isHover) {
               cls += 'bg-arl-secondary/10 text-arl-primary cursor-pointer ';
+            } else if (noDriverDay) {
+              cls += 'bg-orange-100 text-orange-800 ring-1 ring-orange-300 hover:bg-orange-200 cursor-pointer ';
             } else {
               cls += 'text-gray-700 hover:bg-arl-primary/10 hover:text-arl-primary cursor-pointer ';
             }
@@ -1349,22 +1407,26 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 key={i}
                 type="button"
                 className={cls}
-                title={!isPast && ds !== 'available' ? style.label : (sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (duration === '12 Hours' ? 'Auto-calculated from pickup time' : 'Pick a start date first') : undefined)}
+                title={!isPast && ds !== 'available' ? style.label : (noDriverDay ? NO_DRIVER_DAY_LABEL : sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (duration === '12 Hours' ? 'Auto-calculated from pickup time' : 'Pick a start date first') : undefined)}
                 onClick={() => !interactionDisabled && handleDayClick(date, idx)}
                 onMouseEnter={() => { if (startDO && !endDO && !interactionDisabled) setHoverDate(date); }}
                 onMouseLeave={() => setHoverDate(null)}
                 disabled={interactionDisabled}>
                 {i + 1}
+                {/* Stays visible when the day is picked (green/red/range), so the warning isn't hidden by the selection */}
+                {noDriverDay && <span aria-hidden="true" className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-orange-500 ring-1 ring-white" />}
               </button>
             );
           })}
         </div>
         {/* Legend */}
-        <div className="flex flex-wrap gap-2 sm:gap-3 mt-2.5 sm:mt-4 pt-2.5 sm:pt-3 border-t border-gray-100">
-          {[['available', DATE_STYLES.available], ['unavailable', UNAVAILABLE_STYLE]].map(([k, v]) => (
-            <div key={k} className="flex items-center gap-1 sm:gap-1.5">
-              <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-md ${v.bg || 'bg-gray-200 border border-gray-300'}`} />
-              <span className="text-[10px] sm:text-xs text-gray-500 capitalize">{v.label}</span>
+        <div className="flex flex-wrap gap-x-3 gap-y-1.5 sm:gap-x-4 mt-2.5 sm:mt-4 pt-2.5 sm:pt-3 border-t border-gray-100">
+          {LEGEND_ITEMS.map((item) => (
+            <div key={item.key} className="flex items-center gap-1.5">
+              <div className={`relative w-4 h-4 sm:w-5 sm:h-5 rounded-md shrink-0 ${item.swatch}`}>
+                {item.key === 'nodriver' && <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-orange-500 ring-1 ring-white" />}
+              </div>
+              <span className="text-[10px] sm:text-xs text-gray-600">{item.label}</span>
             </div>
           ))}
         </div>
@@ -2393,6 +2455,20 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         {calViews.map((v, i) => renderCalendar(v, i))}
                       </div>
                       {errors.startDate && <p className="text-arl-cta text-xs">{errors.startDate}</p>}
+                      {selectedFullDays.length > 0 && (
+                        <div role="status" className="mt-3 flex gap-3 items-start bg-orange-50 border-2 border-orange-300 rounded-2xl p-3 sm:p-4">
+                          <span aria-hidden="true" className="mt-1 w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
+                          <div>
+                            <p className="text-sm font-black text-orange-800 mb-0.5">No driver available on your selected date{selectedFullDays.length > 1 ? 's' : ''}</p>
+                            <p className="text-sm text-orange-800">
+                              You have selected {selectedFullDays.map(fmt).join(', ')} in your booking, which has no driver available.
+                              {driveType === 'chauffeur'
+                                ? ' You can still book these dates, but only Without Driver.'
+                                : ' Without Driver is selected, so you can continue.'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -2447,7 +2523,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </>)}
 
                   {/* ── No driver free for these dates (amber). Doesn't block here: Without Driver is still bookable ── */}
-                  {tripPart === PART.schedule && chauffeurBlocked && (
+                  {tripPart === PART.schedule && chauffeurBlocked && selectedFullDays.length === 0 && (
                     <div role="alert" className="mt-6 flex gap-3 items-start bg-amber-50 border-2 border-amber-300 rounded-2xl p-4">
                       <div>
                         <p className="text-sm font-black text-amber-800 mb-1">No drivers available for these dates</p>
