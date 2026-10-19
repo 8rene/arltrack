@@ -367,8 +367,8 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', readOnly = f
     <div role="note" className="mb-2.5 sm:mb-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
       <p className="text-[11px] sm:text-xs font-black text-amber-800">Outside our base area</p>
       <p className="text-[10px] sm:text-xs text-amber-800 mt-0.5">
-        An extra {peso(baseCfg.extraFeeOutsideArea)} applies to this booking.
-        {baseAreaRole === 'pickup' && ` If you choose a chauffeur, the driver's fee is ${peso(baseCfg.driversFeeOutsideArea)} instead of ${peso(baseCfg.driversFeeBaseArea)}.`}
+        An extra {peso(baseCfg.extraFeeOutsideArea)} applies to this booking. It is charged once, even if other locations are outside too.
+        {` With a driver, the driver's fee becomes ${peso(baseCfg.driversFeeOutsideArea)} instead of ${peso(baseCfg.driversFeeBaseArea)}, with no extra fee on top.`}
       </p>
     </div>
   ) : baseInside === true ? (

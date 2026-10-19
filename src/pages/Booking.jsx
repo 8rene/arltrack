@@ -410,7 +410,7 @@ const TRIP_PARTS = [
       { level: 'must', headline: 'Bring a valid government ID', detail: 'No valid ID on pickup day means the booking may be cancelled and the deposit is not refunded.', ref: 'Vehicle Pickup & Customer Identification' },
       { level: 'must', headline: 'Without Driver: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license on pickup day.', ref: 'Driver Requirements (Self-Drive)' },
       { headline: "With Driver: driver's fee applies", detail: 'The amount is shown on the option below and as its own line in your price breakdown. It is higher outside our base area.' },
-      { headline: 'Outside our base area: extra fee', detail: 'A pickup or destination outside the shaded base area adds an extra fee, even if the other one is inside. We tell you the amount as soon as you pick the spot.', ref: 'Booking Guidelines' },
+      { headline: 'Outside our base area: one extra fee', detail: "If your pickup or any destination is outside the shaded base area, one extra fee applies. It is charged once, even if more than one location is outside. With a driver, it is already part of the driver's fee.", ref: 'Booking Guidelines' },
       { headline: 'We inspect the car with you', detail: 'Existing damage is noted first. The car is released once your payment is confirmed.', ref: 'Booking Guidelines' },
     ],
   },
@@ -419,8 +419,9 @@ const TRIP_PARTS = [
     title: 'Where are you going?',
     description: 'Tell us where you are headed. This is saved for our records only.',
     points: [
-      { level: 'must', headline: 'We cannot compute your travel time', detail: 'The destination is for documentation only. Choosing enough time for the trip is up to you.', ref: 'Rental Time & Destination Selection' },
-      { headline: 'Number coding is checked for your dates', detail: 'We check your pickup, destination and every stop against every day of your rental. If your pickup location is coded on your pickup date, it cannot be booked. Other coded days or stops are listed and you confirm them by continuing.', ref: 'Number Coding Scheme' },
+      { level: 'must', headline: 'Your destination is for documentation only', detail: 'Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.', ref: 'Rental Time & Destination Selection' },
+      { headline: 'Outside our base area: one extra fee', detail: "If any destination is outside our base area, one extra fee applies. It is charged once, no matter how many destinations are outside. With a driver, it is already part of the driver's fee.", ref: 'Booking Guidelines' },
+      { headline: 'Number coding is checked for your dates', detail: 'We check your pickup and every destination against every day of your rental. If your pickup location is coded on your pickup date, it cannot be booked. Other coded destinations are listed at the bottom and you accept them by continuing.', ref: 'Number Coding Scheme' },
       { headline: 'Fuel and tolls are yours', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
     ],
   },
@@ -543,7 +544,7 @@ const INFO = {
       'Metro Manila number coding is enforced on weekdays from 7:00 AM to 7:00 PM. If your vehicle\'s plate is restricted on your trip dates, you will be asked to pick another date or vehicle. (T&C: Number Coding Scheme)',
       'Use the vehicle for lawful purposes only. Off-road use is not allowed unless authorized in writing. (T&C: Vehicle Usage)',
       'Fuel and toll fees are the renter\'s full responsibility. (T&C: Fuel Policy)',
-      'A pickup or destination outside our base area adds an extra fee, shown in your price breakdown. (app)',
+      'If your pickup or any destination is outside our base area, one extra fee applies. It is charged once, no matter how many locations are outside, and shown in your price breakdown. With a driver, it is part of the driver\'s fee. (app)',
       'Your destination is saved for documentation purposes only. The system cannot calculate or estimate travel time based on the location you pick. (app)',
       'You are responsible for choosing a pickup time and rental duration long enough to cover the whole trip, including travel, traffic and rest stops. Time beyond the agreed return is charged as a late return. (T&C: Rental Time & Destination Selection)',
     ],
@@ -1027,7 +1028,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // Pinned additional stops, for the base-area fee (only stops with a map pin can be judged).
   const extraStopsForQuote = extraDestinations
     .filter(d => d.lat != null && d.lng != null)
-    .map(d => ({ city: d.city || '', province: d.province || '', county: d.county || '' }));
+    .map(d => ({ id: d.id, city: d.city || '', province: d.province || '', county: d.county || '' }));
   const extraStopsKey = JSON.stringify(extraStopsForQuote);
   const codingAlertRef = useRef(null);
   const codingError    = codingState.key === codingKey ? codingState.error : '';
@@ -1187,7 +1188,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // checkout both recompute their own authoritative totals independently).
   const [quote, setQuote] = useState({
     days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0,
-    driversFeeBaseArea: null, driversFeeOutsideArea: null, outsideArea: false, pickupOutside: false, destinationOutside: false, extraFeeOutsideArea: null, // what "With Driver" costs (null = not known yet)
+    driversFeeBaseArea: null, driversFeeOutsideArea: null, outsideArea: false, pickupOutside: false, destinationOutside: false, outsideDestinationIds: [], extraFeeOutsideArea: null, // what "With Driver" costs (null = not known yet)
     serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0,
     grandTotal: 0, payNow: 0, balance: 0,
   });
@@ -1195,7 +1196,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   useEffect(() => {
     if (!selectedCar?.carID || !duration) {
-      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, driversFeeBaseArea: null, driversFeeOutsideArea: null, outsideArea: false, pickupOutside: false, destinationOutside: false, extraFeeOutsideArea: null, serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
+      setQuote({ days: 0, diffHrs: 0, total: 0, extraFee: 0, driversFee: 0, driversFeeBaseArea: null, driversFeeOutsideArea: null, outsideArea: false, pickupOutside: false, destinationOutside: false, outsideDestinationIds: [], extraFeeOutsideArea: null, serviceFee: 0, gatewayFee: 0, serviceFeeRate: 0, gatewayFeeRate: 0, securityDeposit: 0, grandTotal: 0, payNow: 0, balance: 0 });
       return;
     }
     let cancelled = false;
@@ -1235,6 +1236,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             outsideArea:        !!data.outsideArea,
             pickupOutside:      !!data.pickupOutside,
             destinationOutside: !!data.destinationOutside,
+            outsideDestinationIds: Array.isArray(data.outsideDestinationIds) ? data.outsideDestinationIds : [],
             extraFeeOutsideArea: data.extraFeeOutsideArea ?? null,
             serviceFee: data.serviceFee || 0,
             gatewayFee: data.gatewayFee || 0,
@@ -1939,19 +1941,27 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (!y) return '';
     return new Date(y, m - 1, d).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
   };
-  // One group per location (pickup / destination / each extra stop), each with its coded days + hours
+  // Plain names for each location: Pickup, then Destination 1 (the main one), 2, 3, 4…
+  const locLabel = (id) => {
+    if (id === 'pickup') return 'Pickup';
+    if (id === 'primary') return 'Destination 1';
+    const i = extraDestinations.findIndex(d => d.id === id);
+    return i >= 0 ? `Destination ${i + 2}` : 'Destination';
+  };
+  const locRank = (id) => id === 'pickup' ? -1 : id === 'primary' ? 0 : extraDestinations.findIndex(d => d.id === id) + 1;
+  const joinLabels = (arr) => arr.length <= 2 ? arr.join(' and ') : `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`;
+  // One group per location (pickup / destinations), each with its coded days + hours
   const codingWarningGroups = (() => {
     const groups = {};
     codingWarnings.forEach(w => {
-      if (!groups[w.id]) {
-        const kind = w.id === 'pickup' ? 'Pickup' : w.id === 'primary' ? 'Destination' : 'Additional destination';
-        groups[w.id] = { id: w.id, kind, place: w.location || w.city || 'this area', days: {} };
-      }
+      if (!groups[w.id]) groups[w.id] = { id: w.id, kind: locLabel(w.id), days: {} };
       const g = groups[w.id];
       if (!g.days[w.date]) g.days[w.date] = { date: w.date, city: w.city, wins: [] };
       g.days[w.date].wins.push(`${w.startTime} – ${w.endTime}`);
     });
-    return Object.values(groups).map(g => ({ ...g, days: Object.values(g.days) }));
+    return Object.values(groups)
+      .map(g => ({ ...g, days: Object.values(g.days) }))
+      .sort((a, b) => locRank(a.id) - locRank(b.id));
   })();
   // Small per-location marker shown under each location field.
   const codingNote = (id) => {
@@ -1972,34 +1982,23 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // Warning list shown where the destination is picked. There is no separate confirm step:
   // continuing with the booking means the customer accepts the coding restriction details.
   const codingWarningBox = codingHasWarnings ? (
-    <div role="alert" className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
-      <p className="text-sm font-black text-amber-800 mb-1">Number Coding warning</p>
-      <p className="text-xs sm:text-sm text-amber-800 mb-2">
-        The selected destination and time may have problems with the Number Coding restriction.
-        Please see the <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Terms &amp; Conditions</a>.
-      </p>
-      <div className="space-y-3 mb-3">
+    <div role="alert" className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+      <p className="text-sm font-black text-amber-800 mb-2">Number Coding warning</p>
+      <ul className="space-y-2 mb-3">
         {codingWarningGroups.map(g => (
-          <div key={g.id} className="rounded-xl bg-white/70 border border-amber-200 px-3 py-2">
-            <p className="text-xs sm:text-sm font-black text-amber-900">
-              ⚠ Warning — {g.kind}: <span className="font-semibold">{g.place}</span>
+          <li key={g.id}>
+            <p className="text-sm font-bold text-amber-900">⚠ {g.kind} is under coding restriction</p>
+            <p className="text-[11px] sm:text-xs text-amber-800">
+              {g.days.map(d => `${fmtCodingDate(d.date)}, ${d.wins.join(' / ')}`).join('  ·  ')}
             </p>
-            <p className="text-[11px] sm:text-xs text-amber-800 mb-1">Coded restricted area that may affect your trip:</p>
-            <ul className="space-y-0.5">
-              {g.days.map(d => (
-                <li key={d.date} className="text-xs sm:text-sm text-amber-900">
-                  <span className="font-bold">{fmtCodingDate(d.date)}</span>{d.city ? ` — ${d.city}` : ''}: {d.wins.join(', ')}
-                </li>
-              ))}
-            </ul>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
       <p className="text-xs sm:text-sm font-semibold text-amber-900">
-        Continuing means you accept the details about the Number Coding restriction.
+        Continuing means you accept the Number Coding restriction details. See the <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">Terms &amp; Conditions</a>.
       </p>
-      <p className="text-[11px] text-amber-700 mt-2">
-        Coding schedules can change (holidays, MMDA advisories). This uses the schedule we have on file — please confirm with MMDA or your city if you're unsure.
+      <p className="text-[11px] text-amber-700 mt-1.5">
+        Schedules can change (holidays, MMDA advisories). Please confirm with MMDA or your city if you're unsure.
       </p>
     </div>
   ) : null;
@@ -2008,17 +2007,36 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const peso = (n) => `₱${Number(n || 0).toLocaleString()}`;
   // Shown under the pickup / destination field when the server's quote says that location is
   // outside the base area. All amounts come from the quote (the admin's System Settings).
+  // The outside-area charge is ONE flag: it is added once, however many locations are outside.
+  // With a driver it is the higher driver's fee; without a driver it is the extra fee.
+  const outsideFeeText = () => driveType === 'chauffeur'
+    ? `The driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`
+    : `An extra ${peso(quote.extraFeeOutsideArea)} applies to this booking. If you choose a driver, the driver's fee becomes ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}, with no extra fee on top.`;
   const outsideAreaNote = (where) => (
     <div role="note" className="rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
       <p className="text-xs font-black text-amber-800">Your {where} is outside our base area</p>
       <p className="text-[11px] sm:text-xs text-amber-800 mt-0.5">
-        An extra {peso(quote.extraFeeOutsideArea)} applies to this booking.
-        {where === 'pickup' && (driveType === 'chauffeur'
-          ? ` Because you chose a driver, the driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`
-          : ` If you choose a driver, the driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`)}
+        {outsideFeeText()} It is charged only once, even if a destination is outside too.
       </p>
     </div>
   );
+  // Bottom of the Destination step: which destinations are outside the base area, and what it costs.
+  const outsideDestLabels = (quote.outsideDestinationIds || []).map(locLabel);
+  const outsideDestinationBox = outsideDestLabels.length > 0 ? (
+    <div role="note" className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+      <p className="text-sm font-black text-amber-800">
+        {joinLabels(outsideDestLabels)} {outsideDestLabels.length > 1 ? 'are' : 'is'} outside our base area
+      </p>
+      <p className="text-xs sm:text-sm text-amber-800 mt-1">
+        {driveType === 'chauffeur'
+          ? (quote.driversFeeBaseArea != null
+              ? `The driver's fee will be ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`
+              : `The driver's fee will be ${peso(quote.driversFeeOutsideArea)}.`)
+          : `An extra ${peso(quote.extraFeeOutsideArea)} applies to this booking.`}
+        {' '}It is charged once{quote.pickupOutside ? ', even though your pickup is also outside' : ', no matter how many locations are outside'}.
+      </p>
+    </div>
+  ) : null;
   const depositPaidUpfront = Math.min(Math.max(0, securityDeposit || 0), grandTotal || 0);
   // Mirrors the server's computePaymentSplit: Partial = full deposit + 50% of everything else.
   const partialNow     = depositPaidUpfront + Math.floor(((grandTotal || 0) - depositPaidUpfront) * 0.5);
@@ -2037,7 +2055,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       key: 'extra', label: 'Extra Fee (Outside Area)', value: peso(extraFee),
       title: 'Extra Fee (Outside Area)',
       items: [
-        'Added when your pickup or any destination is outside our base service area.',
+        'Added once when your pickup or any destination is outside our base service area, however many locations are outside.',
+        'With a driver, this is already part of the driver\'s fee, so it is not added again.',
         'It is shown here so there are no surprises on pickup day.',
       ],
     }] : []),
@@ -2046,7 +2065,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       title: "Driver's Fee",
       items: [
         'Charged for the driver when you book With Driver.',
-        'The amount depends on whether your pickup is inside or outside our base service area.',
+        'The amount is higher when your pickup or any destination is outside our base service area. It is charged once, however many locations are outside.',
         "Fuel and toll fees are still the renter's responsibility.",
       ],
     }] : []),
@@ -2322,15 +2341,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                                       <>
                                         <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} inside our base area</span>
                                         <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} outside our base area</span>
-                                        {quote.pickupOutside && (
+                                        {quote.outsideArea && (
                                           <span className="block mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700">
-                                            Your pickup is outside our base area, so the driver's fee is {peso(outside)}.
+                                            Your {quote.pickupOutside ? 'pickup' : 'destination'} is outside our base area, so the driver's fee is {peso(outside)}. It is charged once.
                                           </span>
                                         )}
                                         {selected && driversFee > 0 ? (
                                           <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)}</span>
                                         ) : (
-                                          !quote.pickupOutside && <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The amount depends on whether your pickup is inside our base area.</span>
+                                          !quote.outsideArea && <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The amount depends on whether your pickup and destinations are inside our base area.</span>
                                         )}
                                       </>
                                     )
@@ -2422,7 +2441,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {tripPart === PART.destination && (
                   <div className="space-y-4 mb-6">
                     <LocationInput
-                      label="Destination"
+                      label="Destination 1"
                       labelAddon={<InfoButton open={openInfo === 'destination'} onClick={() => toggleInfo('destination')} label="About your destination" />}
                       infoPanel={openInfo === 'destination' && <InfoPanel {...INFO.destination} />}
                       value={destination}
@@ -2436,17 +2455,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       codingStart={codingStartISO}
                       codingEnd={codingEndISO}
                     />
-                    <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
-                      Your destination is for documentation purposes only. Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.
-                    </p>
                     {errors.destination && <p className="text-arl-cta text-xs mt-1">{errors.destination}</p>}
-                    {quote.destinationOutside && outsideAreaNote('destination')}
-                    {codingNote('primary')}
 
                     {extraDestinations.map((d, i) => (
                       <div key={d.id} className="relative">
                         <LocationInput
-                          label={`Additional Destination ${i + 1}`}
+                          label={`Destination ${i + 2}`}
                           value={d.address}
                           onValueChange={(v) => updateExtraDestinationAddress(d.id, v)}
                           onCoordsChange={(c) => updateExtraDestinationCoords(d.id, c)}
@@ -2458,7 +2472,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           codingStart={codingStartISO}
                           codingEnd={codingEndISO}
                         />
-                        {codingNote(d.id)}
                         <button
                           type="button"
                           onClick={() => removeExtraDestination(d.id)}
@@ -2476,7 +2489,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     <p className="text-[11px] sm:text-xs text-gray-500 -mt-2">
                       Number Coding is checked for every destination you add.
                     </p>
-                    {/* Warning list + confirm button, directly under the destinations */}
+                    {/* Everything that needs the customer's attention sits here, at the very bottom */}
+                    {outsideDestinationBox}
                     {codingWarningBox}
                   </div>
                   )}
@@ -2580,7 +2594,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {/* ── Number Coding: blocked (red) or multi-day warning to confirm (amber) ── */}
                   {tripPart >= PART.pickup && (<>
                     {codingAlert}
-                    {tripPart === PART.pickup && codingWarningBox}
+                    {tripPart === PART.pickup && codingWarningBox && <div className="mt-6">{codingWarningBox}</div>}
                   </>)}
                 </div>
               )}
