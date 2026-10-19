@@ -334,12 +334,24 @@ const ClockTimeField = ({ value, onChange }) => {
 // bold one-line headline and ONE short sentence. "must" points get an
 // amber highlight + a MUST KNOW tag so they cannot be missed; "info"
 // points are calmer. The full T&C stays one tap away as a link.
-const KeyPoints = ({ title, subtitle, points }) => (
+const KeyPoints = ({ title, subtitle, points }) => {
+  // Collapsed by default — the heading is a button that shows / hides the details.
+  const [open, setOpen] = useState(false);
+  return (
   <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-    <div className="bg-arl-primary px-3 sm:px-4 py-2.5">
-      <p className="text-xs sm:text-sm font-bold text-white">{title}</p>
-      {subtitle && <p className="text-[11px] sm:text-xs text-white/80">{subtitle}</p>}
-    </div>
+    <button
+      type="button"
+      onClick={() => setOpen((o) => !o)}
+      aria-expanded={open}
+      className="w-full flex items-center justify-between gap-3 bg-arl-primary px-3 sm:px-4 py-2.5 text-left"
+    >
+      <span className="min-w-0">
+        <span className="block text-xs sm:text-sm font-bold text-white">{title}</span>
+        {subtitle && <span className="block text-[11px] sm:text-xs text-white/80">{subtitle}</span>}
+      </span>
+      <ChevronRight size={18} className={`flex-shrink-0 text-white transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
+    </button>
+    {open && (<>
     <ul className="divide-y divide-gray-100">
       {points.map((pt, i) => {
         const must = pt.level === 'must';
@@ -363,8 +375,10 @@ const KeyPoints = ({ title, subtitle, points }) => (
       This is the short version. Full wording:{' '}
       <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-arl-primary">Terms &amp; Conditions</a>
     </div>
+    </>)}
   </div>
-);
+  );
+};
 
 // ── Trip step, split into focused parts ─────────────────────────
 // Only one part is visible at a time. Each part opens with a one-line
@@ -379,20 +393,11 @@ const TRIP_PARTS = [
     ],
   },
   {
-    key: 'duration', label: 'Duration',
-    title: 'How long do you need the car?',
-    description: '12 Hours ends automatically after 12 hours. 22 Hours lets you choose your pickup and return dates.',
+    key: 'schedule', label: 'Duration & Time',
+    title: 'How long, and when?',
+    description: 'Choose your duration first, then your pickup date and time. 12 Hours ends automatically after 12 hours; 22 Hours lets you choose your pickup and return dates. We use these dates to check Number Coding for your locations next.',
     points: [
-      { level: 'must', headline: 'You choose the time, so make it enough', detail: 'Pick a duration that covers the whole trip, including travel, traffic and rest stops.', ref: 'Rental Time & Destination Selection' },
-      { level: 'must', headline: 'Late return is charged per hour', detail: 'Every hour after your return time is billed.', ref: 'Late Return & Penalties' },
-    ],
-  },
-  {
-    key: 'schedule', label: 'Date & Time',
-    title: 'When do you need it?',
-    description: 'Pick your pickup date and time first. Your return is calculated from your duration, and we use these dates to check Number Coding for your locations next.',
-    points: [
-      { level: 'must', headline: 'Choose your pickup time carefully', detail: 'The system will not estimate your travel time, so make sure your schedule fits the whole trip.', ref: 'Rental Time & Destination Selection' },
+      { level: 'must', headline: 'You choose the time, so make it enough', detail: 'Pick a duration that covers the whole trip, including travel, traffic and rest stops. The system will not estimate your travel time.', ref: 'Rental Time & Destination Selection' },
       { level: 'must', headline: 'Late return is charged per hour', detail: 'Time past your agreed return is billed hourly.', ref: 'Late Return & Penalties' },
       { headline: 'Reschedule 24 hours ahead', detail: 'Subject to vehicle availability.', ref: 'Cancellation & Refund Policy' },
     ],
@@ -400,12 +405,12 @@ const TRIP_PARTS = [
   {
     key: 'pickup', label: 'Pickup & Driver',
     title: 'Pickup and driver',
-    description: 'Choose where we hand over the car (drop-off is the same place) and who will drive. The map shades our base area.',
+    description: 'Choose who will drive first, then where we hand over the car (drop-off is the same place). Without Driver is picked up at our store. The map shades our base area.',
     points: [
       { level: 'must', headline: 'Bring a valid government ID', detail: 'No valid ID on pickup day means the booking may be cancelled and the deposit is not refunded.', ref: 'Vehicle Pickup & Customer Identification' },
       { level: 'must', headline: 'Without Driver: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license on pickup day.', ref: 'Driver Requirements (Self-Drive)' },
       { headline: "With Driver: driver's fee applies", detail: 'The amount is shown on the option below and as its own line in your price breakdown. It is higher outside our base area.' },
-      { headline: 'Outside our base area: extra fee', detail: 'A pickup or destination outside the shaded base area adds an extra fee. We tell you the amount as soon as you pick the spot.', ref: 'Booking Guidelines' },
+      { headline: 'Outside our base area: extra fee', detail: 'A pickup or destination outside the shaded base area adds an extra fee, even if the other one is inside. We tell you the amount as soon as you pick the spot.', ref: 'Booking Guidelines' },
       { headline: 'We inspect the car with you', detail: 'Existing damage is noted first. The car is released once your payment is confirmed.', ref: 'Booking Guidelines' },
     ],
   },
@@ -538,7 +543,7 @@ const INFO = {
       'Metro Manila number coding is enforced on weekdays from 7:00 AM to 7:00 PM. If your vehicle\'s plate is restricted on your trip dates, you will be asked to pick another date or vehicle. (T&C: Number Coding Scheme)',
       'Use the vehicle for lawful purposes only. Off-road use is not allowed unless authorized in writing. (T&C: Vehicle Usage)',
       'Fuel and toll fees are the renter\'s full responsibility. (T&C: Fuel Policy)',
-      'A destination outside our service area may add an extra fee, shown in your price breakdown. (app)',
+      'A pickup or destination outside our base area adds an extra fee, shown in your price breakdown. (app)',
       'Your destination is saved for documentation purposes only. The system cannot calculate or estimate travel time based on the location you pick. (app)',
       'You are responsible for choosing a pickup time and rental duration long enough to cover the whole trip, including travel, traffic and rest stops. Time beyond the agreed return is charged as a late return. (T&C: Rental Time & Destination Selection)',
     ],
@@ -548,7 +553,7 @@ const INFO = {
 const pickupInfo = (storeConfigured) => ({
   title: 'About pickup & drop-off',
   items: [
-    ...(storeConfigured ? ['Tick "Pick up in-store" to use our store as your pickup point.'] : []),
+    ...(storeConfigured ? ['With Driver: pick any spot, or tick "Pick up in-store" to use our store. Without Driver: pickup is always our store.'] : []),
     'Drop-off is always the same as your pickup location.',
     'Present a valid government-issued ID on the pickup date. Without valid ID the booking may be cancelled without refund of the deposit. (T&C: Vehicle Pickup & Customer Identification)',
     'Our team verifies your booking, inspects the vehicle with you, and releases it only after full payment is confirmed. Existing damage is documented first. (Booking Guidelines: Pickup & Vehicle Release)',
@@ -599,7 +604,7 @@ const HelpButton = ({ open, onClick, label }) => (
 
 
 // ── Location input with map button ────────────────────────────
-const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, restrictToServiceArea = false, coords = null, labelAddon = null, infoPanel = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false, codingCarID = '', codingStart = '', codingEnd = '' }) => {
+const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChange, disabled = false, pickOnMap = false, coords = null, labelAddon = null, infoPanel = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false, codingCarID = '', codingStart = '', codingEnd = '' }) => {
   const [mapOpen, setMapOpen] = useState(false);
 
   return (
@@ -617,8 +622,8 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
           onChange={(e) => onValueChange(e.target.value)}
           // When pickup is limited to our service regions, typed text can't be
           // verified — the location has to be chosen on the map.
-          readOnly={restrictToServiceArea && !disabled}
-          onClick={() => { if (restrictToServiceArea && !disabled) setMapOpen(true); }}
+          readOnly={pickOnMap && !disabled}
+          onClick={() => { if (pickOnMap && !disabled) setMapOpen(true); }}
           disabled={disabled}
           className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-arl-primary focus:outline-none text-sm disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed read-only:cursor-pointer"
         />
@@ -644,7 +649,6 @@ const LocationInput = ({ label, value, onValueChange, placeholder, onCoordsChang
           }}
           initialLabel={value}
           initialCoords={coords}
-          restrictToServiceArea={restrictToServiceArea}
           readOnly={disabled}
           showBaseArea={showBaseArea}
           baseAreaRole={baseAreaRole}
@@ -777,6 +781,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
   };
 
+  // Picking a drive type. Without Driver forces the pickup to lock on the store;
+  // With Driver unlocks it (the customer can still tick "Pick up in-store").
+  const handleSelectDriveType = (type) => {
+    setDriveType(type);
+    if (type === 'self-drive' && storeInfo.configured && !pickupInStore) {
+      handleTogglePickupInStore(true);
+    }
+  };
+
   // Dropoff always mirrors pickup now — this always runs.
   useEffect(() => {
     setDropoffLocation(pickupLocation);
@@ -790,13 +803,22 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const updateExtraDestinationAddress = (id, address) => {
     setExtraDestinations(prev => prev.map(d => d.id === id ? { ...d, address } : d));
   };
-  const updateExtraDestinationCoords = (id, { lat, lng, city }) => {
-    setExtraDestinations(prev => prev.map(d => d.id === id ? { ...d, lat, lng, city } : d));
+  const updateExtraDestinationCoords = (id, { lat, lng, city, province, county }) => {
+    setExtraDestinations(prev => prev.map(d => d.id === id ? { ...d, lat, lng, city, province, county } : d));
   };
   const removeExtraDestination = (id) => {
     setExtraDestinations(prev => prev.filter(d => d.id !== id));
   };
   const [driveType,         setDriveType]          = useState(initValNoDraft('driveType', 'chauffeur'));
+  // Self-drive is locked to the store. If anything leaves the booking on self-drive
+  // without it (restored draft, store info loaded late), lock it to the store — or,
+  // if no store is configured at all, fall back to a chauffeur.
+  useEffect(() => {
+    if (driveType !== 'self-drive' || pickupInStore) return;
+    if (storeInfo.configured) handleTogglePickupInStore(true);
+    else setDriveType('chauffeur');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupInStore, driveType, storeInfo.configured]);
   // Which "?" info panel is open on the Trip step (only one at a time).
   const [openInfo, setOpenInfo] = useState(null);
   const toggleInfo = (key) => setOpenInfo((cur) => (cur === key ? null : key));
@@ -1002,6 +1024,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const codingStartISO = (startDate && startTime) ? new Date(`${startDate}T${startTime}:00+08:00`).toISOString() : '';
   const codingEndISO   = (endDate && endTime)     ? new Date(`${endDate}T${endTime}:00+08:00`).toISOString()     : '';
   const codingReqRef   = useRef(0);
+  // Pinned additional stops, for the base-area fee (only stops with a map pin can be judged).
+  const extraStopsForQuote = extraDestinations
+    .filter(d => d.lat != null && d.lng != null)
+    .map(d => ({ city: d.city || '', province: d.province || '', county: d.county || '' }));
+  const extraStopsKey = JSON.stringify(extraStopsForQuote);
   const codingAlertRef = useRef(null);
   const codingError    = codingState.key === codingKey ? codingState.error : '';
   const codingViolations = codingState.key === codingKey ? (codingState.violations || []) : []; // which locations are restricted
@@ -1187,6 +1214,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             destinationCity:     destinationCoords?.city     || "",
             destinationProvince: destinationCoords?.province || "",
             destinationCounty:   destinationCoords?.county   || "",
+            // Additional stops with a map pin — any of them outside the base area adds the extra fee.
+            extraDestinations: extraStopsForQuote,
             // The pickup counts toward the out-of-area charge too (see utils/pricing.js).
             pickupCity:          pickupCoords?.city          || "",
             pickupProvince:      pickupCoords?.province      || "",
@@ -1228,7 +1257,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCar?.carID, duration, startDate, startTime, endDate, endTime, destination, driveType, paymentAmount,
       destinationCoords?.city, destinationCoords?.province, destinationCoords?.county,
-      pickupCoords?.city, pickupCoords?.province, pickupCoords?.county]);
+      pickupCoords?.city, pickupCoords?.province, pickupCoords?.county, extraStopsKey]);
 
   const { days, total, diffHrs, extraFee, driversFee, serviceFee, gatewayFee, serviceFeeRate, gatewayFeeRate, securityDeposit, grandTotal } = quote;
   const getPayNow  = () => quote.payNow;
@@ -1446,8 +1475,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (currentStep === 2) {
       const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError && !chauffeurBlocked);
       if (tripPart === 1) return !!serviceType && !(serviceType === 'Others' && !otherServiceNote.trim());
-      if (tripPart === 2) return !!duration;
-      if (tripPart === PART.schedule) return !!(startDate && startTime && endDate && endTime) && !maxDaysError;
+      if (tripPart === PART.schedule) return !!(duration && startDate && startTime && endDate && endTime) && !maxDaysError;
       // Pickup: the dated Number Coding check already runs here (the dates come first now)
       if (tripPart === PART.pickup) return !!(pickupLocation && pickupCoords && dropoffLocation) && !codingError && !codingPending && !chauffeurBlocked;
       return allOk; // last part (Destination): everything must be complete
@@ -1474,13 +1502,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       const last = tripPart === TRIP_PARTS.length;
       if ((last || tripPart === 1) && !serviceType)            missing.push('a service type');
       if ((last || tripPart === 1) && serviceType === 'Others' && !otherServiceNote.trim()) missing.push('a description of the service');
-      if ((last || tripPart === 2) && !duration)                missing.push('a duration');
+      if ((last || tripPart === PART.schedule) && !duration)    missing.push('a duration');
       if ((last || tripPart === PART.schedule) && (!startDate || !startTime)) missing.push('a pickup date & time');
       if ((last || tripPart === PART.schedule) && (!endDate || !endTime))     missing.push('an end date & time');
       if ((last || tripPart === PART.pickup) && (!pickupLocation || !pickupCoords)) missing.push('a pickup location chosen on the map');
       if ((last || tripPart === PART.pickup) && !dropoffLocation)         missing.push('a drop-off location');
       if ((last || tripPart === PART.destination) && !destination)             missing.push('a destination');
-      if (tripPart >= PART.pickup && chauffeurBlocked)         missing.push('a different schedule, or choose Without Driver (no drivers are free for these dates)');
+      if (tripPart >= PART.pickup && chauffeurBlocked)         missing.push(storeInfo.configured ? 'a different schedule, or choose Without Driver (no drivers are free for these dates)' : 'a different schedule (no drivers are free for these dates)');
       if (tripPart >= PART.pickup && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
       if (tripPart >= PART.pickup && !codingError && codingPending) missing.push('a moment while we check Number Coding');
       if (tripPart >= PART.schedule && maxDaysError)             missing.push('a shorter rental period (under 10 days)');
@@ -1519,12 +1547,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       const last = tripPart === TRIP_PARTS.length;
       if ((last || tripPart === 1) && !serviceType)     e.serviceType     = 'Choose a service.';
       if ((last || tripPart === 1) && serviceType === 'Others' && !otherServiceNote.trim()) e.serviceType = 'Please describe the service.';
-      if ((last || tripPart === 2) && !duration)        e.duration        = 'Choose a duration.';
+      if ((last || tripPart === PART.schedule) && !duration) e.duration    = 'Choose a duration.';
       if ((last || tripPart === PART.schedule) && !startDate)       e.startDate       = 'Select a start date.';
       if ((last || tripPart === PART.schedule) && !startTime)       e.startTime       = 'Set a pickup time.';
       if ((last || tripPart === PART.schedule) && (!endDate || !endTime)) e.endDate     = 'End date/time is required.';
       if ((last || tripPart === PART.pickup) && !pickupLocation)  e.pickupLocation  = 'Choose a pickup location on the map.';
-      else if ((last || tripPart === PART.pickup) && !pickupCoords) e.pickupLocation = 'Please pick your location on the map so we can confirm it is within our service area.';
+      else if ((last || tripPart === PART.pickup) && !pickupCoords) e.pickupLocation = 'Please pick your location on the map so we can confirm it is on land in the Philippines.';
       if ((last || tripPart === PART.pickup) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
       if ((last || tripPart === PART.destination) && !destination)     e.destination     = 'Please enter a destination.';
       if (tripPart >= PART.pickup && chauffeurBlocked)  e.driverType      = NO_DRIVER_MESSAGE;
@@ -1764,7 +1792,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           // typed text with no pin).
           extraDestinations: extraDestinations
             .filter(d => d.lat != null && d.lng != null)
-            .map(d => ({ address: d.address || "", lat: d.lat, lng: d.lng, city: d.city || "" })),
+            .map(d => ({ address: d.address || "", lat: d.lat, lng: d.lng, city: d.city || "", province: d.province || "", county: d.county || "" })),
           // Every additional stop (even typed-only ones with no pin) — the server
           // re-checks Number Coding for each of them when the booking is created.
           codingStops,
@@ -1984,10 +2012,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     <div role="note" className="rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
       <p className="text-xs font-black text-amber-800">Your {where} is outside our base area</p>
       <p className="text-[11px] sm:text-xs text-amber-800 mt-0.5">
-        An extra {peso(quote.extraFeeOutsideArea)} applies to this booking.{' '}
-        {driveType === 'chauffeur'
-          ? `Because you chose a driver, the driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`
-          : `If you choose a driver, the driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`}
+        An extra {peso(quote.extraFeeOutsideArea)} applies to this booking.
+        {where === 'pickup' && (driveType === 'chauffeur'
+          ? ` Because you chose a driver, the driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`
+          : ` If you choose a driver, the driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`)}
       </p>
     </div>
   );
@@ -2009,7 +2037,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       key: 'extra', label: 'Extra Fee (Outside Area)', value: peso(extraFee),
       title: 'Extra Fee (Outside Area)',
       items: [
-        'Added when your destination is outside our base service area.',
+        'Added when your pickup or any destination is outside our base service area.',
         'It is shown here so there are no surprises on pickup day.',
       ],
     }] : []),
@@ -2018,7 +2046,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       title: "Driver's Fee",
       items: [
         'Charged for the driver when you book With Driver.',
-        'The amount depends on whether your trip is inside or outside our base service area.',
+        'The amount depends on whether your pickup is inside or outside our base service area.',
         "Fuel and toll fees are still the renter's responsibility.",
       ],
     }] : []),
@@ -2224,7 +2252,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                   </>)}
 
-                  {tripPart === 2 && (<>
+                  {tripPart === PART.schedule && (<>
                   {/* Duration — from car's pricing */}
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-arl-dark mb-3">Duration per Day</label>
@@ -2251,10 +2279,85 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
                   </>)}
 
+                  {tripPart === PART.pickup && (
+                  <div className="mb-6">
+                    <p className="text-sm font-semibold text-arl-dark mb-1">Who will drive?</p>
+                    <p className="text-xs text-gray-500 mb-3">Choose one. The extra cost of a driver is shown on the option.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[
+                        { type: 'chauffeur',  label: 'With Driver' },
+                        { type: 'self-drive', label: 'Without Driver' },
+                      ].map(({ type, icon, label }) => {
+                        const selected = driveType === type;
+                        const noDriver = type === 'chauffeur' && chauffeurFull; // no driver free for these dates
+                        const needsStore = type === 'self-drive' && !storeInfo.configured; // no store set up, so self-drive can't be offered
+                        const base = quote.driversFeeBaseArea;
+                        const outside = quote.driversFeeOutsideArea;
+                        return (
+                          <div key={type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${needsStore ? 'border-gray-200 bg-gray-50 opacity-70' : noDriver ? 'border-amber-300 bg-amber-50' : selected ? 'border-arl-primary bg-blue-50' : 'border-gray-200 bg-white hover:border-arl-primary/50'}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <label className={`flex items-start gap-2.5 flex-1 min-w-0 ${(noDriver || needsStore) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                <input type="radio" name="driveType" value={type}
+                                  checked={selected}
+                                  disabled={noDriver || needsStore}
+                                  onChange={() => handleSelectDriveType(type)}
+                                  className="mt-1 w-4 h-4 accent-arl-primary flex-shrink-0" />
+                                <span className="min-w-0">
+                                  <span className="block text-sm sm:text-base font-extrabold text-arl-dark">{label}</span>
+                                  {needsStore ? (
+                                    <>
+                                      <span className="block mt-1 text-xs sm:text-sm font-bold text-gray-700">Not available right now</span>
+                                      <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">Without Driver needs our store for pickup, which is not set up yet.</span>
+                                    </>
+                                  ) : noDriver ? (
+                                    <>
+                                      <span className="block mt-1 text-xs sm:text-sm font-bold text-amber-800">No driver available for these dates</span>
+                                      <span className="block mt-1 text-[11px] sm:text-xs text-amber-800">{driverAvail.message || NO_DRIVER_MESSAGE}</span>
+                                      {selected && <span className="block mt-1.5 text-[11px] sm:text-xs font-bold text-arl-cta">{storeInfo.configured ? 'Choose Without Driver, or go back and pick a different schedule, to continue.' : 'Go back and pick a different schedule to continue.'}</span>}
+                                    </>
+                                  ) : type === 'chauffeur' ? (
+                                    base === null || base === undefined ? (
+                                      <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">A professional driver. The driver's fee shows in your price breakdown.</span>
+                                    ) : (
+                                      <>
+                                        <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} inside our base area</span>
+                                        <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} outside our base area</span>
+                                        {quote.pickupOutside && (
+                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700">
+                                            Your pickup is outside our base area, so the driver's fee is {peso(outside)}.
+                                          </span>
+                                        )}
+                                        {selected && driversFee > 0 ? (
+                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)}</span>
+                                        ) : (
+                                          !quote.pickupOutside && <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The amount depends on whether your pickup is inside our base area.</span>
+                                        )}
+                                      </>
+                                    )
+                                  ) : (
+                                    <>
+                                      <span className="block mt-1 text-xs sm:text-sm font-bold text-green-700">No driver's fee</span>
+                                      <span className="block text-[11px] sm:text-xs text-gray-600">You drive. You must be 21+ with a valid license.</span>
+                                      <span className="block mt-1 text-[11px] sm:text-xs font-semibold text-gray-700">Pickup is locked to our store{storeInfo.storeName ? ` — ${storeInfo.storeName}` : ''}.</span>
+                                    </>
+                                  )}
+                                </span>
+                              </label>
+                              <InfoButton open={openInfo === type} onClick={() => toggleInfo(type)} label={type === 'chauffeur' ? 'About With Driver' : 'About Without Driver requirements'} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {(openInfo === 'chauffeur' || openInfo === 'self-drive') && <InfoPanel {...INFO[openInfo]} />}
+                  </div>
+                  )}
+
+
                   {/* ── LOCATIONS ── */}
                   {tripPart === PART.pickup && (
                   <div className="space-y-4 mb-6">
-                    {storeInfo.configured && (
+                    {storeInfo.configured && driveType === 'chauffeur' && (
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -2269,6 +2372,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       </div>
                     )}
 
+                    {storeInfo.configured && driveType === 'self-drive' && (
+                      <p className="text-xs font-semibold text-gray-600">Without Driver: pickup is locked to our store{storeInfo.storeName ? ` — ${storeInfo.storeName}` : ''}.</p>
+                    )}
+
                     <LocationInput
                       label="Pickup Location"
                       labelAddon={<InfoButton open={openInfo === 'pickup'} onClick={() => toggleInfo('pickup')} label="About pickup and drop-off" />}
@@ -2278,7 +2385,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       onCoordsChange={setPickupCoords}
                       placeholder="Tap to choose a pick-up location on the map…"
                       disabled={pickupInStore}
-                      restrictToServiceArea
+                      pickOnMap
                       coords={pickupCoords}
                       showBaseArea
                       baseAreaRole="pickup"
@@ -2312,73 +2419,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   </div>
                   )}
 
-                  {tripPart === PART.pickup && (
-                  <div className="mt-6">
-                    <p className="text-sm font-semibold text-arl-dark mb-1">Who will drive?</p>
-                    <p className="text-xs text-gray-500 mb-3">Choose one. The extra cost of a driver is shown on the option.</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {[
-                        { type: 'chauffeur',  label: 'With Driver' },
-                        { type: 'self-drive', label: 'Without Driver' },
-                      ].map(({ type, icon, label }) => {
-                        const selected = driveType === type;
-                        const noDriver = type === 'chauffeur' && chauffeurFull; // no driver free for these dates
-                        const base = quote.driversFeeBaseArea;
-                        const outside = quote.driversFeeOutsideArea;
-                        return (
-                          <div key={type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${noDriver ? 'border-amber-300 bg-amber-50' : selected ? 'border-arl-primary bg-blue-50' : 'border-gray-200 bg-white hover:border-arl-primary/50'}`}>
-                            <div className="flex items-start justify-between gap-2">
-                              <label className={`flex items-start gap-2.5 flex-1 min-w-0 ${noDriver ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                                <input type="radio" name="driveType" value={type}
-                                  checked={selected}
-                                  disabled={noDriver}
-                                  onChange={() => setDriveType(type)}
-                                  className="mt-1 w-4 h-4 accent-arl-primary flex-shrink-0" />
-                                <span className="min-w-0">
-                                  <span className="block text-sm sm:text-base font-extrabold text-arl-dark">{label}</span>
-                                  {noDriver ? (
-                                    <>
-                                      <span className="block mt-1 text-xs sm:text-sm font-bold text-amber-800">No driver available for these dates</span>
-                                      <span className="block mt-1 text-[11px] sm:text-xs text-amber-800">{driverAvail.message || NO_DRIVER_MESSAGE}</span>
-                                      {selected && <span className="block mt-1.5 text-[11px] sm:text-xs font-bold text-arl-cta">Choose Without Driver, or go back and pick a different schedule, to continue.</span>}
-                                    </>
-                                  ) : type === 'chauffeur' ? (
-                                    base === null || base === undefined ? (
-                                      <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">A professional driver. The driver's fee shows in your price breakdown.</span>
-                                    ) : (
-                                      <>
-                                        <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} inside our base area</span>
-                                        <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} outside our base area</span>
-                                        {quote.outsideArea && (
-                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700">
-                                            Your trip is outside our base area, so the driver's fee is {peso(outside)}.
-                                          </span>
-                                        )}
-                                        {selected && driversFee > 0 ? (
-                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)}</span>
-                                        ) : (
-                                          !quote.outsideArea && <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The amount depends on whether your pickup is inside our base area.</span>
-                                        )}
-                                      </>
-                                    )
-                                  ) : (
-                                    <>
-                                      <span className="block mt-1 text-xs sm:text-sm font-bold text-green-700">No driver's fee</span>
-                                      <span className="block text-[11px] sm:text-xs text-gray-600">You drive. You must be 21+ with a valid license.</span>
-                                    </>
-                                  )}
-                                </span>
-                              </label>
-                              <InfoButton open={openInfo === type} onClick={() => toggleInfo(type)} label={type === 'chauffeur' ? 'About With Driver' : 'About Without Driver requirements'} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {(openInfo === 'chauffeur' || openInfo === 'self-drive') && <InfoPanel {...INFO[openInfo]} />}
-                  </div>
-                  )}
-
                   {tripPart === PART.destination && (
                   <div className="space-y-4 mb-6">
                     <LocationInput
@@ -2389,6 +2429,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       onValueChange={(v) => { setDestination(v); }}
                       onCoordsChange={setDestinationCoords}
                       placeholder="Search for a destination…"
+                      showBaseArea
+                      baseAreaRole="destination"
                       showCodingZones
                       codingCarID={selectedCar?.carID || ''}
                       codingStart={codingStartISO}
@@ -2398,6 +2440,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       Your destination is for documentation purposes only. Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.
                     </p>
                     {errors.destination && <p className="text-arl-cta text-xs mt-1">{errors.destination}</p>}
+                    {quote.destinationOutside && outsideAreaNote('destination')}
                     {codingNote('primary')}
 
                     {extraDestinations.map((d, i) => (
@@ -2408,6 +2451,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           onValueChange={(v) => updateExtraDestinationAddress(d.id, v)}
                           onCoordsChange={(c) => updateExtraDestinationCoords(d.id, c)}
                           placeholder="Search for another stop…"
+                          showBaseArea
+                          baseAreaRole="destination"
                           showCodingZones
                           codingCarID={selectedCar?.carID || ''}
                           codingStart={codingStartISO}

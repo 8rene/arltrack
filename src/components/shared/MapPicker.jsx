@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { fetchServiceArea, checkInServiceArea, serviceAreaLabel, getServiceAreaOutline } from '../../utils/serviceArea';
 import { fetchBaseAreaConfig, getBaseAreaOutline, isInsideBaseArea } from '../../utils/baseArea';
 import { fetchCodingCities, getCodingZoneOutline } from '../../utils/codingZones';
 
@@ -23,15 +22,6 @@ const DEFAULT_COORDS = [14.7619, 120.9603];
 // below via the reverse-geocode country check.
 const PH_BOUNDS = L.latLngBounds([4.5, 116.0], [21.5, 127.0]);
 
-// ── "Fog of war" mask for the service area ───────────────────────────────
-// Everywhere is orange/undiscovered by default; a hole is cut for each
-// allowed region as its outline loads in, revealing it. A big outer ring
-// well past PH_BOUNDS guarantees the fog always covers the full visible
-// map regardless of zoom/pan. GeoJSON coordinates are [lng, lat].
-const FOG_OUTER_RING = [
-  [111, -1], [132, -1], [132, 27], [111, 27], [111, -1],
-];
-
 // Loose place-name match for the coding-zone note — same normalisation idea as
 // utils/baseArea.js's normalizePlace (lowercase, drop "City of"/"City", punctuation).
 const normalizePlaceLoose = (v) =>
@@ -42,17 +32,6 @@ const normalizePlaceLoose = (v) =>
     .replace(/[^a-z0-9ñ ]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-
-// Pull just the outer ring(s) out of a region's geometry to use as holes.
-// Any inner holes already in the source geometry are ignored — fine for a
-// large-scale visual mask, and the client-side pick is only a UX hint
-// anyway (the server is the real authority — see isWithinServiceArea).
-const extractOuterRings = (geometry) => {
-  if (!geometry) return [];
-  if (geometry.type === 'Polygon') return geometry.coordinates?.[0] ? [geometry.coordinates[0]] : [];
-  if (geometry.type === 'MultiPolygon') return (geometry.coordinates || []).map((poly) => poly?.[0]).filter(Boolean);
-  return [];
-};
 
 // Inner component: handles map click + drag
 const MapClickHandler = ({ onLocationChange }) => {
@@ -88,27 +67,34 @@ const DraggableMarker = ({ position, onDrag }) => {
   return <Marker draggable position={position} ref={markerRef} eventHandlers={eventHandlers} />;
 };
 
-// Service area — pickup is restricted to the regions saved in our database
-// (see utils/serviceArea.js). Nominatim's region naming for PH is inconsistent,
-// so we hand it every region-ish field plus the province and let the DB
-// regions/provinces decide.
 const pickRegion = (addr) => addr?.region || addr?.state || addr?.state_district || '';
-const regionParts = (addr) => ({
-  region:   addr?.region || addr?.state || addr?.state_district || '',
-  province: addr?.province || addr?.state || addr?.county || '',
-  city:     addr?.city || addr?.town || addr?.municipality || addr?.village || '',
-});
+
+// Water detection. Nominatim tags lakes, rivers, bays, seas etc. with these
+// class/type pairs; a pin that resolves to one of them is not a place a car can
+// be handed over at.
+const WATER_TYPES = new Set([
+  'water', 'bay', 'strait', 'sea', 'ocean', 'coastline', 'reef', 'wetland', 'lake', 'lagoon',
+  'river', 'stream', 'canal', 'drain', 'ditch', 'riverbank', 'basin', 'reservoir', 'harbour',
+  'cove', 'channel', 'fjord', 'spring', 'waterfall', 'dock',
+]);
+const isWaterResult = (r) => {
+  const cls  = String(r?.class || r?.category || '').toLowerCase();
+  const type = String(r?.type || '').toLowerCase();
+  if (cls === 'waterway') return true;
+  if (cls === 'natural' && WATER_TYPES.has(type)) return true;
+  if (cls === 'water') return true;
+  return false;
+};
 
 // Reverse geocode using Nominatim (free, no API key).
 // Returns the display label, the raw address block (caller needs
-// address.country_code to reject picks outside the Philippines — this also
-// catches most open-water picks, since Nominatim generally can't resolve an
-// address for open sea), and an `error` flag so a failed request can be
+// address.country_code to reject picks outside the Philippines), a `water` flag
+// (the pin landed on a sea / bay / lake / river — see isWaterResult), and an `error` flag so a failed request can be
 // told apart from a location that was resolved and simply rejected.
 const reverseGeocode = async (lat, lng) => {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&zoom=18`,
       { headers: { 'Accept-Language': 'en' } }
     );
     if (!res.ok) throw new Error(`Reverse geocode failed: ${res.status}`);
@@ -116,11 +102,12 @@ const reverseGeocode = async (lat, lng) => {
     return {
       label:   data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
       address: data.address || null,
+      water:   isWaterResult(data),
       error:   false,
     };
   } catch (err) {
     console.error('[MapPicker] reverseGeocode failed:', err.message);
-    return { label: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, address: null, error: true };
+    return { label: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, address: null, water: false, error: true };
   }
 };
 
@@ -134,7 +121,7 @@ const searchAddress = async (query) => {
       { headers: { 'Accept-Language': 'en' } }
     );
     if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-    const results = await res.json();
+    const results = (await res.json()).filter((r) => !isWaterResult(r));
     return { results, error: false };
   } catch (err) {
     console.error('[MapPicker] searchAddress failed:', err.message);
@@ -153,7 +140,7 @@ const searchAddress = async (query) => {
 // showBaseArea  — shade the base area on the map and say whether the chosen spot is inside/outside it.
 // baseAreaRole  — 'pickup' | 'destination': which location this map is picking. The note only shows
 //                 when that location is one that decides the out-of-area charge.
-const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToServiceArea = false, readOnly = false, initialCoords = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false, codingCarID = '', codingStart = '', codingEnd = '' }) => {
+const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', readOnly = false, initialCoords = null, showBaseArea = false, baseAreaRole = 'pickup', showCodingZones = false, codingCarID = '', codingStart = '', codingEnd = '' }) => {
   const [markerPos,    setMarkerPos]    = useState(DEFAULT_COORDS);
   const [address,      setAddress]      = useState(initialLabel);
   const [resolvedCity, setResolvedCity] = useState(''); // structured city name, not the free-text label
@@ -164,9 +151,6 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   const [baseShapes,  setBaseShapes]  = useState({});     // keyword -> GeoJSON geometry (progressively filled)
   const [codingCities, setCodingCities] = useState([]);   // city names with at least one coding rule
   const [codingShapes, setCodingShapes] = useState({});   // city name -> GeoJSON geometry (progressively filled)
-  // Allowed regions from the database. null = not loaded yet; 'error' = load failed.
-  const [serviceArea, setServiceArea] = useState(null);
-  const [serviceAreaShapes, setServiceAreaShapes] = useState({}); // regionID -> GeoJSON geometry (progressively filled)
   const [searchQuery,  setSearchQuery]  = useState('');
   const [searchResults,setSearchResults]= useState([]);
   const [searching,    setSearching]    = useState(false);
@@ -195,72 +179,6 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   // not a single city — see pricing.js isBaseArea).
   const pickProvince = (addr) => addr?.province || addr?.state || '';
 
-  // Load the allowed regions from the database when the picker opens
-  useEffect(() => {
-    if (!isOpen || !restrictToServiceArea) return;
-    let cancelled = false;
-    setServiceArea(null);
-    setServiceAreaShapes({});
-    fetchServiceArea()
-      .then((a) => { if (!cancelled) setServiceArea(a); })
-      .catch((err) => { console.error('[MapPicker] fetchServiceArea failed:', err.message); if (!cancelled) setServiceArea('error'); });
-    return () => { cancelled = true; };
-  }, [isOpen, restrictToServiceArea]);
-
-  // Once the allowed regions are known, fetch each one's outline so the fog
-  // mask below can cut a hole for it — one at a time, revealing regions
-  // progressively as they come in (see utils/serviceArea.js for the cache).
-  useEffect(() => {
-    if (!isOpen || !restrictToServiceArea) return undefined;
-    if (!serviceArea || serviceArea === 'error') return undefined;
-    let cancelled = false;
-    (async () => {
-      for (const r of serviceArea.regions || []) {
-        if (cancelled) return;
-        try {
-          const shape = await getServiceAreaOutline(r.regionName);
-          if (cancelled) return;
-          if (shape?.geometry) setServiceAreaShapes((prev) => ({ ...prev, [r.regionID]: shape.geometry }));
-        } catch (err) {
-          console.warn('[MapPicker] service-area outline failed for', r.regionName, err.message);
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isOpen, restrictToServiceArea, serviceArea]);
-
-  // The orange fog: a world-covering polygon with a hole punched out for
-  // every allowed region whose outline has loaded so far. Nothing to show
-  // until restrictToServiceArea is on and at least loading has started.
-  const fogMask = useMemo(() => {
-    if (!restrictToServiceArea) return null;
-    const holes = Object.values(serviceAreaShapes).flatMap(extractOuterRings);
-    // Until at least one allowed region's outline has loaded, draw no fog: an
-    // all-orange map would wrongly suggest nowhere is available (the server
-    // still enforces the real service area when a location is picked).
-    if (holes.length === 0) return null;
-    return {
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'Polygon', coordinates: [FOG_OUTER_RING, ...holes] },
-    };
-  }, [restrictToServiceArea, serviceAreaShapes]);
-
-  // Returns an error string if `addr` is outside the service area, else ''.
-  // The server decides (using the regions saved in the database).
-  const serviceAreaError = useCallback(async (addr) => {
-    if (!restrictToServiceArea) return '';
-    if (serviceArea === null)    return 'Still loading the service area — please try again in a moment.';
-    if (serviceArea === 'error') return "Couldn't load the service area — check your connection and try again.";
-    try {
-      const ok = await checkInServiceArea(regionParts(addr));
-      return ok ? '' : `Pickup is currently only available within: ${serviceAreaLabel(serviceArea)}.`;
-    } catch (err) {
-      console.error('[MapPicker] checkInServiceArea failed:', err.message);
-      return "Couldn't verify that location — check your connection and try again.";
-    }
-  }, [restrictToServiceArea, serviceArea]);
-
   // When modal opens, reset to initial or default
   useEffect(() => {
     if (isOpen) {
@@ -286,10 +204,16 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
   const handleLocationChange = useCallback(async (lat, lng) => {
     if (readOnly) return; // pin is fixed — see MapClickHandler/DraggableMarker below, which also don't wire up in this mode
     setLoading(true);
-    const { label, address, error } = await reverseGeocode(lat, lng);
+    const { label, address, water, error } = await reverseGeocode(lat, lng);
 
     if (error) {
       setPickError("Couldn't look up that location — check your connection and try again.");
+      setLoading(false);
+      return;
+    }
+
+    if (water) {
+      setPickError("That spot is on water (sea, bay, lake or river). Please pick a spot on land.");
       setLoading(false);
       return;
     }
@@ -312,13 +236,6 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
       return; // marker/address left unchanged — previous valid pick stays
     }
 
-    const areaErr = await serviceAreaError(address);
-    if (areaErr) {
-      setPickError(areaErr);
-      setLoading(false);
-      return;
-    }
-
     setPickError('');
     setMarkerPos([lat, lng]);
     setAddress(label);
@@ -328,7 +245,7 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     setResolvedCounty(address?.county || '');
     setHasSelected(true);
     setLoading(false);
-  }, [serviceAreaError, readOnly]);
+  }, [readOnly]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -345,9 +262,8 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
 
-    const areaErr = await serviceAreaError(result.address);
-    if (areaErr) {
-      setPickError(areaErr);
+    if (result.address?.country_code !== 'ph') {
+      setPickError('Please pick a location within the Philippines.');
       return; // don't accept the pick; leave the previous valid selection in place
     }
 
@@ -451,12 +367,12 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
     <div role="note" className="mb-2.5 sm:mb-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
       <p className="text-[11px] sm:text-xs font-black text-amber-800">Outside our base area</p>
       <p className="text-[10px] sm:text-xs text-amber-800 mt-0.5">
-        An extra {peso(baseCfg.extraFeeOutsideArea)} applies to this booking. If you choose a chauffeur,
-        the driver's fee is {peso(baseCfg.driversFeeOutsideArea)} instead of {peso(baseCfg.driversFeeBaseArea)}.
+        An extra {peso(baseCfg.extraFeeOutsideArea)} applies to this booking.
+        {baseAreaRole === 'pickup' && ` If you choose a chauffeur, the driver's fee is ${peso(baseCfg.driversFeeOutsideArea)} instead of ${peso(baseCfg.driversFeeBaseArea)}.`}
       </p>
     </div>
   ) : baseInside === true ? (
-    <p className="text-[10px] sm:text-xs text-green-700 font-semibold mb-2.5 sm:mb-3">Inside our base area — no extra fee.</p>
+    <p className="text-[10px] sm:text-xs text-green-700 font-semibold mb-2.5 sm:mb-3">Inside our base area — no extra fee for this location.</p>
   ) : null;
 
   // General coding-restriction heads-up for the chosen destination. This is NOT
@@ -488,10 +404,8 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
             <h3 className="text-sm sm:text-lg font-black text-arl-primary">Pick Location</h3>
             {readOnly ? (
               <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Fixed pickup location — uncheck "Pick up in-store" to choose elsewhere</p>
-            ) : restrictToServiceArea && (
-              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
-                {serviceArea === null ? 'Loading service area…' : serviceArea === 'error' ? 'Service area unavailable' : `Available in ${serviceAreaLabel(serviceArea)}`}
-              </p>
+            ) : (
+              <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">Pickup is available anywhere in the Philippines (on land)</p>
             )}
           </div>
           <button onClick={onClose}
@@ -574,14 +488,6 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
               attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            {restrictToServiceArea && fogMask && (
-              <GeoJSON
-                key={`fog-${Object.keys(serviceAreaShapes).length}`}
-                data={fogMask}
-                interactive={false}
-                style={{ stroke: false, fillColor: '#f97316', fillOpacity: 0.45 }}
-              />
-            )}
             {showBaseArea && Object.entries(baseShapes).map(([kw, geometry]) => (
               <GeoJSON
                 key={kw}
@@ -605,13 +511,8 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', restrictToSe
               : <DraggableMarker position={markerPos} onDrag={handleLocationChange} />}
           </MapContainer>
 
-          {(restrictToServiceArea || (showBaseArea && Object.keys(baseShapes).length > 0) || (showCodingZones && Object.keys(codingShapes).length > 0)) && (
+          {((showBaseArea && Object.keys(baseShapes).length > 0) || (showCodingZones && Object.keys(codingShapes).length > 0)) && (
             <div className="absolute left-2 bottom-2 z-[500] flex flex-col gap-1 rounded-lg bg-white/90 px-2 py-1.5 shadow text-[10px] sm:text-xs text-gray-700">
-              {restrictToServiceArea && (
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-sm bg-orange-400/60" /> Outside service area — not available for pickup
-                </div>
-              )}
               {showBaseArea && Object.keys(baseShapes).length > 0 && (
                 <div className="flex items-center gap-1.5">
                   <span className="inline-block h-3 w-3 rounded-sm border border-green-600 bg-green-400/40" /> Base area (fee zone)

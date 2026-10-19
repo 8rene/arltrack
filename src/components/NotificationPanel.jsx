@@ -152,6 +152,14 @@ const META_BY_TYPE = {
     badge: { text: "Removed", className: "bg-gray-100 text-gray-600" },
     action: "View Details",
   },
+  // Written by the ADMIN app (services/terms/terms.service.js → notifyAllUsers) to every
+  // user when a new Terms & Conditions version is published. refID is the new termsVersionID,
+  // but tapping it opens the CURRENT terms page, not a booking (see handleAction).
+  terms_updated: {
+    bg: "bg-blue-100", title: "Terms & Conditions Updated",
+    badge: { text: "Updated", className: "bg-blue-50 text-blue-700" },
+    action: "View Terms",
+  },
 };
 
 const DEFAULT_META = {
@@ -247,7 +255,7 @@ function NotificationDropdown({ notifications, onAction, onDelete, onClose }) {
 
         {notifications.length > 0 && (
           <div className="px-5 py-3 border-t bg-arl-light/50 text-xs text-gray-400 text-center">
-            Bookings · Payments · Reminders
+            Bookings · Payments · Reminders · Updates
           </div>
         )}
       </div>
@@ -319,8 +327,16 @@ export default function NotificationPanel({ user }) {
   // Every current notification type points at the same place: the
   // booking's own details page, where "Pay Now" already lives as a real
   // link (see BookingDetails.jsx) once a checkout session exists.
+  //
+  // Exception: a Terms & Conditions update isn't about a booking — it opens the
+  // current Terms page. No ?v= on purpose: /terms?v=<id> is the "version you accepted"
+  // view (with a banner saying so), whereas here the customer should read the NEW terms.
   const handleAction = (n) => {
     setNotifOpen(false);
+    if (n.type === "terms_updated") {
+      navigate("/terms");
+      return;
+    }
     if (n.refID) {
       navigate(`/booking/${n.refID}/details`);
     } else {
