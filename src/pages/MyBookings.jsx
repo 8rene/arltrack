@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
+import PenaltyPayButton from "../components/shared/PenaltyPayButton";
 
 // ── Date formatter — handles Firestore Timestamps, JS Dates, ISO strings ──
 const fmtDT = (val) => {
@@ -13,6 +14,18 @@ const fmtDT = (val) => {
 };
 
 const peso = (v) => `₱${Number(v || 0).toLocaleString()}`;
+
+// Milliseconds for a Firestore Timestamp / JS Date / ISO string (0 when missing) — used to sort bookings by date.
+const toMs = (val) => {
+  if (!val) return 0;
+  if (val?.toDate) return val.toDate().getTime();
+  if (val?._seconds !== undefined) return val._seconds * 1000;
+  if (val?.seconds !== undefined) return val.seconds * 1000;
+  const t = new Date(val).getTime();
+  return Number.isNaN(t) ? 0 : t;
+};
+// A booking's date for sorting = when the trip starts (falls back to when it was booked).
+const tripMs = (b) => toMs(b.startDateTime) || toMs(b.createdAt);
 
 // ── Payment status config (badge shown on each booking card) ──
 const PAYMENT_STATUS_CONFIG = {
@@ -256,7 +269,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
   const { showToast } = useToast();
 
   const {
-    bookingID, carName, carImage, carBodyType, plateNumber, plateRevealsAt,
+    bookingID, carName, carImage, carBodyType, plateNumber,
     serviceType, duration, startDateTime, endDateTime,
     totalDays, totalFee,
     status, cancellationReason,
@@ -421,6 +434,19 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
               </div>
             </div>
 
+            {/* Price first — the thing a renter checks most */}
+            <div className="flex items-baseline gap-2 flex-wrap mb-2">
+              {p.discountAmount > 0 ? (
+                <>
+                  <span className="text-xl sm:text-2xl font-black text-arl-cta leading-none">{peso((p.amount || totalFee) - p.discountAmount)}</span>
+                  <span className="text-sm text-gray-400 line-through">{peso(p.amount || totalFee)}</span>
+                </>
+              ) : (
+                <span className="text-xl sm:text-2xl font-black text-arl-cta leading-none">{peso(p.amount || totalFee)}</span>
+              )}
+              <span className="text-xs text-gray-400">{totalDays} day(s)</span>
+            </div>
+
             <div className="space-y-0.5 mb-2">
               <p className="text-xs text-gray-500">
                 <span className="font-semibold text-gray-600">Service:</span> {serviceType || "—"}
@@ -430,18 +456,15 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
                   <span className="font-semibold text-gray-600">Plate no.:</span>{" "}
                   <span className="font-mono font-bold text-gray-800 tracking-wider">{plateNumber}</span>
                 </p>
-              ) : plateRevealsAt ? (
-                <p className="text-xs text-gray-400">Plate no. shown {fmtDT(plateRevealsAt)}</p>
               ) : null}
-              <p className="text-xs text-gray-500">
-                <span className="font-semibold text-gray-600">Start:</span> {fmtDT(startDateTime)}
-              </p>
-              <p className="text-xs text-orange-700 font-bold bg-orange-50 border border-orange-200 rounded-md px-1.5 py-0.5 inline-block">
-                End: {fmtDT(endDateTime)}
-              </p>
-              <p className="text-xs text-gray-400">
-                <span className="font-semibold text-gray-500">Booked on:</span> {fmtDT(createdAt)}
-              </p>
+              <div className="py-1.5 space-y-1">
+                <p className="text-sm text-gray-800 font-bold leading-snug">
+                  <span className="text-xs font-semibold text-gray-500">Pickup at:</span> {fmtDT(startDateTime)}
+                </p>
+                <p className="text-sm text-orange-700 font-bold leading-snug bg-orange-50 border border-orange-200 rounded-md px-2 py-0.5 inline-block">
+                  <span className="text-xs font-semibold text-orange-600">Return at:</span> {fmtDT(endDateTime)}
+                </p>
+              </div>
               {/* Number Coding heads-up: only while the trip is still ahead of / underway. The full schedule is on Details. */}
               {codingWarningCount > 0 && ["to pay", "upcoming", "ongoing"].includes(status) && (
                 <button
@@ -480,18 +503,6 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
             </div>
 
             <div className="flex flex-col gap-2.5">
-              <div className="flex items-center gap-3">
-                {p.discountAmount > 0 ? (
-                  <span className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-lg sm:text-xl font-black text-arl-cta">{peso((p.amount || totalFee) - p.discountAmount)}</span>
-                    <span className="text-sm text-gray-400 line-through">{peso(p.amount || totalFee)}</span>
-                  </span>
-                ) : (
-                  <span className="text-lg sm:text-xl font-black text-arl-cta">{peso(p.amount || totalFee)}</span>
-                )}
-                <span className="text-xs text-gray-400">{totalDays} day(s)</span>
-              </div>
-
               {canPayBalanceOnline && (
                 <div className={`rounded-lg border px-2.5 py-1.5 ${balancePending ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>
                   <p className={`text-xs font-bold ${balancePending ? "text-amber-700" : "text-red-700"}`}>
@@ -674,7 +685,7 @@ const LiveCalendarIcon = () => {
 };
 
 const EMPTY_STATE_COPY = {
-  toPay:    { title: "Nothing to pay",         body: "Unpaid bookings awaiting payment will show up here." },
+  toPay:    { title: "Nothing to pay",         body: "Unpaid bookings and partial bookings with a balance due will show up here." },
   upcoming: { title: "No upcoming bookings",  body: "Book a ride to see it here." },
   ongoing:  { title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
   refunds:  { title: "No refund requests",     body: "Bookings you've requested a refund for will show up here." },
@@ -691,6 +702,45 @@ const EmptyState = ({ tab }) => {
       <p className="text-gray-500 font-bold text-lg">{title}</p>
       <p className="text-gray-400 text-sm mt-1">{body}</p>
     </div>
+  );
+};
+
+// ── Pagination — bookings are listed PAGE_SIZE at a time (Prev · 1 2 3 … · Next) ──
+const PAGE_SIZE = 6;
+
+const Pagination = ({ page, totalPages, total, onChange }) => {
+  if (totalPages <= 1) return null;
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to   = Math.min(page * PAGE_SIZE, total);
+  // first page, last page and the pages either side of the current one; "…" fills any gap
+  const nums = [...new Set([1, page - 1, page, page + 1, totalPages])]
+    .filter((n) => n >= 1 && n <= totalPages)
+    .sort((a, b) => a - b);
+  const base = "h-9 min-w-[2.25rem] px-3 rounded-full text-sm font-bold transition";
+  const idle = "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50";
+  return (
+    <nav aria-label="Booking pages" className="mt-6">
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
+        <button type="button" onClick={() => onChange(page - 1)} disabled={page === 1}
+          className={`${base} ${idle} px-4 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white`}>
+          Prev
+        </button>
+        {nums.map((n, i) => (
+          <span key={n} className="flex items-center gap-1.5">
+            {i > 0 && n - nums[i - 1] > 1 && <span className="px-0.5 text-gray-300">…</span>}
+            <button type="button" onClick={() => onChange(n)} aria-current={n === page ? "page" : undefined}
+              className={`${base} ${n === page ? "bg-arl-primary text-white shadow" : idle}`}>
+              {n}
+            </button>
+          </span>
+        ))}
+        <button type="button" onClick={() => onChange(page + 1)} disabled={page === totalPages}
+          className={`${base} ${idle} px-4 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white`}>
+          Next
+        </button>
+      </div>
+      <p className="text-center text-xs text-gray-400 mt-2">Showing {from}–{to} of {total}</p>
+    </nav>
   );
 };
 
@@ -711,6 +761,46 @@ const MyBookings = ({ user }) => {
   });
 
   const [refundRequests, setRefundRequests] = useState([]);
+  const { showToast } = useToast();
+
+  // "Pay now" on a Balance-due card: opens the balance checkout straight away (same call the booking card
+  // and Booking Details make). `payingBalanceID` disables that card's button while the redirect happens.
+  const [payingBalanceID, setPayingBalanceID] = useState(null);
+  const payBalance = async (b) => {
+    const pay = b.payment || {};
+    if (!pay.paymentID) { navigate(`/booking/${b.bookingID}/details`); return; }
+    setPayingBalanceID(b.bookingID);
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/create-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          bookingID: b.bookingID,
+          paymentID: pay.paymentID,
+          description: `ARL Track Booking #${b.bookingID} (Balance)`,
+          paymentMethod: pay.paymentMethod,
+          phase: "balance",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to create payment link.");
+      if (json.alreadyPaid) { navigate(`/payment-return?paymentID=${pay.paymentID}&bookingID=${b.bookingID}`); return; }
+      window.location.href = json.checkoutUrl + `?paymentID=${pay.paymentID}`;
+    } catch (err) {
+      showToast(err.message || "Could not connect to PayMongo. Please try again.");
+      setPayingBalanceID(null);
+    }
+  };
+
+  // Which page of the current tab is showing (1-based). Switching tab starts again from page 1.
+  const [page, setPage] = useState(1);
+
+  // History tab only: show Completed / Cancelled / All, newest or oldest trip first.
+  const [historyFilter, setHistoryFilter] = useState("all");     // "all" | "completed" | "cancelled"
+  const [historySort,   setHistorySort]   = useState("newest");  // "newest" | "oldest"
+
+  useEffect(() => { setPage(1); }, [activeTab, historyFilter, historySort]);
 
   useEffect(() => {
     if (!user?.userID) { navigate("/"); return; }
@@ -810,7 +900,13 @@ const MyBookings = ({ user }) => {
   const hasActiveRefundStory = (b) =>
     (b.payment?.status || "").toLowerCase() === "refunded" ||
     !!(b.payment?.paymentID && findActiveRefund(b.payment.paymentID));
-  const toPay     = bookings.filter(b => b.status === "to pay");
+  // A confirmed (upcoming) Partial booking whose deposit is paid but whose balance is still open.
+  // It stays in Upcoming (full card); To Pay only lists a short clickable row for it, like penalties.
+  // Bookings with an active refund request stay in Refunds.
+  const owesBalance = (b) =>
+    b.status === "upcoming" && !hasActiveRefundStory(b) && getPaymentInfo(b.payment).key === "partial";
+  const toPay        = bookings.filter(b => b.status === "to pay");
+  const balanceDues  = bookings.filter(owesBalance);
   // Unpaid penalties belong under To Pay too (one entry per booking that owes).
   // Falls back to 1 if the balance is > 0 but the per-booking list is empty.
   const penaltyCount = outstandingBalance > 0 ? Math.max(outstandingBookings.length, 1) : 0;
@@ -818,12 +914,25 @@ const MyBookings = ({ user }) => {
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   const refunded  = bookings.filter(hasActiveRefundStory);
   const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
+  const historyCompleted = history.filter(b => b.status === "completed").length;
+  const historyCancelled = history.length - historyCompleted;
+  // The History tab's list: filtered by status, then ordered by trip date (the other tabs keep the server's order).
+  const historyShown = history
+    .filter(b => historyFilter === "all" || b.status === historyFilter)
+    .sort((a, b) => (historySort === "oldest" ? tripMs(a) - tripMs(b) : tripMs(b) - tripMs(a)));
   const displayed =
     activeTab === "toPay"    ? toPay    :
     activeTab === "upcoming" ? upcoming :
     activeTab === "ongoing"  ? ongoing  :
     activeTab === "refunds"  ? refunded :
-    history;
+    historyShown;
+
+  // One page of the current tab. The page is clamped, so if the list gets shorter (a booking was cancelled, or the
+  // list refreshed) the view never lands on a page that no longer exists.
+  const totalPages = Math.max(1, Math.ceil(displayed.length / PAGE_SIZE));
+  const safePage   = Math.min(page, totalPages);
+  const pageItems  = displayed.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const goToPage   = (n) => { setPage(Math.min(Math.max(n, 1), totalPages)); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-16">
@@ -836,7 +945,7 @@ const MyBookings = ({ user }) => {
 
         <div className="flex overflow-x-auto scrollbar-hide bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1 -mx-1 px-1 sm:mx-0">
           {[
-            { key: "toPay",    label: "To Pay",   count: toPay.length + penaltyCount },
+            { key: "toPay",    label: "To Pay",   count: toPay.length + balanceDues.length + penaltyCount },
             { key: "upcoming", label: "Upcoming", count: upcoming.length },
             { key: "ongoing",  label: "Ongoing",  count: ongoing.length },
             { key: "refunds",  label: "Refunds",  count: refunded.length },
@@ -858,7 +967,7 @@ const MyBookings = ({ user }) => {
 
         <p className="text-xs text-gray-400 mb-4">
           {activeTab === "toPay"
-            ? "To Pay — Complete payment within 12 hours or the booking is auto-cancelled."
+            ? "To Pay — Unpaid bookings must be paid within 12 hours or they are auto-cancelled. Balances and penalties are listed above them."
             : activeTab === "upcoming"
             ? "Upcoming — You can cancel bookings before they start."
             : activeTab === "ongoing"
@@ -868,6 +977,36 @@ const MyBookings = ({ user }) => {
             : "Cancelled & Completed — Use Rebook to book the same car again."}
         </p>
 
+        {activeTab === "history" && !loading && history.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Show history by status">
+              {[
+                { key: "all",       label: "All",       n: history.length },
+                { key: "completed", label: "Completed", n: historyCompleted },
+                { key: "cancelled", label: "Cancelled", n: historyCancelled },
+              ].map(({ key, label, n }) => (
+                <button key={key} type="button" onClick={() => setHistoryFilter(key)} aria-pressed={historyFilter === key}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition ${
+                    historyFilter === key ? "bg-arl-primary text-white border-arl-primary shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  }`}>
+                  {label} <span className={historyFilter === key ? "text-white/70" : "text-gray-400"}>{n}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5" role="group" aria-label="Sort history by trip date">
+              <span className="text-xs text-gray-400">Sort</span>
+              {[{ key: "newest", label: "Newest" }, { key: "oldest", label: "Oldest" }].map(({ key, label }) => (
+                <button key={key} type="button" onClick={() => setHistorySort(key)} aria-pressed={historySort === key}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition ${
+                    historySort === key ? "bg-arl-primary text-white border-arl-primary shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
             {error}
@@ -875,66 +1014,101 @@ const MyBookings = ({ user }) => {
         )}
 
         <div className="space-y-4">
-          {activeTab === "toPay" && penaltyCount > 0 && (
-            <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-4">
-              <p className="text-sm font-bold text-red-700">
-                Unpaid penalty: ₱{outstandingBalance.toLocaleString()}
-              </p>
-              <p className="text-xs text-red-500 mt-0.5">
-                {outstandingBookings.length > 0 && outstandingBookings.every((b) => (b.onlineDue ?? b.amount) <= 0)
-                  ? "Your security deposit pays these when the booking is settled, so there is nothing to pay online. You can't make a new booking until then."
-                  : "Penalties are paid online (GCash, Maya or QR Ph) — open the booking and tap Pay. You can't make a new booking until it is paid."}
-              </p>
-              {outstandingBookings.length > 0 && (
-                <div className="mt-3 flex flex-col gap-2">
-                  {outstandingBookings.map((b) => {
-                    // Older backends send only `amount`: everything is then online with no fee.
-                    const due = b.onlineDue ?? b.amount;
-                    const fee = b.fee || 0;
-                    const covered = b.coveredByDeposit || 0;
-                    const total = b.total ?? b.amount;
-                    return (
-                      <div key={b.bookingID} className="flex items-center justify-between gap-3 bg-white/70 rounded-xl px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="text-xs text-gray-500 truncate">Booking #{String(b.bookingID).slice(-6).toUpperCase()}</p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-bold text-red-700">₱{Number(due > 0 ? total : b.amount).toLocaleString()}</p>
-                            {due > 0 ? (
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                b.pending ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-red-100 text-red-700 border-red-300"
-                              }`}>
-                                {b.pending ? "Payment pending" : "Payment required"}
-                              </span>
-                            ) : (
-                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border bg-blue-100 text-blue-700 border-blue-300">
-                                Covered by deposit
-                              </span>
-                            )}
-                          </div>
-                          {due > 0 && fee > 0 && (
-                            <p className="text-[11px] text-gray-500">₱{Number(due).toLocaleString()} penalty + ₱{Number(fee).toLocaleString()} online payment fee</p>
-                          )}
-                          {covered > 0 && (
-                            <p className="text-[11px] text-gray-500">₱{Number(covered).toLocaleString()} covered by your deposit (no fee)</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => navigate(`/booking/${b.bookingID}/details`)}
-                          className="whitespace-nowrap rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 transition-colors"
-                        >
-                          {due <= 0 ? "View" : b.pending ? "Finish payment" : "Pay now"}
-                        </button>
-                      </div>
-                    );
-                  })}
+          {/* Balance due — one simple card per booking */}
+          {activeTab === "toPay" && safePage === 1 && balanceDues.map((b) => {
+            const pending = String(b.payment?.balanceStatus || "").toLowerCase() === "pending";
+            return (
+              <div
+                key={`bal-${b.bookingID}`}
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                    Balance due{pending ? " · payment pending" : ""}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate">{b.carName || ""}</p>
                 </div>
-              )}
-            </div>
+                <p className="text-xl sm:text-2xl font-black text-arl-cta leading-tight">{getPaymentInfo(b.payment).extra}</p>
+                <p className="text-xs text-gray-600 font-semibold">Due by: {fmtDT(b.startDateTime)}</p>
+                </div>
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/booking/${b.bookingID}/details`)}
+                    className="whitespace-nowrap text-xs font-bold text-arl-primary border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition"
+                  >
+                    View booking
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => payBalance(b)}
+                    disabled={payingBalanceID === b.bookingID}
+                    className="whitespace-nowrap text-xs font-bold text-white bg-arl-cta hover:bg-opacity-90 disabled:opacity-60 px-3 py-1.5 rounded-lg transition"
+                  >
+                    {payingBalanceID === b.bookingID ? "Redirecting…" : pending ? "Finish payment" : "Pay now"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Penalty due — one simple card per booking that owes */}
+          {activeTab === "toPay" && safePage === 1 && penaltyCount > 0 && (
+            (outstandingBookings.length > 0
+              ? outstandingBookings
+              : [{ bookingID: null, amount: outstandingBalance }]
+            ).map((b) => {
+              // Older backends send only `amount`: everything is then online with no fee.
+              const due = b.onlineDue ?? b.amount;
+              const shown = due > 0 ? (b.total ?? b.amount) : b.amount;
+              return (
+                <div
+                  key={`pen-${b.bookingID || "all"}`}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                      Penalty due{b.pending ? " · payment pending" : ""}
+                    </p>
+                    {b.bookingID && <p className="text-xs text-gray-400">#{String(b.bookingID).slice(-6).toUpperCase()}</p>}
+                  </div>
+                  <p className="text-xl sm:text-2xl font-black text-arl-cta leading-tight">₱{Number(shown || 0).toLocaleString()}</p>
+                  <p className="text-xs text-red-600 font-semibold">
+                    {due > 0
+                      ? "Temporarily blocked from booking until this is paid"
+                      : "Covered by your deposit — blocked from booking until it's settled"}
+                  </p>
+                  </div>
+                  {b.bookingID && (
+                    <div className="flex flex-col gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/booking/${b.bookingID}/details`)}
+                        className="whitespace-nowrap text-xs font-bold text-arl-primary border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition"
+                      >
+                        View booking
+                      </button>
+                      {/* Opens the same pay-online popup as Booking Details (hidden when the deposit covers it all) */}
+                      <PenaltyPayButton
+                        bookingID={b.bookingID}
+                        amount={due > 0 ? (b.total ?? b.amount) : 0}
+                        penaltyAmount={due}
+                        gatewayFee={b.fee || 0}
+                        label={b.pending ? "Finish payment" : "Pay now"}
+                        className="whitespace-nowrap text-xs font-bold text-white bg-arl-cta hover:bg-opacity-90 px-3 py-1.5 rounded-lg transition"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
           {loading
             ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} />)
             : displayed.length > 0
-            ? displayed.map(b => (
+            ? pageItems.map(b => (
                 <BookingCard
                   key={b.bookingID}
                   booking={b}
@@ -946,9 +1120,14 @@ const MyBookings = ({ user }) => {
                   onBookingChanged={fetchBookings}
                 />
               ))
-            : (activeTab === "toPay" && penaltyCount > 0) ? null : <EmptyState tab={activeTab} />
+            : (activeTab === "toPay" && (penaltyCount > 0 || balanceDues.length > 0)) ? null
+            : (activeTab === "history" && history.length > 0)
+            ? <p className="text-center text-gray-400 text-sm py-16">No {historyFilter} bookings in your history.</p>
+            : <EmptyState tab={activeTab} />
           }
         </div>
+
+        {!loading && <Pagination page={safePage} totalPages={totalPages} total={displayed.length} onChange={goToPage} />}
 
         {!loading && (
           <div className="text-center mt-8">

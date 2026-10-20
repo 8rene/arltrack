@@ -116,14 +116,8 @@ const META_BY_TYPE = {
     badge: { text: "Refund Failed", className: "bg-red-50 text-red-700" },
     action: "View Details",
   },
-  // Written by the ADMIN app when staff record / update a traffic notice or check a handover
-  // (refID = the bookingID, so tapping the card opens that booking's details, where the notice
-  // and the handover are shown). Contract: customer backend docs/violations-and-handover-contract.md
-  violation_recorded: {
-    bg: "bg-red-100", title: "Traffic Notice Recorded",
-    badge: { text: "Notice", className: "bg-red-50 text-red-700" },
-    action: "View Booking",
-  },
+  // Written by the ADMIN app when staff check a handover (refID = the bookingID, so tapping
+  // the card opens that booking's details, where the handover is shown).
   handover_verified: {
     bg: "bg-green-100", title: "Handover Checked",
     badge: { text: "Verified", className: "bg-green-50 text-green-700" },

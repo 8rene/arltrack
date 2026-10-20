@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PenaltyPayButton from "../components/shared/PenaltyPayButton";
-import ViolationsCard from "../components/booking/ViolationsCard";
 import InspectionCard from "../components/booking/InspectionCard";
 import PaymentsReceiptsCard from "../components/booking/PaymentsReceiptsCard";
 
@@ -603,9 +602,6 @@ export default function BookingDetailsPage() {
         {/self/i.test(booking.modeOfDriving || "") && (
           <InspectionCard bookingID={booking.bookingID || bookingID} />
         )}
-
-        {/* Traffic notices (the card hides itself when it doesn't apply) */}
-        <ViolationsCard bookingID={booking.bookingID || bookingID} bookingStatus={booking.status} />
 
         {/* Payment */}
         {payment ? (
