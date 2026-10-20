@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -367,8 +367,8 @@ const MapPicker = ({ isOpen, onClose, onConfirm, initialLabel = '', readOnly = f
     <div role="note" className="mb-2.5 sm:mb-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
       <p className="text-[11px] sm:text-xs font-black text-amber-800">Outside our base area</p>
       <p className="text-[10px] sm:text-xs text-amber-800 mt-0.5">
-        An extra {peso(baseCfg.extraFeeOutsideArea)} applies to this booking. It is charged once, even if other locations are outside too.
-        {` With a driver, the driver's fee becomes ${peso(baseCfg.driversFeeOutsideArea)} instead of ${peso(baseCfg.driversFeeBaseArea)}, with no extra fee on top.`}
+        An extra {peso(baseCfg.extraFeeOutsideArea)} applies to this booking.
+        {` With a driver, the payment for the driver will be ${peso(baseCfg.driversFeeOutsideArea)} per day.`}
       </p>
     </div>
   ) : baseInside === true ? (

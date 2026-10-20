@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info, Clock } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
@@ -28,7 +28,6 @@ const sameDay     = (a, b) => a && b && toMidnight(a).getTime() === toMidnight(b
 const addDays     = (d, n) => { const c = new Date(d); c.setDate(c.getDate() + n); return c; };
 const addHours    = (d, h) => new Date(new Date(d).getTime() + h * 3600000);
 const fmt         = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-const fmtTime     = (d) => d ? new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
 const fmt12       = (t) => { if (!t) return ''; const [h,m]=t.split(':').map(Number); const ap=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ap}`; };
 const MONTHS      = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS        = ['Su','Mo','Tu','We','Th','Fr','Sa'];
@@ -99,11 +98,13 @@ const BLOCKED_STATUSES = new Set(['booked', 'preparation', 'maintenance']);
 // Days on which no driver is free the whole day (from POST /bookings/driver-availability/days). They are NOT
 // blocked: the date can still be picked, but only for a Without Driver booking.
 const NO_DRIVER_DAY_LABEL = 'No driver available — Without Driver only';
+const PARTIAL_DRIVER_DAY_LABEL = 'A driver is free at certain times only';
 // Legend swatches look like the day cells they describe, so the three kinds can be told apart at a glance.
 const LEGEND_ITEMS = [
   { key: 'available',   label: 'Available',            swatch: 'bg-white border-2 border-gray-300' },
   { key: 'unavailable', label: 'Unavailable',          swatch: 'bg-gray-300 border-2 border-gray-300' },
   { key: 'nodriver',    label: 'No driver (self-drive only)', swatch: 'bg-orange-100 border-2 border-orange-400' },
+  { key: 'partialdriver', label: 'Driver free at some times only', swatch: 'bg-amber-50 border-2 border-amber-400' },
 ];
 
 // Pure helper (no component state) so it can be reused both at click-time
@@ -186,7 +187,7 @@ const clockPolar = (i, r) => {
 const clockPad = (n) => String(n).padStart(2, '0');
 const clockTo24 = (h12, m, ap) => `${clockPad((h12 % 12) + (ap === 'PM' ? 12 : 0))}:${clockPad(m)}`;
 
-const ClockTimePicker = ({ value, onChange, onMinutePicked }) => {
+const ClockTimePicker = ({ value, onChange, onMinutePicked, allowedTimes = null }) => {
   const parsed = /^\d{1,2}:\d{2}$/.test(value || '')
     ? (() => { const [h, m] = value.split(':').map(Number); return { h12: (h % 12) || 12, minute: m, ap: h >= 12 ? 'PM' : 'AM' }; })()
     : null;
@@ -205,19 +206,25 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked }) => {
   const pickMinute = (m) => { if (h12 !== null) { onChange(clockTo24(h12, m, ap)); if (onMinutePicked) onMinutePicked(); } };
   const pickAp     = (p) => { setAp(p); if (h12 !== null) onChange(clockTo24(h12, minute, p)); };
 
+  // allowedTimes (a Set of "HH:MM") = the pickup times that still have a driver. Anything else is greyed out
+  // (still tappable: it can be booked Without Driver). null = nothing to grey out.
+  const timeOk = (h12v, m, apv) => !allowedTimes || allowedTimes.has(clockTo24(h12v, m, apv));
+  const hourOk = (h12v, apv) => [0, 15, 30, 45].some((m) => timeOk(h12v, m, apv));
+  const apOk   = (apv) => Array.from({ length: 12 }, (_, i) => (i === 0 ? 12 : i)).some((h) => hourOk(h, apv));
+
   let handIndex = null;
   if (mode === 'hour' && h12 !== null) handIndex = h12 % 12;
   if (mode === 'minute' && parsed) handIndex = minute / 5;
   const handEnd = handIndex !== null ? clockPolar(handIndex, CLOCK_LABEL_R - CLOCK_BUBBLE_R) : null;
 
   const seg = 'px-2 py-1 rounded-lg text-3xl sm:text-4xl font-black leading-none transition';
-  const renderMark = (key, idx, label, selected, onClick) => {
+  const renderMark = (key, idx, label, selected, onClick, dimmed = false) => {
     const { x, y } = clockPolar(idx, CLOCK_LABEL_R);
     return (
       <g key={key} onClick={onClick} style={{ cursor: 'pointer' }}>
         <circle cx={x} cy={y} r={CLOCK_BUBBLE_R} fill={selected ? '#1a5f7a' : 'transparent'} />
         <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="700"
-          fill={selected ? '#ffffff' : '#374151'} style={{ pointerEvents: 'none' }}>{label}</text>
+          fill={selected ? '#ffffff' : dimmed ? '#d1d5db' : '#374151'} style={{ pointerEvents: 'none' }}>{label}</text>
       </g>
     );
   };
@@ -239,7 +246,7 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked }) => {
         <div className="flex flex-col gap-1">
           {['AM', 'PM'].map((p) => (
             <button key={p} type="button" onClick={() => pickAp(p)} aria-pressed={ap === p}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${ap === p ? 'bg-arl-cta text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${ap === p ? 'bg-arl-cta text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} ${!apOk(p) && ap !== p ? 'opacity-40' : ''}`}>
               {p}
             </button>
           ))}
@@ -254,7 +261,7 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked }) => {
 
         {mode === 'hour' && Array.from({ length: 12 }, (_, i) => {
           const hour = i === 0 ? 12 : i;
-          return renderMark(hour, i, hour, h12 === hour, () => pickHour(hour));
+          return renderMark(hour, i, hour, h12 === hour, () => pickHour(hour), !hourOk(hour, ap));
         })}
 
         {mode === 'minute' && (
@@ -264,7 +271,7 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked }) => {
               const { x, y } = clockPolar(i, CLOCK_LABEL_R);
               return <circle key={`t${i}`} cx={x} cy={y} r="2.5" fill="#d1d5db" />;
             })}
-            {[0, 15, 30, 45].map((m) => renderMark(m, m / 5, clockPad(m), !!parsed && minute === m, () => pickMinute(m)))}
+            {[0, 15, 30, 45].map((m) => renderMark(m, m / 5, clockPad(m), !!parsed && minute === m, () => pickMinute(m), h12 !== null && !timeOk(h12, m, ap)))}
           </>
         )}
       </svg>
@@ -272,12 +279,15 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked }) => {
       <p className="text-[11px] text-gray-400 text-center mt-2">
         {mode === 'hour' ? 'Tap the hour on the clock, then choose the minutes.' : 'Now choose the minutes. Tap the hour above to change it.'}
       </p>
+      {allowedTimes && (
+        <p className="text-[11px] text-amber-700 text-center mt-1">Greyed-out times have no driver free. They can only be booked Without Driver.</p>
+      )}
     </div>
   );
 };
 
 // ── Time field: looks like the old dropdown; clicking it opens the clock ──
-const ClockTimeField = ({ value, onChange }) => {
+const ClockTimeField = ({ value, onChange, allowedTimes = null }) => {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -311,7 +321,7 @@ const ClockTimeField = ({ value, onChange }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-xs font-bold tracking-[0.15em] text-arl-secondary uppercase text-center mb-3">Select pickup time</p>
-            <ClockTimePicker value={value} onChange={onChange} onMinutePicked={() => setOpen(false)} />
+            <ClockTimePicker value={value} onChange={onChange} onMinutePicked={() => setOpen(false)} allowedTimes={allowedTimes} />
             <div className="flex gap-3 mt-4">
               <button type="button" onClick={() => setOpen(false)}
                 className="flex-1 border border-gray-200 text-gray-500 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
@@ -405,12 +415,12 @@ const TRIP_PARTS = [
   {
     key: 'pickup', label: 'Pickup & Driver',
     title: 'Pickup and driver',
-    description: 'Choose who will drive first, then where we hand over the car (drop-off is the same place). Without Driver is picked up at our store. The map shades our base area.',
+    description: 'Choose who will drive first, then where we hand over the car (drop-off is the same place). Without Driver is picked up at our store. With Driver, the map shades our base area.',
     points: [
       { level: 'must', headline: 'Bring a valid government ID', detail: 'No valid ID on pickup day means the booking may be cancelled and the deposit is not refunded.', ref: 'Vehicle Pickup & Customer Identification' },
       { level: 'must', headline: 'Without Driver: 21+ with a valid license', detail: 'Only the registered renter may drive. Bring your license on pickup day.', ref: 'Driver Requirements (Self-Drive)' },
-      { headline: "With Driver: driver's fee applies", detail: 'The amount is shown on the option below and as its own line in your price breakdown. It is higher outside our base area.' },
-      { headline: 'Outside our base area: one extra fee', detail: "If your pickup or any destination is outside the shaded base area, one extra fee applies. It is charged once, even if more than one location is outside. With a driver, it is already part of the driver's fee.", ref: 'Booking Guidelines' },
+      { headline: "With Driver: driver's fee applies", detail: 'The driver is paid per day, so the days add up. The amount is shown on the option below and as its own line in your price breakdown. It is higher outside our base area.' },
+      { headline: 'With Driver: outside our base area', detail: "If your pickup or any destination is outside the shaded base area, the driver's fee is higher. Without Driver, you can go anywhere. Only number coding is checked.", ref: 'Booking Guidelines' },
       { headline: 'We inspect the car with you', detail: 'Existing damage is noted first. The car is released once your payment is confirmed.', ref: 'Booking Guidelines' },
     ],
   },
@@ -420,7 +430,7 @@ const TRIP_PARTS = [
     description: 'Tell us where you are headed. This is saved for our records only.',
     points: [
       { level: 'must', headline: 'Your destination is for documentation only', detail: 'Our system cannot calculate travel time from the location you select, so please choose your pickup time and rental duration carefully.', ref: 'Rental Time & Destination Selection' },
-      { headline: 'Outside our base area: one extra fee', detail: "If any destination is outside our base area, one extra fee applies. It is charged once, no matter how many destinations are outside. With a driver, it is already part of the driver's fee.", ref: 'Booking Guidelines' },
+      { headline: 'With Driver: outside our base area', detail: "If any destination is outside our base area, the driver's fee is higher. Without Driver, you can go anywhere. Only number coding is checked.", ref: 'Booking Guidelines' },
       { headline: 'Number coding is checked for your dates', detail: 'We check your pickup and every destination against every day of your rental. If your pickup location is coded on your pickup date, it cannot be booked. Other coded destinations are listed at the bottom and you accept them by continuing.', ref: 'Number Coding Scheme' },
       { headline: 'Fuel and tolls are yours', detail: 'Return the car with the same fuel level.', ref: 'Fuel Policy' },
     ],
@@ -544,7 +554,7 @@ const INFO = {
       'Metro Manila number coding is enforced on weekdays from 7:00 AM to 7:00 PM. If your vehicle\'s plate is restricted on your trip dates, you will be asked to pick another date or vehicle. (T&C: Number Coding Scheme)',
       'Use the vehicle for lawful purposes only. Off-road use is not allowed unless authorized in writing. (T&C: Vehicle Usage)',
       'Fuel and toll fees are the renter\'s full responsibility. (T&C: Fuel Policy)',
-      'If your pickup or any destination is outside our base area, one extra fee applies. It is charged once, no matter how many locations are outside, and shown in your price breakdown. With a driver, it is part of the driver\'s fee. (app)',
+      'With a driver, the driver\'s fee is higher when your pickup or any destination is outside our base area, and it is shown in your price breakdown. Without a driver, you can go anywhere and only number coding is checked. (app)',
       'Your destination is saved for documentation purposes only. The system cannot calculate or estimate travel time based on the location you pick. (app)',
       'You are responsible for choosing a pickup time and rental duration long enough to cover the whole trip, including travel, traffic and rest stops. Time beyond the agreed return is charged as a late return. (T&C: Rental Time & Destination Selection)',
     ],
@@ -602,6 +612,37 @@ const HelpButton = ({ open, onClick, label }) => (
     }`}
   >?</button>
 );
+
+
+// ── Review row value: the address plus a "Show map" button (view-only map, pin fixed) ──
+const ShowMapValue = ({ address, coords }) => {
+  const [open, setOpen] = useState(false);
+  const hasPin = coords && coords.lat != null && coords.lng != null;
+  return (
+    <div className="flex items-start justify-between gap-2">
+      <span className="break-words min-w-0">{address || '-'}</span>
+      {address && hasPin && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border-2 border-arl-secondary text-arl-secondary hover:bg-arl-secondary hover:text-white transition text-[11px] sm:text-xs font-semibold"
+        >
+          <MapPin size={14} /> Show map
+        </button>
+      )}
+      {open && (
+        <MapPicker
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          onConfirm={() => setOpen(false)}
+          initialLabel={address}
+          initialCoords={coords}
+          readOnly
+        />
+      )}
+    </div>
+  );
+};
 
 
 // ── Location input with map button ────────────────────────────
@@ -673,7 +714,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // off-screen from the Next button otherwise.
   const stepTopRef = useRef(null);
   const location = useLocation();
-  const navigate = useNavigate();
   const { showToast } = useToast();
 
 
@@ -690,7 +730,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [serviceTypesLoading, setServiceTypesLoading] = useState(true);
 
   // ── Car bookings (for calendar) ──────────────────────────────
-  const [carBookings,  setCarBookings]  = useState([]);
+  const [, setCarBookings]  = useState([]);
   const [dateStatuses, setDateStatuses] = useState({});
   // Only true once GET /services/car-bookings/:carID has actually
   // succeeded for the currently selected car — gates the auto-revalidation
@@ -902,7 +942,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [showAuthModal,     setShowAuthModal]     = useState(false);
   const [bookingReference, setBookingReference] = useState('');
   const [loading,          setLoading]          = useState(false);
-  const [paymongoLoading,  setPaymongoLoading]  = useState(false);
+  const [, setPaymongoLoading]  = useState(false);
   const [hoverDate,        setHoverDate]        = useState(null);
 
   // Calendar view: two months — start from the month of the pre-selected startDate if available
@@ -1003,7 +1043,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   }, [duration, startDate, startTime]);
 
   // ── Duration selection → auto-calc end ──────────────────────
-  const DURATION_HOURS = { '12 Hours': 12 }; // 22 Hours = user picks end date/time
 
   const handleDurationSelect = (dur) => {
     setDuration(dur);
@@ -1082,6 +1121,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // One request per visible month, remembered for the session. Only the schedule part shows the calendar.
   // Purely informational: the booking itself is checked on the server.
   const [fullDaysByMonth, setFullDaysByMonth] = useState({}); // { 'YYYY-MM': ['YYYY-MM-DD', ...] }
+  const [partialDaysByMonth, setPartialDaysByMonth] = useState({}); // days where a driver is free at some times only
   const fullDaysRequested = useRef(new Set());
   const calendarVisible = currentStep === 2 && tripPart === PART.schedule;
   const calMonthsKey = calViews.map((v) => `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}`).join(',');
@@ -1101,6 +1141,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'failed');
         setFullDaysByMonth((prev) => ({ ...prev, [key]: Array.isArray(data.fullDays) ? data.fullDays : [] }));
+        setPartialDaysByMonth((prev) => ({ ...prev, [key]: Array.isArray(data.partialDays) ? data.partialDays : [] }));
       } catch (err) {
         fullDaysRequested.current.delete(key); // not remembered: it retries the next time the month is shown
         console.warn('Driver day availability failed:', err);
@@ -1109,6 +1150,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarVisible, calMonthsKey]);
   const fullDaySet = useMemo(() => new Set(Object.values(fullDaysByMonth).flat()), [fullDaysByMonth]);
+  const partialDaySet = useMemo(() => new Set(Object.values(partialDaysByMonth).flat()), [partialDaysByMonth]);
 
   // The picked days (start..end) that have no driver the whole day.
   const selectedFullDays = useMemo(() => {
@@ -1150,6 +1192,51 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     return () => { cancelled = true; clearTimeout(timer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverKey, driverCheckNeeded]);
+
+  // ── Pickup times that still have a driver ────────────────────────
+  // For the picked start date, which pickup times (15-minute steps) leave a driver free for the whole trip.
+  // A driver who finishes at 7:00 AM with a 2-hour buffer is free again from 9:00 AM. null = no limit.
+  // Purely guidance for the clock; the booking itself is checked on the server.
+  const tripHours = duration === '12 Hours' ? 12 : 22; // shortest trip the chosen duration allows
+  const pickupTimesKey = startDate && duration ? `${startDate}|${tripHours}` : '';
+  const [driverTimes, setDriverTimes] = useState({ key: '', times: null });
+  useEffect(() => {
+    if (!pickupTimesKey || currentStep !== 2) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/driver-availability/times`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: startDate, hours: tripHours }),
+        });
+        const data = await res.json();
+        if (!cancelled && res.ok) setDriverTimes({ key: pickupTimesKey, times: Array.isArray(data.times) ? data.times : null });
+      } catch (err) {
+        console.warn('Driver pickup times failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupTimesKey, currentStep]);
+  // Only while With Driver is selected: Without Driver can be picked up at any time.
+  const driverTimesList = (driveType === 'chauffeur' && driverTimes.key === pickupTimesKey) ? driverTimes.times : null;
+  const allowedPickupTimes = useMemo(() => (driverTimesList ? new Set(driverTimesList) : null), [driverTimesList]);
+  // "9:00 AM – 11:45 PM": the stretches of the day a driver is free, from the 15-minute list.
+  const driverTimesNote = (() => {
+    if (!driverTimesList || !startDate) return '';
+    if (driverTimesList.length === 0) return `No driver is free on ${fmt(startDate)} for a ${tripHours}-hour trip. Pick another date, or choose Without Driver.`;
+    if (driverTimesList.length >= 96) return '';
+    const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const ranges = [];
+    driverTimesList.map(toMin).forEach((m) => {
+      const last = ranges[ranges.length - 1];
+      if (last && m - last[1] === 15) last[1] = m; else ranges.push([m, m]);
+    });
+    const label = (m) => fmt12(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+    const shown = ranges.slice(0, 3).map(([a, z]) => (a === z ? label(a) : `${label(a)} – ${label(z)}`)).join(', ');
+    return `A driver is free for a ${tripHours}-hour trip when you pick up at: ${shown}${ranges.length > 3 ? ', …' : ''}.`;
+  })();
 
   // ── Terms & Conditions acceptance (Review step) ──
   // The customer must tick the box before Confirm works. The hash of the text they were shown is sent
@@ -1383,6 +1470,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             const isPast = date < today;
             const isBlocked = BLOCKED_STATUSES.has(ds) || isPast;
             const noDriverDay = !isBlocked && fullDaySet.has(key); // selectable, but never with a driver
+            const partialDriverDay = !isBlocked && !noDriverDay && partialDaySet.has(key); // a driver is free at some times only
             const isStart   = sameDay(date, startDO);
             const isEnd     = sameDay(date, endDO);
             const inRange   = startDO && endDO && date > startDO && date < endDO;
@@ -1429,6 +1517,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
               cls += 'bg-arl-secondary/10 text-arl-primary cursor-pointer ';
             } else if (noDriverDay) {
               cls += 'bg-orange-100 text-orange-800 ring-1 ring-orange-300 hover:bg-orange-200 cursor-pointer ';
+            } else if (partialDriverDay) {
+              cls += 'bg-amber-50 text-amber-800 ring-1 ring-amber-300 hover:bg-amber-100 cursor-pointer ';
             } else {
               cls += 'text-gray-700 hover:bg-arl-primary/10 hover:text-arl-primary cursor-pointer ';
             }
@@ -1438,7 +1528,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 key={i}
                 type="button"
                 className={cls}
-                title={!isPast && ds !== 'available' ? style.label : (noDriverDay ? NO_DRIVER_DAY_LABEL : sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (duration === '12 Hours' ? 'Auto-calculated from pickup time' : 'Pick a start date first') : undefined)}
+                title={!isPast && ds !== 'available' ? style.label : (noDriverDay ? NO_DRIVER_DAY_LABEL : partialDriverDay ? PARTIAL_DRIVER_DAY_LABEL : sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (duration === '12 Hours' ? 'Auto-calculated from pickup time' : 'Pick a start date first') : undefined)}
                 onClick={() => !interactionDisabled && handleDayClick(date, idx)}
                 onMouseEnter={() => { if (startDO && !endDO && !interactionDisabled) setHoverDate(date); }}
                 onMouseLeave={() => setHoverDate(null)}
@@ -1446,6 +1536,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 {i + 1}
                 {/* Stays visible when the day is picked (green/red/range), so the warning isn't hidden by the selection */}
                 {noDriverDay && <span aria-hidden="true" className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-orange-500 ring-1 ring-white" />}
+                {partialDriverDay && <span aria-hidden="true" className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 ring-1 ring-white" />}
               </button>
             );
           })}
@@ -1456,6 +1547,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             <div key={item.key} className="flex items-center gap-1.5">
               <div className={`relative w-4 h-4 sm:w-5 sm:h-5 rounded-md shrink-0 ${item.swatch}`}>
                 {item.key === 'nodriver' && <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-orange-500 ring-1 ring-white" />}
+                {item.key === 'partialdriver' && <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 ring-1 ring-white" />}
               </div>
               <span className="text-[10px] sm:text-xs text-gray-600">{item.label}</span>
             </div>
@@ -2005,18 +2097,23 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   // ── Payment step: detail rows (each has a "?" explanation) + split amounts ──
   const peso = (n) => `₱${Number(n || 0).toLocaleString()}`;
+  // What being outside the base area adds: the extra fee (Without Driver), or the driver's fee increase (With Driver).
+  const outsideSurcharge = extraFee > 0
+    ? extraFee
+    : (quote.driversFeeOutsideArea != null && quote.driversFeeBaseArea != null
+        ? Math.max(0, quote.driversFeeOutsideArea - quote.driversFeeBaseArea) * Math.max(1, days || 1) : 0);
   // Shown under the pickup / destination field when the server's quote says that location is
   // outside the base area. All amounts come from the quote (the admin's System Settings).
   // The outside-area charge is ONE flag: it is added once, however many locations are outside.
   // With a driver it is the higher driver's fee; without a driver it is the extra fee.
   const outsideFeeText = () => driveType === 'chauffeur'
-    ? `The driver's fee is ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`
+    ? `The payment for the driver will be ${peso(quote.driversFeeOutsideArea)} per day.`
     : `An extra ${peso(quote.extraFeeOutsideArea)} applies to this booking. If you choose a driver, the driver's fee becomes ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}, with no extra fee on top.`;
   const outsideAreaNote = (where) => (
     <div role="note" className="rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
       <p className="text-xs font-black text-amber-800">Your {where} is outside our base area</p>
       <p className="text-[11px] sm:text-xs text-amber-800 mt-0.5">
-        {outsideFeeText()} It is charged only once, even if a destination is outside too.
+        {outsideFeeText()}
       </p>
     </div>
   );
@@ -2029,11 +2126,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       </p>
       <p className="text-xs sm:text-sm text-amber-800 mt-1">
         {driveType === 'chauffeur'
-          ? (quote.driversFeeBaseArea != null
-              ? `The driver's fee will be ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}.`
-              : `The driver's fee will be ${peso(quote.driversFeeOutsideArea)}.`)
+          ? `The payment for the driver will be ${peso(quote.driversFeeOutsideArea)} per day.`
           : `An extra ${peso(quote.extraFeeOutsideArea)} applies to this booking.`}
-        {' '}It is charged once{quote.pickupOutside ? ', even though your pickup is also outside' : ', no matter how many locations are outside'}.
       </p>
     </div>
   ) : null;
@@ -2041,6 +2135,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // Mirrors the server's computePaymentSplit: Partial = full deposit + 50% of everything else.
   const partialNow     = depositPaidUpfront + Math.floor(((grandTotal || 0) - depositPaidUpfront) * 0.5);
   const partialBalance = Math.max(0, (grandTotal || 0) - partialNow);
+
+  // "Driver's Fee (3 days × ₱1,000)": the driver is paid per day and the days add up.
+  const driverFeeLabel = days > 0 && driversFee > 0
+    ? `Driver's Fee (${days} day${days > 1 ? 's' : ''} × ${peso(Math.round(driversFee / days))})`
+    : "Driver's Fee";
 
   const payDetailRows = [
     {
@@ -2055,17 +2154,18 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       key: 'extra', label: 'Extra Fee (Outside Area)', value: peso(extraFee),
       title: 'Extra Fee (Outside Area)',
       items: [
-        'Added once when your pickup or any destination is outside our base service area, however many locations are outside.',
+        'Added when your pickup or any destination is outside our base service area.',
         'With a driver, this is already part of the driver\'s fee, so it is not added again.',
         'It is shown here so there are no surprises on pickup day.',
       ],
     }] : []),
     ...(driversFee > 0 ? [{
-      key: 'driver', label: "Driver's Fee", value: peso(driversFee),
+      key: 'driver', label: driverFeeLabel, value: peso(driversFee),
       title: "Driver's Fee",
       items: [
         'Charged for the driver when you book With Driver.',
-        'The amount is higher when your pickup or any destination is outside our base service area. It is charged once, however many locations are outside.',
+        'The driver is paid per day. Each day costs the same rate, and the days add up.',
+        'The amount is higher when your pickup or any destination is outside our base service area.',
         "Fuel and toll fees are still the renter's responsibility.",
       ],
     }] : []),
@@ -2339,15 +2439,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                                       <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">A professional driver. The driver's fee shows in your price breakdown.</span>
                                     ) : (
                                       <>
-                                        <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} inside our base area</span>
-                                        <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} outside our base area</span>
+                                        <span className="block mt-1 text-xs sm:text-sm font-bold text-arl-cta">+{peso(base)} per day inside our base area</span>
+                                        <span className="block text-xs sm:text-sm font-bold text-arl-cta">+{peso(outside)} per day outside our base area</span>
                                         {quote.outsideArea && (
                                           <span className="block mt-1.5 text-[11px] sm:text-xs font-bold text-amber-700">
-                                            Your {quote.pickupOutside ? 'pickup' : 'destination'} is outside our base area, so the driver's fee is {peso(outside)}. It is charged once.
+                                            Your {quote.pickupOutside ? 'pickup' : 'destination'} is outside our base area, so the payment for the driver will be {peso(outside)} per day.
                                           </span>
                                         )}
                                         {selected && driversFee > 0 ? (
-                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)}</span>
+                                          <span className="block mt-1.5 text-[11px] sm:text-xs font-semibold text-green-700">Added to your total: {peso(driversFee)}{days > 0 ? ` (${days} day${days > 1 ? 's' : ''} × ${peso(Math.round(driversFee / days))})` : ''}</span>
                                         ) : (
                                           !quote.outsideArea && <span className="block mt-1.5 text-[11px] sm:text-xs text-gray-500">The amount depends on whether your pickup and destinations are inside our base area.</span>
                                         )}
@@ -2406,7 +2506,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       disabled={pickupInStore}
                       pickOnMap
                       coords={pickupCoords}
-                      showBaseArea
+                      showBaseArea={driveType === 'chauffeur'}
                       baseAreaRole="pickup"
                     />
                     {errors.pickupLocation && <p className="text-arl-cta text-xs mt-1">{errors.pickupLocation}</p>}
@@ -2447,8 +2547,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       value={destination}
                       onValueChange={(v) => { setDestination(v); }}
                       onCoordsChange={setDestinationCoords}
+                      coords={destinationCoords}
                       placeholder="Search for a destination…"
-                      showBaseArea
+                      showBaseArea={driveType === 'chauffeur'}
                       baseAreaRole="destination"
                       showCodingZones
                       codingCarID={selectedCar?.carID || ''}
@@ -2464,8 +2565,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           value={d.address}
                           onValueChange={(v) => updateExtraDestinationAddress(d.id, v)}
                           onCoordsChange={(c) => updateExtraDestinationCoords(d.id, c)}
+                          coords={d.lat != null && d.lng != null ? d : null}
                           placeholder="Search for another stop…"
-                          showBaseArea
+                          showBaseArea={driveType === 'chauffeur'}
                           baseAreaRole="destination"
                           showCodingZones
                           codingCarID={selectedCar?.carID || ''}
@@ -2538,7 +2640,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <p className="text-xs text-gray-400 mb-3">
                         {startDate ? `Pickup on ${fmt(startDate)}` : 'Select a date above first.'}
                       </p>
-                      <ClockTimeField value={startTime || ''} onChange={handleStartTimeChange} />
+                      <ClockTimeField value={startTime || ''} onChange={handleStartTimeChange} allowedTimes={allowedPickupTimes} />
+                      {driverTimesNote && (
+                        <p role="note" className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2">{driverTimesNote}</p>
+                      )}
                       {errors.startTime && <p className="text-arl-cta text-xs mt-2">{errors.startTime}</p>}
 
                       {/* Auto-end banner */}
@@ -2972,23 +3077,23 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Start',         `${fmt(startDate)} ${fmt12(startTime)}`],
                       ['End (auto)',     `${fmt(endDate)} ${fmt12(endTime)}`],
                       ['Days',          `${days} day(s)`],
-                      ['Pickup Addr.',  pickupLocation],
-                      ['Drop-off',      dropoffLocation],
-                      ['Destination',   destination || '-'],
+                      ['Pickup Addr.',  <ShowMapValue address={pickupLocation} coords={pickupCoords} />],
+                      ['Drop-off',      <ShowMapValue address={dropoffLocation} coords={dropoffCoords} />],
+                      ['Destination',   <ShowMapValue address={destination} coords={destinationCoords} />],
+                      ...extraDestinations.filter(d => d.address).map((d, i) => [`Destination ${i + 2}`, <ShowMapValue address={d.address} coords={d.lat != null && d.lng != null ? d : null} />]),
                       ['Drive Type',    driveType === 'self-drive' ? 'Without Driver' : 'With Driver'],
                       ['Passenger',     `${firstName} ${lastName}`],
                       ['Contact',       contact],
                       ['Email',         email],
                       ['Rental Fee',    `₱${total.toLocaleString()}`],
                       ...(extraFee > 0   ? [['Extra Fee (Outside Area)', `₱${extraFee.toLocaleString()}`]] : []),
-                      ...(driversFee > 0 ? [["Driver's Fee",             `₱${driversFee.toLocaleString()}`]] : []),
+                      ...(driversFee > 0 ? [[driverFeeLabel, `₱${driversFee.toLocaleString()}`]] : []),
                       ...(securityDeposit > 0 ? [['Security Deposit (refundable)', `₱${securityDeposit.toLocaleString()}`]] : []),
                       [serviceFeeRate > 0 ? `Service Fee (${serviceFeeRate}% of rental)` : 'Service Fee', `₱${serviceFee.toLocaleString()}`],
                       [gatewayFeeRate > 0 ? `Gateway Fee (${gatewayFeeRate}% of total)` : 'Gateway Fee', `₱${gatewayFee.toLocaleString()}`],
                       ['Total Fee',     `₱${grandTotal.toLocaleString()}`],
                       ['Payment Type',  getMethodOfPayment()],
                       ['Pay Now',       `₱${getPayNow().toLocaleString()} (${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'})`],
-                      ['Ref. Number',   gcashReference || '-'],
                       ['Balance',       `₱${getBalance().toLocaleString()} on pickup`],
                     ].map(([label, value]) => (
                       <div key={label} className="grid grid-cols-1 sm:grid-cols-2 gap-0.5 sm:gap-0 py-2 sm:py-3 border-b border-gray-100">
@@ -3073,9 +3178,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   ['End (auto)', endDate && endTime ? `${fmt(endDate)} ${fmt12(endTime)}` : '-'],
                   ['Days',       days ? `${days} day(s)` : '-'],
                   ['Hire',       driveType === 'self-drive' ? 'Without Driver' : 'With Driver'],
-                  ['Destination', destination || '-'],
-                  ['Passenger',  firstName && lastName ? `${firstName} ${lastName}` : '-'],
-                  ['Payment',    `${paymentAmount} — ${paymentMethod === 'qrph' ? 'QRPH' : paymentMethod === 'gcash' ? 'GCash' : 'Maya'}`],
+                  ...(driversFee > 0 ? [[driverFeeLabel, peso(driversFee)]] : []),
+                  ...(quote.outsideArea ? [['Outside base area', outsideSurcharge > 0 ? `+${peso(outsideSurcharge)}` : 'Yes']] : []),
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2">
                     <span className="font-medium text-arl-dark flex-shrink-0">{label}</span>
