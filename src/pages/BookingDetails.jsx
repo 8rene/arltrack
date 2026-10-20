@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PenaltyPayButton from "../components/shared/PenaltyPayButton";
-import ViolationsCard from "../components/booking/ViolationsCard";
 import PaymentsReceiptsCard from "../components/booking/PaymentsReceiptsCard";
+import InspectionCard from "../components/booking/InspectionCard";
 import DiscountSummary, { DiscountHeldPill, discountPriceOff } from "../components/booking/DiscountSummary";
 
 // ── Formatting helpers (same conventions as MyBookings.jsx) ──
@@ -511,6 +511,8 @@ export default function BookingDetailsPage() {
                     </p>
                   ) : booking.plateRevealsAt ? (
                     <p className="text-xs text-gray-400 mt-1">Plate number is shown {fmtDT(booking.plateRevealsAt)} (2 hours before pickup).</p>
+                  ) : booking.plateWithDriver ? (
+                    <p className="text-xs text-gray-400 mt-1">Your driver will share the plate number when they're on the way to you.</p>
                   ) : null}
                 </div>
                 {/* Header badge priority: a matched refund request's own
@@ -622,9 +624,13 @@ export default function BookingDetailsPage() {
           </div>
         )}
 
-        {/* Traffic notices (the card hides itself when it doesn't apply) */}
-        <ViolationsCard bookingID={booking.bookingID || bookingID} bookingStatus={booking.status} />
+        {/* Vehicle inspection — self-drive bookings only (with a chauffeur the driver handles the handover).
+            The server decides what may be shown; the card hides itself when there is nothing to show. */}
+        {/self/i.test(booking.modeOfDriving || "") && (
+          <InspectionCard bookingID={booking.bookingID || bookingID} />
+        )}
 
+       
         {/* Payment */}
         {payment ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">

@@ -118,6 +118,13 @@ const META_BY_TYPE = {
     badge: { text: "Processing", className: "bg-amber-50 text-amber-700" },
     action: "View Details",
   },
+  // Written by the ADMIN app when the driver taps "On my way" (refID = the bookingID). Opens the temporary arrival page
+  // (car + plate number), not the booking details -- see handleAction.
+  driver_en_route: {
+    bg: "bg-green-100", title: "Your Driver Is On The Way",
+    badge: { text: "On the way", className: "bg-green-50 text-green-700" },
+    action: "See Car & Plate",
+  },
   refund_failed: {
     bg: "bg-red-100", title: "Refund Failed",
     badge: { text: "Refund Failed", className: "bg-red-50 text-red-700" },
@@ -342,6 +349,10 @@ export default function NotificationPanel({ user }) {
     setNotifOpen(false);
     if (n.type === "terms_updated") {
       navigate("/terms");
+      return;
+    }
+    if (n.type === "driver_en_route" && n.refID) {
+      navigate(`/booking/${n.refID}/arrival`);
       return;
     }
     if (n.refID) {

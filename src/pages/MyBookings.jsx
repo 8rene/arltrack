@@ -84,6 +84,25 @@ const PaymentStatusBadge = ({ payment }) => {
   );
 };
 
+// Balance still owed on a Partial booking whose deposit has cleared (0 when nothing is owed).
+const balanceDueOf = (payment) => {
+  if (!payment) return 0;
+  const d = payment.paymentStatus;
+  if (d && d.key === "partial") return Number(d.balance) || 0;
+  const info = getPaymentInfo(payment);
+  if (info.key !== "partial") return 0;
+  return Math.max(0, (Number(payment.amount) || 0) - info.amountPaid);
+};
+
+// Firestore Timestamp / {_seconds} / ISO string / Date -> milliseconds (0 when missing).
+const toMillis = (val) => {
+  if (!val) return 0;
+  if (val.toMillis) return val.toMillis();
+  if (val._seconds !== undefined) return val._seconds * 1000;
+  const t = new Date(val).getTime();
+  return Number.isNaN(t) ? 0 : t;
+};
+
 // ── Skeleton ──
 const Skeleton = () => (
   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden animate-pulse">
@@ -260,7 +279,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
     bookingID, carName, carImage, carBodyType, plateNumber, plateRevealsAt,
     serviceType, duration, startDateTime, endDateTime,
     totalDays, totalFee,
-    status, cancellationReason,
+    status, cancellationReason, cancelledAt, cancelledBy,
     modeOfDriving, destination, passengerName, createdAt,
     payment, carID,
     codingWarningCount = 0, codingCities = [],
@@ -443,6 +462,16 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
               <p className="text-xs text-gray-400">
                 <span className="font-semibold text-gray-500">Booked on:</span> {fmtDT(createdAt)}
               </p>
+              {existingRefund?.createdAt && (
+                <p className="text-xs text-gray-400">
+                  <span className="font-semibold text-gray-500">Refund requested:</span> {fmtDT(existingRefund.createdAt)}
+                </p>
+              )}
+              {!existingRefund && status === "cancelled" && cancelledAt && (
+                <p className="text-xs text-gray-400">
+                  <span className="font-semibold text-gray-500">{cancelledBy === "customer" ? "Cancellation requested:" : "Cancelled on:"}</span> {fmtDT(cancelledAt)}
+                </p>
+              )}
               {/* Number Coding heads-up: only while the trip is still ahead of / underway. The full schedule is on Details. */}
               {codingWarningCount > 0 && ["to pay", "upcoming", "ongoing"].includes(status) && (
                 <button
@@ -656,6 +685,99 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
   );
 };
 
+// ── Sub-tabs (pill row) used inside Refunds and History ──
+const SubTabs = ({ tabs, active, onChange, loading }) => (
+  <div className="flex gap-2 mb-4 flex-wrap">
+    {tabs.map(({ key, label, count }) => (
+      <button key={key} onClick={() => onChange(key)}
+        className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition ${
+          active === key
+            ? "bg-arl-primary text-white border-arl-primary"
+            : "bg-white text-gray-500 border-gray-200 hover:border-arl-primary/40 hover:text-arl-primary"
+        }`}>
+        {label} <span className="opacity-70">{loading ? "…" : count}</span>
+      </button>
+    ))}
+  </div>
+);
+
+// ── To Pay: a confirmed Partial booking that still owes its balance ──
+// One small card: how much is pending, why (partial payment), Pay now + View booking.
+const PartialBalanceCard = ({ booking }) => {
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const [paying, setPaying] = useState(false);
+  const p = booking.payment || {};
+  const balance = balanceDueOf(p);
+  const { amountPaid } = getPaymentInfo(p);
+  const pending = String(p.balanceStatus || "").toLowerCase() === "pending"; // checkout opened, not finished
+
+  const handlePay = async () => {
+    if (!p.paymentID) { navigate(`/booking/${booking.bookingID}/details`); return; }
+    setPaying(true);
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/paymongo/create-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          bookingID: booking.bookingID,
+          paymentID: p.paymentID,
+          description: `ARL Track Booking #${booking.bookingID} (Balance)`,
+          paymentMethod: p.paymentMethod,
+          phase: "balance",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to create payment link.");
+      if (data.alreadyPaid) {
+        navigate(`/payment-return?paymentID=${p.paymentID}&bookingID=${booking.bookingID}`);
+        return;
+      }
+      window.location.href = data.checkoutUrl + `?paymentID=${p.paymentID}`;
+    } catch (err) {
+      showToast(err.message || "Could not connect to PayMongo. Please try again.");
+      setPaying(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl bg-orange-50 border border-orange-200 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs text-gray-500 truncate">
+            {booking.carName} · Booking #{String(booking.bookingID).slice(-6).toUpperCase()}
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-base font-black text-orange-700">{peso(balance)} pending</p>
+            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border bg-orange-100 text-orange-700 border-orange-300">
+              Partial payment
+            </span>
+            {pending && (
+              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-700 border-amber-300">
+                Payment pending
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            You've paid {peso(amountPaid)} so far. The remaining balance is due before pickup.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5 flex-shrink-0">
+          <button onClick={handlePay} disabled={paying}
+            className="whitespace-nowrap rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-xs font-bold px-3 py-2 transition-colors">
+            {paying ? "Redirecting…" : pending ? "Finish payment" : "Pay now"}
+          </button>
+          <button onClick={() => navigate(`/booking/${booking.bookingID}/details`)}
+            className="whitespace-nowrap rounded-xl border border-purple-200 text-purple-600 hover:bg-purple-50 text-xs font-bold px-3 py-2 transition">
+            View booking
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Empty state ──
 // A live calendar icon for the "upcoming" empty state — replaces the calendar
 // emoji, which renders with a hard-coded, platform-specific date baked
@@ -684,6 +806,11 @@ const EMPTY_STATE_COPY = {
   ongoing:  { title: "No trip in progress",    body: "Your active trip will show up here once it starts." },
   refunds:  { title: "No refund requests",     body: "Bookings you've requested a refund for will show up here." },
   history:  { title: "No booking history yet", body: "Your completed and cancelled bookings will appear here." },
+  refunds_pending:  { title: "No pending refunds",  body: "Refund requests waiting for staff review will show up here." },
+  refunds_approved: { title: "No approved refunds", body: "Approved refunds that are still being sent back to you will show up here." },
+  refunds_refunded: { title: "No refunded bookings", body: "Refunds that have been completed will show up here." },
+  history_completed: { title: "No completed trips", body: "Trips you've finished will show up here." },
+  history_cancelled: { title: "No cancelled bookings", body: "Bookings that were cancelled will show up here." },
 };
 
 const EmptyState = ({ tab }) => {
@@ -716,6 +843,9 @@ const MyBookings = ({ user }) => {
   });
 
   const [refundRequests, setRefundRequests] = useState([]);
+  const [refundSub,  setRefundSub]  = useState("pending");    // pending | approved | refunded
+  const [sortBy,     setSortBy]     = useState("recent");     // recent | oldest | highest | lowest (amount: Refunds only)
+  const [historySub, setHistorySub] = useState("completed");  // completed | cancelled
 
   useEffect(() => {
     if (!user?.userID) { navigate("/"); return; }
@@ -822,13 +952,50 @@ const MyBookings = ({ user }) => {
   const upcoming  = bookings.filter(b => b.status === "upcoming" && !hasActiveRefundStory(b));
   const ongoing   = bookings.filter(b => b.status === "ongoing");
   const refunded  = bookings.filter(hasActiveRefundStory);
-  const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status));
+  // History and Refunds never overlap: a booking with a refund story lives only under Refunds.
+  const history   = bookings.filter(b => ["cancelled", "completed"].includes(b.status) && !hasActiveRefundStory(b));
+
+  // Confirmed Partial bookings that still owe their balance — shown in To Pay as a simple reminder card
+  // (they also stay in Upcoming, since the deposit already confirmed the trip).
+  const partialDue = bookings.filter(b =>
+    b.status === "upcoming" && !hasActiveRefundStory(b) && balanceDueOf(b.payment) > 0);
+  const toPayExtras = penaltyCount + partialDue.length;
+
+  // ── Refunds: Pending / Approved / Refunded ──
+  const refundOf       = (b) => (b.payment?.paymentID ? findActiveRefund(b.payment.paymentID) : null);
+  const refundStatusOf = (b) => refundOf(b)?.status || ((b.payment?.status || "").toLowerCase() === "refunded" ? "Refunded" : "");
+  const refundGroup    = (key) => refunded.filter(b => refundStatusOf(b).toLowerCase() === key);
+  const refundPending  = refundGroup("pending");
+  const refundApproved = refundGroup("approved");
+  const refundDone     = refundGroup("refunded");
+  const refundAmountOf = (b) => { const r = refundOf(b); return Number(r?.amount ?? r?.toRefundAmount ?? 0) || 0; };
+  const refundDateOf   = (b) => { const r = refundOf(b); return toMillis(r?.createdAt) || toMillis(r?.refundedAt); }; // when it was requested
+  // History: a cancelled booking sorts by when it was cancelled, a completed one by when the trip ended.
+  const historyDateOf  = (b) => b.status === "cancelled"
+    ? (toMillis(b.cancelledAt) || toMillis(b.endDateTime))
+    : (toMillis(b.endDateTime) || toMillis(b.startDateTime));
+  // Amount sorting only makes sense for refunds; History falls back to most recent.
+  const effectiveSort = activeTab === "history" && (sortBy === "highest" || sortBy === "lowest") ? "recent" : sortBy;
+  const sortList = (list, dateOf, amountOf = () => 0) => [...list].sort((a, b) =>
+    effectiveSort === "oldest"  ? dateOf(a) - dateOf(b) :
+    effectiveSort === "highest" ? amountOf(b) - amountOf(a) :
+    effectiveSort === "lowest"  ? amountOf(a) - amountOf(b) :
+    dateOf(b) - dateOf(a));
+
+  // ── History: Completed / Cancelled ──
+  const historyCompleted = history.filter(b => b.status === "completed");
+  const historyCancelled = history.filter(b => b.status === "cancelled");
+
   const displayed =
     activeTab === "toPay"    ? toPay    :
     activeTab === "upcoming" ? upcoming :
     activeTab === "ongoing"  ? ongoing  :
-    activeTab === "refunds"  ? refunded :
-    history;
+    activeTab === "refunds"  ? sortList(refundSub === "pending" ? refundPending : refundSub === "approved" ? refundApproved : refundDone, refundDateOf, refundAmountOf) :
+    sortList(historySub === "completed" ? historyCompleted : historyCancelled, historyDateOf);
+  const emptyKey =
+    activeTab === "refunds" ? `refunds_${refundSub}` :
+    activeTab === "history" ? `history_${historySub}` :
+    activeTab;
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-16">
@@ -841,7 +1008,7 @@ const MyBookings = ({ user }) => {
 
         <div className="flex overflow-x-auto scrollbar-hide bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 mb-6 gap-1 -mx-1 px-1 sm:mx-0">
           {[
-            { key: "toPay",    label: "To Pay",   count: toPay.length + penaltyCount },
+            { key: "toPay",    label: "To Pay",   count: toPay.length + toPayExtras },
             { key: "upcoming", label: "Upcoming", count: upcoming.length },
             { key: "ongoing",  label: "Ongoing",  count: ongoing.length },
             { key: "refunds",  label: "Refunds",  count: refunded.length },
@@ -870,12 +1037,40 @@ const MyBookings = ({ user }) => {
             ? "Your trip is currently active."
             : activeTab === "refunds"
             ? "Bookings with an active or past refund request."
-            : "Cancelled & Completed — Use Rebook to book the same car again."}
+            : "Completed & Cancelled — Use Rebook to book the same car again."}
         </p>
 
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
             {error}
+          </div>
+        )}
+
+        {activeTab === "refunds" && (
+          <>
+            <SubTabs loading={loading} active={refundSub} onChange={setRefundSub} tabs={[
+              { key: "pending",  label: "Pending",  count: refundPending.length },
+              { key: "approved", label: "Approved", count: refundApproved.length },
+              { key: "refunded", label: "Refunded", count: refundDone.length },
+            ]} />
+          </>
+        )}
+        {activeTab === "history" && (
+          <SubTabs loading={loading} active={historySub} onChange={setHistorySub} tabs={[
+            { key: "completed", label: "Completed", count: historyCompleted.length },
+            { key: "cancelled", label: "Cancelled", count: historyCancelled.length },
+          ]} />
+        )}
+        {(activeTab === "refunds" || activeTab === "history") && displayed.length > 1 && (
+          <div className="flex items-center gap-2 mb-4">
+            <label className="text-xs font-semibold text-gray-500">Sort by</label>
+            <select value={effectiveSort} onChange={(e) => setSortBy(e.target.value)}
+              className="border border-gray-200 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-arl-primary/30">
+              <option value="recent">Most recent</option>
+              <option value="oldest">Oldest</option>
+              {activeTab === "refunds" && <option value="highest">Highest amount</option>}
+              {activeTab === "refunds" && <option value="lowest">Lowest amount</option>}
+            </select>
           </div>
         )}
 
@@ -905,6 +1100,7 @@ const MyBookings = ({ user }) => {
                           <p className="text-xs text-gray-500 truncate">Booking #{String(b.bookingID).slice(-6).toUpperCase()}</p>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-bold text-red-700">₱{Number(due > 0 ? total : b.amount).toLocaleString()}</p>
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border bg-red-100 text-red-700 border-red-300">Penalty</span>
                             {due > 0 ? (
                               <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                                 b.pending ? "bg-amber-100 text-amber-700 border-amber-300" : "bg-red-100 text-red-700 border-red-300"
@@ -940,6 +1136,9 @@ const MyBookings = ({ user }) => {
               )}
             </div>
           )}
+          {activeTab === "toPay" && !loading && partialDue.map(b => (
+            <PartialBalanceCard key={`partial-${b.bookingID}`} booking={b} />
+          ))}
           {loading
             ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} />)
             : displayed.length > 0
@@ -955,7 +1154,7 @@ const MyBookings = ({ user }) => {
                   onBookingChanged={fetchBookings}
                 />
               ))
-            : (activeTab === "toPay" && penaltyCount > 0) ? null : <EmptyState tab={activeTab} />
+            : (activeTab === "toPay" && toPayExtras > 0) ? null : <EmptyState tab={emptyKey} />
           }
         </div>
 
