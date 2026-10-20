@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PenaltyPayButton from "../components/shared/PenaltyPayButton";
 import ViolationsCard from "../components/booking/ViolationsCard";
+import InspectionCard from "../components/booking/InspectionCard";
 import PaymentsReceiptsCard from "../components/booking/PaymentsReceiptsCard";
 
 // ── Formatting helpers (same conventions as MyBookings.jsx) ──
@@ -595,6 +596,12 @@ export default function BookingDetailsPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Vehicle inspection — self-drive bookings only (with a chauffeur the driver handles the handover).
+            The server decides what may be shown; the card hides itself when there is nothing to show. */}
+        {/self/i.test(booking.modeOfDriving || "") && (
+          <InspectionCard bookingID={booking.bookingID || bookingID} />
         )}
 
         {/* Traffic notices (the card hides itself when it doesn't apply) */}
