@@ -193,7 +193,7 @@ function NotifRow({ n, onAction, onDelete }) {
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-arl-dark leading-snug">{meta.title}</p>
+          <p className="text-sm font-semibold text-arl-dark leading-snug">{n.type === "deposit_return_processing" && n.title ? n.title : meta.title}</p>
           <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${meta.badge.className}`}>
             {meta.badge.text}
           </span>

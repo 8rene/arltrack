@@ -78,6 +78,7 @@ function ReceiptBody({ r }) {
               <Row label="Penalty total">{peso(p.total)}</Row>
               {p.paidBefore > 0 && <Row label="Paid before">{peso(p.paidBefore)}</Row>}
               {p.coveredByDeposit > 0 && <Row label="Covered by security deposit">{peso(p.coveredByDeposit)}</Row>}
+              {p.coveredByCredit > 0 && <Row label="Covered by discount credit">{peso(p.coveredByCredit)}</Row>}
               <Row label="This payment">{peso(p.thisPayment)}</Row>
               <Row label="Remaining" strong>{peso(p.remaining)}</Row>
             </div>
@@ -161,6 +162,7 @@ function StatementBody({ s }) {
                     </React.Fragment>
                   ))}
                   {p.coveredByDeposit > 0 && <Row label="Covered by security deposit">{peso(p.coveredByDeposit)}</Row>}
+                  {p.coveredByCredit > 0 && <Row label="Covered by discount credit">{peso(p.coveredByCredit)}</Row>}
                   <Row label="Still owed on this penalty" strong>{peso(p.outstanding)}</Row>
                 </>
               ) : (p.reason && <p className="text-xs text-gray-500 pt-0.5">{p.reason}</p>)}
@@ -172,6 +174,7 @@ function StatementBody({ s }) {
             <Row label="Total penalties">{peso(s.penaltyTotals.charged)}</Row>
             <Row label="Paid (cash / online)">{peso(s.penaltyTotals.paid)}</Row>
             {s.penaltyTotals.coveredByDeposit > 0 && <Row label="Covered by security deposit">{peso(s.penaltyTotals.coveredByDeposit)}</Row>}
+            {s.penaltyTotals.coveredByCredit > 0 && <Row label="Covered by discount credit">{peso(s.penaltyTotals.coveredByCredit)}</Row>}
             <Row label="Still owed on penalties" strong>{peso(s.penaltyTotals.outstanding)}</Row>
           </div>
         )}
@@ -196,6 +199,7 @@ function StatementBody({ s }) {
         <Row label="Total charges">{peso(o.totalCharges)}</Row>
         <Row label="Total paid">{peso(o.paidIn)}</Row>
         {o.coveredByDeposit > 0 && <Row label="Covered by security deposit">{peso(o.coveredByDeposit)}</Row>}
+        {o.coveredByCredit > 0 && <Row label="Covered by discount credit">{peso(o.coveredByCredit)}</Row>}
         {o.onlineFees > 0 && <Row label="Online payment fees (not counted above)">{peso(o.onlineFees)}</Row>}
         {o.refunded > 0 && <Row label="Refunded to you">{peso(o.refunded)}</Row>}
         {o.depositReturned > 0 && <Row label="Security deposit returned">{peso(o.depositReturned)}</Row>}

@@ -2968,6 +2968,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                     ))}
                   </div>
 
+                  {/* QR Ph can't be refunded online (PayMongo refuses it): warn BEFORE they pay. Same wording as the backend's QRPH_BOOKING_NOTICE. */}
+                  {paymentMethod === 'qrph' && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm p-2.5 sm:p-3 rounded-lg mb-4 sm:mb-6">
+                      Heads up: payments made by QR Ph can't be refunded online. If you cancel and your refund is approved, you will need to visit our store to collect it.
+                    </div>
+                  )}
+
                   {/* Manual ref + screenshot — only shown for non-PayMongo methods */}
                   {!isPaymongoMethod(paymentMethod) && (
                   <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 sm:p-5 space-y-3 sm:space-y-4">
