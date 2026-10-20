@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PenaltyPayButton from "../components/shared/PenaltyPayButton";
-import InspectionCard from "../components/booking/InspectionCard";
+import ViolationsCard from "../components/booking/ViolationsCard";
 import PaymentsReceiptsCard from "../components/booking/PaymentsReceiptsCard";
+import DiscountSummary, { DiscountHeldPill, discountPriceOff } from "../components/booking/DiscountSummary";
 
 // ── Formatting helpers (same conventions as MyBookings.jsx) ──
 const fmtDT = (val) => {
@@ -182,6 +183,7 @@ const PenaltiesBox = ({ bookingID }) => {
     onlinePaymentPending, depositAmount, depositStatus, depositSettled, appliedToDeposit, penalties,
     deductedFromDeposit, refundAmount, refundMethod, refundedAt, stillOwed, settlement,
     depositHeld, coveredByDeposit, payableNow, payableFee, payableTotal, gatewayFeeRate, gatewayFeeKnown,
+    creditHeld, coveredByCredit, creditReturnPreview,   // discount credit held for the customer (0 / undefined = none)
   } = info;
   const depositWaived = depositStatus === "Waived";
   const hasDeposit = depositAmount !== null && !depositWaived;
@@ -202,6 +204,11 @@ const PenaltiesBox = ({ bookingID }) => {
   const fee = hasPlan ? Number(payableFee) || 0 : 0;
   const payTotal = hasPlan ? Number(payableTotal) || 0 : unpaidNow;
   const covered = hasPlan ? Number(coveredByDeposit) || 0 : 0;
+  // A discount given on a fully paid booking is held as credit. While the deposit is held it pays penalties the deposit
+  // cannot cover (no online payment, no fee), and whatever it does not use comes back after the trip.
+  const creditCovers = hasPlan ? Number(coveredByCredit) || 0 : 0;
+  const creditBack = Number(creditReturnPreview) || 0;
+  const creditLeft = Number(creditHeld) || 0;
   const heldNow = depositHeld !== undefined ? !!depositHeld : hasDeposit && !depositSettled;   // a held deposit will pay at settlement
   const ratePart = gatewayFeeRate ? ` (${gatewayFeeRate}%)` : "";
 
@@ -234,7 +241,9 @@ const PenaltiesBox = ({ bookingID }) => {
             {onlinePaymentPending
               ? "You started an online payment but it isn't finished yet. Tap below to complete it."
               : "Pay online with GCash, Maya or QR Ph. You can't make a new booking until it is paid."}
-            {heldNow && covered > 0 && ` Your deposit pays ${peso(covered)} of these penalties when the booking is settled, with no fee. Only the part it doesn't cover is paid online.`}
+            {heldNow && covered > 0 && ` Your deposit pays ${peso(covered)} of these penalties when the booking is settled, with no fee.`}
+            {heldNow && creditCovers > 0 && ` Your discount credit pays ${peso(creditCovers)} more, also with no fee.`}
+            {heldNow && (covered > 0 || creditCovers > 0) && " Only the part they don't cover is paid online."}
             {hasPlan && gatewayFeeKnown === false && " An online payment fee may be added at checkout."}
           </p>
           <PenaltyPayButton bookingID={bookingID} amount={payTotal} penaltyAmount={onlineDue} gatewayFee={fee} gatewayFeeRate={gatewayFeeRate}
@@ -283,6 +292,13 @@ const PenaltiesBox = ({ bookingID }) => {
             </div>
           )}
 
+          {heldNow && creditCovers > 0 && (
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm text-gray-500">To be covered by your discount credit</span>
+              <span className="text-sm font-semibold text-red-500">-{peso(creditCovers)}</span>
+            </div>
+          )}
+
           {showRefundRow && (
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-semibold text-gray-700">{depositSettled ? "Deposit returned to you" : "You'll receive back"}</span>
@@ -293,6 +309,12 @@ const PenaltiesBox = ({ bookingID }) => {
             <p className="text-xs text-gray-400">
               Returned{refundMethod ? ` via ${refundMethod}` : ""}{refundedAt ? ` on ${fmtD(refundedAt)}` : ""}.
             </p>
+          )}
+          {heldNow && creditLeft > 0 && creditBack > 0 && (
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-semibold text-gray-700">Discount credit you'll receive back</span>
+              <span className="text-base font-bold text-green-600">{peso(creditBack)}</span>
+            </div>
           )}
 
           {stillOwed > 0 && (
@@ -309,7 +331,7 @@ const PenaltiesBox = ({ bookingID }) => {
                 </span>
               </div>
               {heldNow && (
-                <p className="text-xs text-gray-400">Your deposit doesn't fully cover the penalties. You can pay the rest online now using the button above.</p>
+                <p className="text-xs text-gray-400">Your deposit{creditLeft > 0 ? " and discount credit don't" : " doesn't"} fully cover the penalties. You can pay the rest online now using the button above.</p>
               )}
               {hasDeposit && !heldNow && !depositSettled && (
                 <p className="text-xs text-gray-400">Your security deposit is no longer held, so this is paid online.</p>
@@ -527,14 +549,17 @@ export default function BookingDetailsPage() {
                 <span>{booking.totalDays} day(s)</span>
                 <span>{booking.modeOfDriving || "With Chauffeur"}</span>
               </div>
-              {payment?.discountAmount > 0 ? (
+              {/* discountPriceOff: only a discount that really lowers the price (see DiscountSummary.jsx). Credit held for
+                  the customer is returned after the trip, so the total stays and a note says so. */}
+              {discountPriceOff(payment) > 0 ? (
                 <div className="flex items-baseline gap-2 mt-2 flex-wrap">
-                  <p className="text-lg font-black text-arl-cta">{peso(booking.totalFee - payment.discountAmount)}</p>
+                  <p className="text-lg font-black text-arl-cta">{peso(booking.totalFee - discountPriceOff(payment))}</p>
                   <p className="text-sm text-gray-400 line-through">{peso(booking.totalFee)}</p>
                 </div>
               ) : (
                 <p className="text-lg font-black text-arl-cta mt-2">{peso(booking.totalFee)}</p>
               )}
+              <DiscountHeldPill discount={payment?.discount} />
             </div>
           </div>
         </div>
@@ -597,11 +622,8 @@ export default function BookingDetailsPage() {
           </div>
         )}
 
-        {/* Vehicle inspection — self-drive bookings only (with a chauffeur the driver handles the handover).
-            The server decides what may be shown; the card hides itself when there is nothing to show. */}
-        {/self/i.test(booking.modeOfDriving || "") && (
-          <InspectionCard bookingID={booking.bookingID || bookingID} />
-        )}
+        {/* Traffic notices (the card hides itself when it doesn't apply) */}
+        <ViolationsCard bookingID={booking.bookingID || bookingID} bookingStatus={booking.status} />
 
         {/* Payment */}
         {payment ? (
@@ -618,11 +640,14 @@ export default function BookingDetailsPage() {
               <DR label="Gateway Fee" hint={payment.gatewayFeeRate > 0 ? `${payment.gatewayFeeRate}% of total` : ""} value={peso(payment.gatewayFee)} />
               <DR label="Extra Fee"         value={payment.extraFee ? peso(payment.extraFee) : null} />
               <DR label="Driver's Fee"      value={payment.driversFee ? peso(payment.driversFee) : null} />
-              <DR label="Discount Applied"  value={payment.discountAmount ? peso(payment.discountAmount) : null} />
               <DR label="Balance Due"       value={peso(payment.balanceDue)} />
               <DR label="Payment Method"    value={payment.methodOfPayment} />
               <DR label="Reference No."     value={payment.referenceNumber} mono />
             </div>
+            {/* An older backend sends no `discount`: show the old single figure. */}
+            {payment.discount
+              ? <DiscountSummary discount={payment.discount} className="mb-4" />
+              : payment.discountAmount > 0 && <DiscountSummary discount={{ status: "legacy", total: payment.discountAmount }} className="mb-4" />}
             {balanceRequired && (
               <div className="mt-3">
                 <div className={`rounded-xl border px-3 py-2 mb-3 ${balancePending ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200"}`}>

@@ -111,13 +111,26 @@ const META_BY_TYPE = {
     badge: { text: "Refunded", className: "bg-emerald-50 text-emerald-700" },
     action: "View Details",
   },
+  // Written by the admin app when a deposit or discount payout is started (depositReturn.service.js). The notification's own
+  // message says which one (deposit or discount); it is confirmed later by refund_completed.
+  deposit_return_processing: {
+    bg: "bg-amber-100", title: "Return in Progress",
+    badge: { text: "Processing", className: "bg-amber-50 text-amber-700" },
+    action: "View Details",
+  },
   refund_failed: {
     bg: "bg-red-100", title: "Refund Failed",
     badge: { text: "Refund Failed", className: "bg-red-50 text-red-700" },
     action: "View Details",
   },
-  // Written by the ADMIN app when staff check a handover (refID = the bookingID, so tapping
-  // the card opens that booking's details, where the handover is shown).
+  // Written by the ADMIN app when staff record / update a traffic notice or check a handover
+  // (refID = the bookingID, so tapping the card opens that booking's details, where the notice
+  // and the handover are shown). Contract: customer backend docs/violations-and-handover-contract.md
+  violation_recorded: {
+    bg: "bg-red-100", title: "Traffic Notice Recorded",
+    badge: { text: "Notice", className: "bg-red-50 text-red-700" },
+    action: "View Booking",
+  },
   handover_verified: {
     bg: "bg-green-100", title: "Handover Checked",
     badge: { text: "Verified", className: "bg-green-50 text-green-700" },
