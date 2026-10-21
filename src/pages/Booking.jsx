@@ -1024,16 +1024,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       setStartDate(''); setStartTime(''); setEndDate(''); setEndTime('');
     }
     try {
-      // Public endpoint — visitors without an account browse the calendar too, so the
-      // token is only attached when there is one (never send "Bearer null").
       const token = localStorage.getItem("arl_token");
       const res  = await fetch(`${process.env.REACT_APP_API_URL}/services/car-bookings/${car.carID}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      // An error body ({ message }) is not a list of bookings. Without this check it was
-      // fed to getDateStatuses() and threw, which silently left every date looking free.
-      if (!res.ok || !Array.isArray(data)) throw new Error(data?.message || "Could not load availability.");
       setCarBookings(data);
       setDateStatuses(getDateStatuses(data));
       setCarBookingsLoaded(true);
@@ -1785,6 +1780,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       return;
     }
 
+    // ── Auth check — only when user tries to go past Step 1 ──
+    if (currentStep === 1 && !user) {
+      setShowAuthModal(true);
+      return;
+    }
+
     // ── Pay step: details first, then option + method ──
     if (currentStep === 4 && payPart === 1) {
       setPayPart(2);
@@ -1814,17 +1815,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         });
         if (blocked) return; // stop — don't advance to step 3
       }
-    }
-
-    // ── Auth check — visitors can browse vehicles, the availability calendar, the trip
-    // setup and the live price quote without an account. An account is only needed from
-    // the Details step on (that's where the booking becomes personal), so this is the
-    // point we ask them to log in. It runs AFTER the Number Coding check on purpose, so a
-    // visitor finds out about a coding restriction before being asked to sign up. Their
-    // trip selections stay in place while the login modal is open.
-    if (currentStep === 2 && !user) {
-      setShowAuthModal(true);
-      return;
     }
 
     if (currentStep < 5) {
@@ -3225,7 +3215,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             </div>
             <h3 className="font-display text-2xl text-arl-primary mb-2">Login Required</h3>
             <p className="text-gray-500 text-sm mb-6">
-              Log in or create an account to continue with your booking. Your trip details will be kept.
+              You need to be logged in to proceed with your booking. Please log in or create an account to continue.
             </p>
             <div className="flex gap-3">
               <button
@@ -3234,11 +3224,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setShowAuthModal(false);
-                  // The login modal lives in the Navbar — ask it to open (see Navbar.jsx).
-                  window.dispatchEvent(new CustomEvent("arl:open-login"));
-                }}
+                onClick={() => { setShowAuthModal(false); window.scrollTo(0,0); }}
                 className="flex-1 bg-arl-cta text-white py-2.5 rounded-full font-medium hover:bg-red-700 transition text-sm">
                 Log In
               </button>
