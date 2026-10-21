@@ -624,11 +624,10 @@ export default function BookingDetailsPage() {
           </div>
         )}
 
-        {/* Vehicle inspection — self-drive bookings only (with a chauffeur the driver handles the handover).
-            The server decides what may be shown; the card hides itself when there is nothing to show. */}
-        {/self/i.test(booking.modeOfDriving || "") && (
-          <InspectionCard bookingID={booking.bookingID || bookingID} />
-        )}
+        {/* Vehicle inspection — for bookings with no driver (self-drive, or a chauffeur booking nobody is assigned to).
+            When a driver handles the trip, the driver sees the inspection instead. The server decides what may be
+            shown; the card hides itself when there is nothing to show. */}
+        <InspectionCard bookingID={booking.bookingID || bookingID} />
 
        
         {/* Payment */}

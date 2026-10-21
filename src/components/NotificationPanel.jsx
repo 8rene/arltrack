@@ -143,6 +143,13 @@ const META_BY_TYPE = {
     badge: { text: "Verified", className: "bg-green-50 text-green-700" },
     action: "View Booking",
   },
+  // Written by the ADMIN app when staff confirm a vehicle inspection and there is no driver on the trip
+  // (refID = the bookingID). Opens the booking details, where the inspection photos are shown.
+  inspection_confirmed: {
+    bg: "bg-green-100", title: "Car Inspected",
+    badge: { text: "Inspected", className: "bg-green-50 text-green-700" },
+    action: "View Inspection",
+  },
   discount_applied: {
     bg: "bg-pink-100", title: "Discount Applied",
     badge: { text: "Discount", className: "bg-pink-50 text-pink-700" },
@@ -200,7 +207,7 @@ function NotifRow({ n, onAction, onDelete }) {
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-arl-dark leading-snug">{n.type === "deposit_return_processing" && n.title ? n.title : meta.title}</p>
+          <p className="text-sm font-semibold text-arl-dark leading-snug">{(n.type === "deposit_return_processing" || n.type === "inspection_confirmed") && n.title ? n.title : meta.title}</p>
           <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${meta.badge.className}`}>
             {meta.badge.text}
           </span>
