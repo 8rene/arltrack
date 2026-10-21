@@ -20,6 +20,14 @@ export default function Navbar({ user, userDetails, onLogin, onLogout }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Other pages (e.g. the Booking page's "Login Required" prompt) can ask for the login
+  // modal without owning its state: window.dispatchEvent(new CustomEvent("arl:open-login")).
+  useEffect(() => {
+    const openLogin = () => { setShowSignup(false); setShowLogin(true); };
+    window.addEventListener("arl:open-login", openLogin);
+    return () => window.removeEventListener("arl:open-login", openLogin);
+  }, []);
+
   // Close the profile menu on any click/tap outside it (or Esc). Without this the menu only
   // closed when the cursor left the menu itself, so tapping the bell left BOTH panels open
   // and the profile menu covered the notifications. (The bell's own panel already closes on

@@ -2,11 +2,17 @@
   position: fixed;
   top: 5.5rem;
   right: 1.25rem;
-  z-index: 100;
+  /* Must sit ABOVE every modal/overlay (login/signup use 9999, OTP uses 10000),
+     otherwise an error toast fired from inside a modal renders behind its backdrop.
+     Max 32-bit int so no future overlay can end up on top of it. */
+  z-index: 2147483647;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
   max-width: min(360px, calc(100vw - 2.5rem));
+  /* The stack itself never blocks clicks (e.g. a modal's close button underneath);
+     only the toasts are clickable (click to dismiss). */
+  pointer-events: none;
 }
 
 .arl-toast {
@@ -20,6 +26,7 @@
   line-height: 1.35;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   cursor: pointer;
+  pointer-events: auto;
   animation: arl-toast-in 0.2s ease-out;
 }
 
