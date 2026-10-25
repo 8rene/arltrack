@@ -306,7 +306,6 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
   const [form, setForm] = useState(() =>
     Object.fromEntries(SIMPLE_FIELDS.map(f => [f.key, currentValues[f.key] || ""]))
   );
-  const [reason, setReason] = useState("");
   const [error, setError]   = useState("");
 
   // ── Location cascade (Region → Province → Municipality → Barangay) ──
@@ -430,7 +429,7 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
       return;
     }
     setError("");
-    onSubmit(changes, reason);
+    onSubmit(changes);
   };
 
   return (
@@ -533,17 +532,6 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
                   </select>
                 </div>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Reason (optional)</label>
-              <textarea
-                rows={3}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Why does this need to change?"
-                className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
-              />
             </div>
 
             {error && <p className="text-xs text-red-500">{error}</p>}
@@ -1017,14 +1005,14 @@ const ProfilePage = ({ user }) => {
     }
   };
 
-  const submitEditRequest = async (changes, reason) => {
+  const submitEditRequest = async (changes) => {
     setSubmittingEdit(true);
     try {
       const token = localStorage.getItem("arl_token");
       const res = await fetch(`${process.env.REACT_APP_API_URL}/user/edit-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ changes, reason }),
+        body: JSON.stringify({ changes }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to send request.");
