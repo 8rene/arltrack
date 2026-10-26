@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info, Clock } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
+import { fetchBaseAreaConfig } from '../utils/baseArea';
 import { useToast } from '../context/ToastContext';
 import { useActiveTerms } from '../utils/terms';
 import gcashLogo  from '../assets/images/GCash_Logo.png';
@@ -31,6 +32,23 @@ const fmt         = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 
 const fmt12       = (t) => { if (!t) return ''; const [h,m]=t.split(':').map(Number); const ap=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ap}`; };
 const MONTHS      = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS        = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+// ── Minimum notice before pickup ("preparation time") ─────────────
+// A car needs time to be prepared (cleaning, fuel, paperwork, driver), so a pickup that is too soon can't
+// be booked: the earliest pickup is "now + notice" (at 1:00 AM with 12 hours it is 1:00 PM today; at 1:00 PM
+// it is 1:00 AM tomorrow). The real value is the admin-editable setting `bookingLeadHours` that the server
+// sends (utils/baseArea.js → fetchBaseAreaConfig) and enforces in createBooking; this default is only what
+// the calendar uses until that has loaded.
+const DEFAULT_LEAD_HOURS = 12;
+// The business runs on Manila time (the server pins +08:00 on every pickup), so "now" is read as a Manila
+// wall clock too — the earliest pickup then matches the server whatever timezone the customer's device is in.
+const manilaParts = (ms) => {
+  const d = new Date(ms + 8 * 3600000), p2 = (n) => String(n).padStart(2, '0');
+  return { day: `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())}`, time: `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}` };
+};
+// Earliest pickup = now + notice, rounded UP to the next quarter hour (the clock only offers :00 :15 :30 :45).
+// `floorMs` = the earliest pickup the SERVER last told us about (if our own clock runs slow, the server is right).
+const earliestPickupParts = (nowMs, leadHours, floorMs = 0) => manilaParts(Math.max(Math.ceil((nowMs + leadHours * 3600000) / 900000) * 900000, floorMs));
 
 // ── Booking date status calculator ────────────────────────────
 const getDateStatuses = (carBookings) => {
@@ -187,24 +205,46 @@ const clockPolar = (i, r) => {
 const clockPad = (n) => String(n).padStart(2, '0');
 const clockTo24 = (h12, m, ap) => `${clockPad((h12 % 12) + (ap === 'PM' ? 12 : 0))}:${clockPad(m)}`;
 
-const ClockTimePicker = ({ value, onChange, onMinutePicked, allowedTimes = null }) => {
+const ClockTimePicker = ({ value, onChange, onMinutePicked, allowedTimes = null, minTime = null, leadHours = 0 }) => {
   const parsed = /^\d{1,2}:\d{2}$/.test(value || '')
     ? (() => { const [h, m] = value.split(':').map(Number); return { h12: (h % 12) || 12, minute: m, ap: h >= 12 ? 'PM' : 'AM' }; })()
     : null;
   const [mode, setMode] = useState('hour');
-  const [ap, setAp] = useState(parsed ? parsed.ap : 'AM');
+  // start on PM when every AM time is already too soon (e.g. the earliest pickup is 1:00 PM), so the clock never opens on a face of struck-out numbers
+  const [ap, setAp] = useState(parsed ? parsed.ap : (minTime && minTime >= '12:00' ? 'PM' : 'AM'));
 
   useEffect(() => {
-    if (parsed) setAp(parsed.ap); else setMode('hour');
+    if (parsed) setAp(parsed.ap); else { setMode('hour'); if (minTime && minTime >= '12:00') setAp('PM'); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [value, minTime]);
 
   const h12 = parsed ? parsed.h12 : null;
   const minute = parsed ? parsed.minute : 0;
 
-  const pickHour   = (h) => { onChange(clockTo24(h, minute, ap)); setMode('minute'); };
-  const pickMinute = (m) => { if (h12 !== null) { onChange(clockTo24(h12, m, ap)); if (onMinutePicked) onMinutePicked(); } };
-  const pickAp     = (p) => { setAp(p); if (h12 !== null) onChange(clockTo24(h12, minute, p)); };
+  // minTime ("HH:MM", 24-hour) = the earliest pickup time allowed on the chosen day; '24:00' = nothing that day.
+  // Unlike allowedTimes (greyed out but still tappable), anything before minTime can NOT be picked.
+  const timeBlocked = (h12v, m, apv) => !!minTime && clockTo24(h12v, m, apv) < minTime;
+  const hourBlocked = (h12v, apv) => [0, 15, 30, 45].every((m) => timeBlocked(h12v, m, apv));
+  const apBlocked   = (apv) => Array.from({ length: 12 }, (_, i) => (i === 0 ? 12 : i)).every((h) => hourBlocked(h, apv));
+
+  const pickHour   = (h) => {
+    if (hourBlocked(h, ap)) return;
+    // keep the minutes already chosen — unless that moment is too soon, then use the first minute that isn't
+    const mm = timeBlocked(h, minute, ap) ? [0, 15, 30, 45].find((x) => !timeBlocked(h, x, ap)) : minute;
+    onChange(clockTo24(h, mm, ap)); setMode('minute');
+  };
+  const pickMinute = (m) => { if (h12 !== null && !timeBlocked(h12, m, ap)) { onChange(clockTo24(h12, m, ap)); if (onMinutePicked) onMinutePicked(); } };
+  const pickAp     = (p) => {
+    if (apBlocked(p)) return;
+    setAp(p);
+    if (h12 === null) return;
+    if (!timeBlocked(h12, minute, p)) { onChange(clockTo24(h12, minute, p)); return; }
+    // that exact time is too soon in the other half of the day — jump to the first one that isn't
+    for (const hh of [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+      const mm = [0, 15, 30, 45].find((x) => !timeBlocked(hh, x, p));
+      if (mm !== undefined) { onChange(clockTo24(hh, mm, p)); return; }
+    }
+  };
 
   // allowedTimes (a Set of "HH:MM") = the pickup times that still have a driver. Anything else is greyed out
   // (still tappable: it can be booked Without Driver). null = nothing to grey out.
@@ -218,13 +258,13 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked, allowedTimes = null 
   const handEnd = handIndex !== null ? clockPolar(handIndex, CLOCK_LABEL_R - CLOCK_BUBBLE_R) : null;
 
   const seg = 'px-2 py-1 rounded-lg text-3xl sm:text-4xl font-black leading-none transition';
-  const renderMark = (key, idx, label, selected, onClick, dimmed = false) => {
+  const renderMark = (key, idx, label, selected, onClick, dimmed = false, blocked = false) => {
     const { x, y } = clockPolar(idx, CLOCK_LABEL_R);
     return (
-      <g key={key} onClick={onClick} style={{ cursor: 'pointer' }}>
+      <g key={key} onClick={blocked ? undefined : onClick} style={{ cursor: blocked ? 'not-allowed' : 'pointer' }}>
         <circle cx={x} cy={y} r={CLOCK_BUBBLE_R} fill={selected ? '#1a5f7a' : 'transparent'} />
         <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="700"
-          fill={selected ? '#ffffff' : dimmed ? '#d1d5db' : '#374151'} style={{ pointerEvents: 'none' }}>{label}</text>
+          fill={selected ? '#ffffff' : dimmed ? '#d1d5db' : '#374151'} textDecoration={blocked ? 'line-through' : undefined} style={{ pointerEvents: 'none' }}>{label}</text>
       </g>
     );
   };
@@ -246,7 +286,7 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked, allowedTimes = null 
         <div className="flex flex-col gap-1">
           {['AM', 'PM'].map((p) => (
             <button key={p} type="button" onClick={() => pickAp(p)} aria-pressed={ap === p}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${ap === p ? 'bg-arl-cta text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} ${!apOk(p) && ap !== p ? 'opacity-40' : ''}`}>
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${ap === p ? 'bg-arl-cta text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} ${(!apOk(p) || apBlocked(p)) && ap !== p ? 'opacity-40' : ''} ${apBlocked(p) ? 'cursor-not-allowed' : ''}`}>
               {p}
             </button>
           ))}
@@ -261,7 +301,7 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked, allowedTimes = null 
 
         {mode === 'hour' && Array.from({ length: 12 }, (_, i) => {
           const hour = i === 0 ? 12 : i;
-          return renderMark(hour, i, hour, h12 === hour, () => pickHour(hour), !hourOk(hour, ap));
+          return renderMark(hour, i, hour, h12 === hour, () => pickHour(hour), !hourOk(hour, ap) || hourBlocked(hour, ap), hourBlocked(hour, ap));
         })}
 
         {mode === 'minute' && (
@@ -271,7 +311,7 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked, allowedTimes = null 
               const { x, y } = clockPolar(i, CLOCK_LABEL_R);
               return <circle key={`t${i}`} cx={x} cy={y} r="2.5" fill="#d1d5db" />;
             })}
-            {[0, 15, 30, 45].map((m) => renderMark(m, m / 5, clockPad(m), !!parsed && minute === m, () => pickMinute(m), h12 !== null && !timeOk(h12, m, ap)))}
+            {[0, 15, 30, 45].map((m) => renderMark(m, m / 5, clockPad(m), !!parsed && minute === m, () => pickMinute(m), h12 !== null && (!timeOk(h12, m, ap) || timeBlocked(h12, m, ap)), h12 !== null && timeBlocked(h12, m, ap)))}
           </>
         )}
       </svg>
@@ -282,12 +322,15 @@ const ClockTimePicker = ({ value, onChange, onMinutePicked, allowedTimes = null 
       {allowedTimes && (
         <p className="text-[11px] text-amber-700 text-center mt-1">Greyed-out times have no driver free. They can only be booked Without Driver.</p>
       )}
+      {minTime && minTime !== '24:00' && (
+        <p className="text-[11px] text-amber-700 text-center mt-1">Times before {fmt12(minTime)} aren't available — a car needs {leadHours} hour{leadHours === 1 ? '' : 's'} to be prepared.</p>
+      )}
     </div>
   );
 };
 
 // ── Time field: looks like the old dropdown; clicking it opens the clock ──
-const ClockTimeField = ({ value, onChange, allowedTimes = null }) => {
+const ClockTimeField = ({ value, onChange, allowedTimes = null, minTime = null, leadHours = 0 }) => {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -321,7 +364,7 @@ const ClockTimeField = ({ value, onChange, allowedTimes = null }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-xs font-bold tracking-[0.15em] text-arl-secondary uppercase text-center mb-3">Select pickup time</p>
-            <ClockTimePicker value={value} onChange={onChange} onMinutePicked={() => setOpen(false)} allowedTimes={allowedTimes} />
+            <ClockTimePicker value={value} onChange={onChange} onMinutePicked={() => setOpen(false)} allowedTimes={allowedTimes} minTime={minTime} leadHours={leadHours} />
             <div className="flex gap-3 mt-4">
               <button type="button" onClick={() => setOpen(false)}
                 className="flex-1 border border-gray-200 text-gray-500 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
@@ -947,6 +990,45 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   // Calendar view: two months — start from the month of the pre-selected startDate if available
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
+
+  // ── Minimum notice before pickup ("preparation time") ──────────
+  // Cars need time to be prepared, so a pickup that is too soon can't be booked: its days are greyed out on
+  // the calendar, its times in the clock, and the server refuses it too (createBooking → code "LEAD_TIME").
+  // `leadHours` is the admin-editable setting from the server; DEFAULT_LEAD_HOURS is only used until it loads.
+  const [leadHours, setLeadHours] = useState(DEFAULT_LEAD_HOURS);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const [serverFloorMs, setServerFloorMs] = useState(0); // set when the server refuses a pickup as too soon
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60000); // keep "now" fresh while the page stays open
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    let off = false;
+    fetchBaseAreaConfig()
+      .then((cfg) => { if (!off && cfg.bookingLeadHours !== null && cfg.bookingLeadHours !== undefined) setLeadHours(cfg.bookingLeadHours); })
+      .catch(() => {}); // can't load → keep the default; the server still enforces the real value
+    return () => { off = true; };
+  }, []);
+  const leadActive = leadHours > 0;
+  const earliest = useMemo(() => earliestPickupParts(nowTick, leadHours, serverFloorMs), [nowTick, leadHours, serverFloorMs]);
+  const tooSoonLabel = `No car available — pickups need at least ${leadHours} hour${leadHours === 1 ? '' : 's'}' notice`;
+  // The earliest time the clock may offer on the chosen start day (null = no limit, '24:00' = the whole day is too soon).
+  const minPickupTime = !leadActive || !startDate ? null : startDate < earliest.day ? '24:00' : startDate === earliest.day ? earliest.time : null;
+  // If time moves on (or a Hero hand-off pre-filled a date) and the chosen pickup is now too soon, clear it and say why.
+  const leadNoticeRef = useRef('');
+  useEffect(() => {
+    if (!leadActive || !startDate) return;
+    const dayTooSoon  = startDate < earliest.day;
+    const timeTooSoon = !dayTooSoon && startDate === earliest.day && !!startTime && startTime < earliest.time;
+    if (!dayTooSoon && !timeTooSoon) return;
+    if (dayTooSoon) { setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); }
+    else { setStartTime(''); setEndTime(''); if (duration === '12 Hours') setEndDate(''); }
+    const noticeKey = `${startDate}|${startTime}|${earliest.day}|${earliest.time}`;
+    if (leadNoticeRef.current !== noticeKey) {
+      leadNoticeRef.current = noticeKey;
+      showToast(`Pickups need at least ${leadHours} hour${leadHours === 1 ? '' : 's'}' notice, so that start is no longer available. Please choose a later one.`, 'info');
+    }
+  }, [leadActive, leadHours, earliest.day, earliest.time, startDate, startTime, duration, showToast]);
   const [calViews, setCalViews] = useState(() => {
     const sd = initVal('startDate', 'startDate');
     const base = sd ? new Date(sd + 'T00:00:00') : new Date();
@@ -1391,7 +1473,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const handleDayClick = (date, idx) => {
     const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     const status = dateStatuses[key] || 'available';
-    if (BLOCKED_STATUSES.has(status) || date < today) return;
+    if (BLOCKED_STATUSES.has(status) || date < today || (leadActive && key < earliest.day)) return;
 
     if (duration === '12 Hours') {
       // 12 hours: end is always auto-calculated from start+time, never
@@ -1476,7 +1558,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             const ds     = dateStatuses[key] || 'available';
             const style  = DATE_STYLES[ds] || DATE_STYLES.available;
             const isPast = date < today;
-            const isBlocked = BLOCKED_STATUSES.has(ds) || isPast;
+            const isTooSoon = leadActive && !isPast && key < earliest.day; // inside the notice period: no car can be ready yet
+            const isBlocked = BLOCKED_STATUSES.has(ds) || isPast || isTooSoon;
             const noDriverDay = !isBlocked && fullDaySet.has(key); // selectable, but never with a driver
             const partialDriverDay = !isBlocked && !noDriverDay && partialDaySet.has(key); // a driver is free at some times only
             const isStart   = sameDay(date, startDO);
@@ -1500,7 +1583,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             const interactionDisabled = isBlocked || endCalendarLocked || sameDayEndInvalid;
 
             let cls = `text-center text-xs sm:text-sm py-1 sm:py-2 rounded-lg sm:rounded-xl transition-all font-medium relative `;
-            if (isPast) {
+            if (isPast || isTooSoon) {
               cls += 'text-gray-300 cursor-not-allowed ';
             } else if (isBlocked) {
               cls += `${style.bg} ${style.text} cursor-not-allowed text-[10px] sm:text-xs `;
@@ -1536,7 +1619,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 key={i}
                 type="button"
                 className={cls}
-                title={!isPast && ds !== 'available' ? style.label : (noDriverDay ? NO_DRIVER_DAY_LABEL : partialDriverDay ? PARTIAL_DRIVER_DAY_LABEL : sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (duration === '12 Hours' ? 'Auto-calculated from pickup time' : 'Pick a start date first') : undefined)}
+                title={isTooSoon ? tooSoonLabel : !isPast && ds !== 'available' ? style.label : (noDriverDay ? NO_DRIVER_DAY_LABEL : partialDriverDay ? PARTIAL_DRIVER_DAY_LABEL : sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (duration === '12 Hours' ? 'Auto-calculated from pickup time' : 'Pick a start date first') : undefined)}
                 onClick={() => !interactionDisabled && handleDayClick(date, idx)}
                 onMouseEnter={() => { if (startDO && !endDO && !interactionDisabled) setHoverDate(date); }}
                 onMouseLeave={() => setHoverDate(null)}
@@ -1932,6 +2015,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           setCurrentStep(2);
           setTripPart(PART.pickup);
           showToast(data.message || NO_DRIVER_MESSAGE);
+          return;
+        }
+        // The pickup became too soon while they were filling in the form (a slow clock, or the page sat open).
+        // Remember the earliest pickup the server just gave us, clear the start, and send them back to the schedule.
+        if (response.status === 400 && data.code === 'LEAD_TIME') {
+          const floor = new Date(data.earliestPickup).getTime();
+          if (Number.isFinite(floor)) setServerFloorMs(floor);
+          setStartTime(''); setEndTime(''); if (duration === '12 Hours') setEndDate('');
+          setCurrentStep(2);
+          setTripPart(PART.schedule);
+          showToast(data.message || 'That pickup is too soon. Please choose a later time.');
           return;
         }
         // For the duplicate-booking guard specifically, the backend now also
@@ -2620,6 +2714,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           : 'Click any available date. End time auto-calculated.'
                         }
                       </p>
+                      {leadActive && (
+                        <div role="note" className="mb-3 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs sm:text-sm text-amber-900">
+                          <Clock size={16} className="mt-0.5 flex-shrink-0 text-amber-700" />
+                          <span>No car is available for pickup in the next <b>{leadHours} hour{leadHours === 1 ? '' : 's'}</b>: we need that time to prepare it. Earliest pickup: <b>{fmtCodingDate(earliest.day)}, {fmt12(earliest.time)}</b>.</span>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                         {calViews.map((v, i) => renderCalendar(v, i))}
                       </div>
@@ -2648,7 +2748,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       <p className="text-xs text-gray-400 mb-3">
                         {startDate ? `Pickup on ${fmt(startDate)}` : 'Select a date above first.'}
                       </p>
-                      <ClockTimeField value={startTime || ''} onChange={handleStartTimeChange} allowedTimes={allowedPickupTimes} />
+                      <ClockTimeField value={startTime || ''} onChange={handleStartTimeChange} allowedTimes={allowedPickupTimes} minTime={minPickupTime} leadHours={leadHours} />
                       {driverTimesNote && (
                         <p role="note" className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2">{driverTimesNote}</p>
                       )}
