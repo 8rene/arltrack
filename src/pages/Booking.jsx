@@ -2197,7 +2197,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         gatewayFeeRate > 0
           ? `Computed as ${gatewayFeeRate}% of everything else on your booking: rental fee, extra fee, driver's fee, service fee, and security deposit.`
           : "Computed from everything else on your booking: rental fee, extra fee, driver's fee, service fee, and security deposit.",
-        'It is refunded together with your booking amount when a refund applies. (T&C: Payment Terms)',
+        'It is not refunded when your refund is approved with your security deposit returned (asked 48 hours or more before pickup). It is refunded when the security deposit is kept instead. (T&C: Cancellation & Refund Policy)',
       ],
     },
   ];
