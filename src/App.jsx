@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Navbar from "./components/NavBar";
+import Navbar from "./components/layout/NavBar";
 import Booking from "./pages/Booking";
 import ProfilePage from "./pages/ProfilePage";
 import MyBookings from "./pages/MyBookings";

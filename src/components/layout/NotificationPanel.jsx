@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "../firebase";
+import { db } from "../../firebase";
 import {
   collection,
   query,
@@ -98,9 +98,6 @@ function NotifRow({ n, onOpen, onDelete }) {
         onClick={() => onOpen(n)}
         className="flex items-start gap-3 flex-1 min-w-0 text-left"
       >
-        <div className={`w-9 h-9 rounded-full ${meta.bg} flex items-center justify-center shrink-0 mt-0.5 text-base ${unread ? "" : "opacity-60"}`}>
-          {meta.emoji}
-        </div>
         <div className="flex-1 min-w-0">
           <p className={`text-sm leading-snug ${unread ? "font-semibold text-gray-800" : "font-medium text-gray-500"}`}>{title}</p>
           <p className={`text-xs mt-0.5 leading-relaxed ${unread ? "text-gray-600" : "text-gray-400"}`}>{n.message}</p>
@@ -200,7 +197,6 @@ function NotificationDropdown({ notifications, tab, onTab, error, onOpen, onDele
         <div className="max-h-[65vh] sm:max-h-96 overflow-y-auto divide-y divide-gray-50">
           {shown.length === 0 ? (
             <div className="py-10 flex flex-col items-center gap-2 text-gray-400">
-              <BellIcon />
               <p className="text-sm">{EMPTY_TEXT[tab]}</p>
             </div>
           ) : (

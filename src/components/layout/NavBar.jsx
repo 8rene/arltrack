@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import SignUpModal from "./auth/SignUpModal";
-import LoginModal from "./auth/LoginModal";
+import SignUpModal from "../auth/SignUpModal";
+import LoginModal from "../auth/LoginModal";
 import NotificationPanel from "./NotificationPanel";
 
 export default function Navbar({ user, userDetails, onLogin, onLogout }) {
