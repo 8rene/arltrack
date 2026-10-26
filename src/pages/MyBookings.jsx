@@ -229,6 +229,11 @@ const RefundModal = ({ booking, mode = "refund", onConfirm, onClose, loading }) 
                 Your security deposit is included because you're asking within {preview.graceHours || 2} hours of booking.
               </p>
             )}
+            {preview.graceFeeWaived > 0 && (
+              <p className="text-xs text-green-700/80 mt-0.5">
+                No gateway fee is deducted because you're asking within {preview.graceHours || 2} hours of paying.
+              </p>
+            )}
             {preview.depositForfeited > 0 && (
               <p className="text-xs text-green-700/80 mt-0.5">
                 {peso(preview.depositForfeited)} security deposit is kept because this is under {preview.windowHours || 48} hours before pickup.

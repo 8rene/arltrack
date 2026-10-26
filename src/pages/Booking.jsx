@@ -959,7 +959,14 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // ── Fetch cars ───────────────────────────────────────────────
   useEffect(() => {
     fetch(`${process.env.REACT_APP_API_URL}/cars/all`, { method: "POST", headers: { "Content-Type": "application/json" } })
-      .then(r => r.json()).then(d => { setCars(d); setCarsLoading(false); })
+      .then(r => r.json()).then(d => {
+        // Booking page only: cars under Maintenance or Inactive can't be booked, so they are not listed at all.
+        // (The showroom still lists Maintenance cars; the server never sends Inactive ones.)
+        const bookable = Array.isArray(d)
+          ? d.filter(c => !['maintenance', 'inactive'].includes(String(c.status || '').trim().toLowerCase()))
+          : [];
+        setCars(bookable); setCarsLoading(false);
+      })
       .catch(() => { setCarsError('Could not load vehicles.'); setCarsLoading(false); });
   }, []);
 
@@ -1006,6 +1013,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     if (!location.state?.carID || cars.length === 0) return;
     const match = cars.find(c => c.carID === location.state.carID);
     if (match) { handleCarSelect(match); setCurrentStep(2); }
+    else showToast('That vehicle is not available for booking right now.');   // e.g. opened from the showroom while it is under maintenance
   // handleCarSelect is intentionally NOT a dependency: it is re-created whenever the
   // date/duration state changes, and adding it would re-run this pre-select (jumping
   // back to step 2 and resetting the car) every time the customer picks a date.
