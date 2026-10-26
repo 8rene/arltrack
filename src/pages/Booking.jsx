@@ -1032,11 +1032,24 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const [calViews, setCalViews] = useState(() => {
     const sd = initVal('startDate', 'startDate');
     const base = sd ? new Date(sd + 'T00:00:00') : new Date();
+    // Both calendars open on the SAME month. The return date is often in the same month as the pickup
+    // (e.g. Oct 27 -> Oct 28), so the End calendar must not start a month ahead.
     return [
       new Date(base.getFullYear(), base.getMonth(), 1),
-      new Date(base.getFullYear(), base.getMonth() + 1, 1),
+      new Date(base.getFullYear(), base.getMonth(), 1),
     ];
   });
+
+  // Keep the End calendar on the month of the return date (or of the pickup date until a return date exists),
+  // so what the customer picked is always visible. Runs only when the dates change, so the arrows still work.
+  useEffect(() => {
+    const target = endDate || startDate;
+    if (!target) return;
+    const d = new Date(target + 'T00:00:00');
+    if (Number.isNaN(d.getTime())) return;
+    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+    setCalViews((prev) => (prev[1].getTime() === first.getTime() ? prev : [prev[0], first]));
+  }, [startDate, endDate]);
 
   // ── Fetch cars ───────────────────────────────────────────────
   useEffect(() => {
