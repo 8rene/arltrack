@@ -229,9 +229,19 @@ const RefundModal = ({ booking, mode = "refund", onConfirm, onClose, loading }) 
                 Your security deposit is included because you're asking within {preview.graceHours || 2} hours of booking.
               </p>
             )}
-            {preview.graceFeeWaived > 0 && (
+            {preview.gatewayFeeKept > 0 && (
               <p className="text-xs text-green-700/80 mt-0.5">
-                No gateway fee is deducted because you're asking within {preview.graceHours || 2} hours of paying.
+                The {peso(preview.gatewayFeeKept)} online payment (gateway) fee is not refunded.
+              </p>
+            )}
+            {preview.autoApprove && (
+              <p className="text-xs text-green-700/80 mt-0.5">
+                Because you're asking within {preview.graceHours || 2} hours of paying, this is approved automatically.
+              </p>
+            )}
+            {preview.scheduled && preview.sendAfter && (
+              <p className="text-xs text-green-700/80 mt-0.5">
+                Your payment was made today, so the refund will be sent on {fmtDT(preview.sendAfter)}.
               </p>
             )}
             {preview.depositForfeited > 0 && (
@@ -247,7 +257,9 @@ const RefundModal = ({ booking, mode = "refund", onConfirm, onClose, loading }) 
 
         <p className="text-xs text-gray-400 mt-3">
           {isRefund
-            ? `The refund covers what you've paid for this booking (${peso(amountPaid)}, less any deposit kept under the 48-hour policy) and the booking will be cancelled once it's approved. Our team will review it and you'll be notified once it's processed.`
+            ? (preview && preview.autoApprove
+                ? `The refund covers what you've paid for this booking (${peso(amountPaid)}, less the online payment fee) and the booking will be cancelled right away. You'll be notified once the refund is sent.`
+                : `The refund covers what you've paid for this booking (${peso(amountPaid)}, less any deposit kept under the 48-hour policy and the online payment fee when the deposit is returned) and the booking will be cancelled once it's approved. Our team will review it and you'll be notified once it's processed.`)
             : "This booking hasn't been paid yet, so nothing will be charged or refunded. It will be cancelled right away."}
         </p>
 
@@ -470,6 +482,11 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
               {existingRefund?.createdAt && (
                 <p className="text-xs text-gray-400">
                   <span className="font-semibold text-gray-500">Refund requested:</span> {fmtDT(existingRefund.createdAt)}
+                </p>
+              )}
+              {existingRefund?.status === "Approved" && existingRefund?.sendAfter && !existingRefund?.scheduledSentAt && (
+                <p className="text-xs text-blue-700 font-bold bg-blue-50 border border-blue-200 rounded-md px-1.5 py-0.5 inline-block">
+                  Refund will be sent on {fmtDT(existingRefund.sendAfter)}
                 </p>
               )}
               {!existingRefund && status === "cancelled" && cancelledAt && (
