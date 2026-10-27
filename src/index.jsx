@@ -3,7 +3,7 @@ import "./styles/index.css";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import { ToastProvider } from "./context/ToastContext.jsx";
-import showConsoleWarning from "./utils/ConsoleWarning.js";   // ← dagdag 1
+import showConsoleWarning from "./utils/securityWarning.js"; // ← dagdag 1
 
 showConsoleWarning();                                         // ← dagdag 2
 
