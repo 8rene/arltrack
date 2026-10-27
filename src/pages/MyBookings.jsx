@@ -1144,6 +1144,25 @@ const MyBookings = ({ user }) => {
                           {coveredCredit > 0 && (
                             <p className="text-[11px] text-gray-500">₱{Number(coveredCredit).toLocaleString()} covered by your discount credit (no fee)</p>
                           )}
+                          {/* What the penalty was for */}
+                          {(b.penalties || []).length > 0 && (
+                            <div className="mt-1.5 border-t border-red-100 pt-1.5 space-y-0.5">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Penalty charged for</p>
+                              {b.penalties.map((pen) => (
+                                <div key={pen.penaltyID}>
+                                  {(pen.items || []).map((it, idx) => (
+                                    <p key={idx} className="flex items-baseline justify-between gap-3 text-[11px] text-gray-600">
+                                      <span className="truncate">{it.description}</span>
+                                      <span className="shrink-0 font-medium text-red-600">₱{Number(it.amount).toLocaleString()}</span>
+                                    </p>
+                                  ))}
+                                  {pen.owed > 0 && pen.owed < pen.amount && (
+                                    <p className="text-[10px] text-gray-400">₱{Number(pen.owed).toLocaleString()} of ₱{Number(pen.amount).toLocaleString()} still unpaid</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <button
                           onClick={() => navigate(`/booking/${b.bookingID}/details`)}
