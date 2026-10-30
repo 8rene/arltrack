@@ -12,6 +12,9 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
   const [timer,    setTimer]    = useState(0);
+  // Set when the email belongs to an account an admin archived: shows the message + "Ask the administrator..." button.
+  const [archivedEmail, setArchivedEmail] = useState("");
+  const [appeal, setAppeal] = useState("idle"); // "idle" | "sending" | "sent" | "already" | "failed"
   const inputs = useRef([]);
 
   useEffect(() => {
@@ -22,7 +25,7 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
 
   const handleSendOTP = async (e) => {
     e.preventDefault();
-    setError(""); setLoading(true);
+    setError(""); setArchivedEmail(""); setAppeal("idle"); setLoading(true);
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/auth/send-otp`, {
         method: "POST",
@@ -30,7 +33,10 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
         body: JSON.stringify({ email: email.trim().toLowerCase(), purpose: "reset" }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Could not send OTP.");
+      if (!res.ok) {
+        if (data.archived) setArchivedEmail(email.trim().toLowerCase());
+        throw new Error(data.message || "Could not send OTP.");
+      }
       if (data.emailSent === false) throw new Error("Could not send OTP email. Please try again.");
       setStep(2);
       setTimer(60);
@@ -60,6 +66,24 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // "Ask the administrator to check my account": the server accepts only ONE request per archived account.
+  const handleAppeal = async () => {
+    if (!archivedEmail || appeal === "sending" || appeal === "sent" || appeal === "already") return;
+    setAppeal("sending");
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/auth/archived-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: archivedEmail }),
+      });
+      if (!res.ok) { setAppeal("failed"); return; }
+      const data = await res.json().catch(() => ({}));
+      setAppeal(data.alreadySent ? "already" : "sent");
+    } catch {
+      setAppeal("failed");
     }
   };
 
@@ -97,6 +121,12 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.archived) {
+          // archived between asking for the code and using it: go back to step 1 where the message + button live
+          setArchivedEmail(email.trim().toLowerCase());
+          setStep(1);
+          throw new Error(data.message || "Your account has been archived.");
+        }
         setDigits(["", "", "", "", "", ""]);
         setTimeout(() => inputs.current[0]?.focus(), 50);
         throw new Error(data.message || "Could not reset password.");
@@ -141,6 +171,33 @@ const ForgotPasswordModal = ({ onClose, onBackToLogin }) => {
                 {loading ? "Sending…" : "Send Code"}
               </button>
             </form>
+
+            {/* Archived account: no code is sent; offer the one-time "ask the administrator" request instead */}
+            {archivedEmail && appeal !== "sent" && appeal !== "already" && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={handleAppeal}
+                  disabled={appeal === "sending"}
+                  className="w-full rounded-xl border border-arl-primary py-2.5 text-sm font-semibold text-arl-primary hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {appeal === "sending" ? "Sending…" : "Ask the administrator to check my account"}
+                </button>
+                {appeal === "failed" && (
+                  <p className="mt-2 text-xs text-red-600">Couldn't send the request. Please try again.</p>
+                )}
+              </div>
+            )}
+            {archivedEmail && appeal === "sent" && (
+              <div className="mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                Request sent. Staff will review your account and contact you.
+              </div>
+            )}
+            {archivedEmail && appeal === "already" && (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                You already sent a request for this account. Staff will contact you after they review it.
+              </div>
+            )}
 
             <p className="login-footer">
               Remembered your password?{" "}

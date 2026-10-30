@@ -71,7 +71,7 @@ async function checkAvailability(email, username) {
   } catch (err) {
     console.error("Availability check:", err);
     const msg = "Could not verify availability. Please check your connection and try again.";
-    return { email: msg, username: null };
+    return { email: msg, username: null, failed: true };
   }
 }
 
@@ -509,6 +509,8 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
   const [fieldErrors,   setFieldErrors]   = useState({ email: "", username: "" });
   const [showPassword,  setShowPassword]  = useState(false);
   const [checkingFields, setCheckingFields] = useState(false);
+  const [checkingEmail,  setCheckingEmail]  = useState(false);
+  const lastCheckedEmail = useRef(""); // the email last looked up, so tabbing in and out doesn't repeat the request
 
   // ── Live referral code check — purely informational, never blocks
   // signup. { checking, valid: true|false|null, referrerName } — valid
@@ -733,6 +735,25 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
     }
   };
 
+  // ── Live email check: runs when the person leaves the email box, so "already registered" / "archived" shows right
+  // away instead of only after they fill in everything and press Next. Next still re-checks. A connection problem
+  // stays silent here (Next reports it); the server limits how often this can be called.
+  const handleEmailBlur = async () => {
+    const typed = s0.email.trim().toLowerCase();
+    if (!typed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed)) return;
+    if (typed === lastCheckedEmail.current) return;
+    setCheckingEmail(true);
+    const errs = await checkAvailability(typed, "");
+    setCheckingEmail(false);
+    if (errs.failed) return;
+    lastCheckedEmail.current = typed;
+    setS0((cur) => {
+      // ignore the answer if they've changed the email while this was running
+      if (cur.email.trim().toLowerCase() === typed) setFieldErrors((p) => ({ ...p, email: errs.email || "" }));
+      return cur;
+    });
+  };
+
   // ── Next / submit handler ──────────────────────────────────────────────────
   const handleNext = async (e) => {
     e.preventDefault();
@@ -842,9 +863,13 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                     className={fieldErrors.email ? inputErrCls : inputCls}
                     placeholder="yourname@email.com"
                     value={s0.email}
-                    onChange={(e) => { setS0((p) => ({ ...p, email: e.target.value })); setFieldErrors((p) => ({ ...p, email: "" })); }}
+                    onChange={(e) => { setS0((p) => ({ ...p, email: e.target.value })); setFieldErrors((p) => ({ ...p, email: "" })); lastCheckedEmail.current = ""; }}
+                    onBlur={handleEmailBlur}
                     required autoComplete="email"
                   />
+                  {checkingEmail && !fieldErrors.email && (
+                    <p className="text-gray-400 text-xs mt-1">Checking email…</p>
+                  )}
                   {fieldErrors.email && (
                     <div className="mt-2 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
                       <span className="text-red-500 flex-shrink-0 mt-0.5"><IconAlert /></span>

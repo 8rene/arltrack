@@ -16,7 +16,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   const [googleLoading, setGoogleLoading] = useState(false);
   // Set when the login failed because an admin archived the account: shows "Ask the administrator to check my account".
   const [archivedEmail, setArchivedEmail] = useState("");
-  const [appeal,        setAppeal]        = useState("idle"); // "idle" | "sending" | "sent" | "failed"
+  const [appeal,        setAppeal]        = useState("idle"); // "idle" | "sending" | "sent" | "already" | "failed"
   const { showToast } = useToast();
 
   const emailRef    = useRef(null);
@@ -163,7 +163,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   // "Ask the administrator to check my account": tells the Owners/Admins an archived person is asking. It sends only the
   // e-mail they just tried (nothing typed), and the answer is the same whether or not that e-mail is known.
   const handleAppeal = async () => {
-    if (!archivedEmail || appeal === "sending" || appeal === "sent") return;
+    if (!archivedEmail || appeal === "sending" || appeal === "sent" || appeal === "already") return;
     setAppeal("sending");
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/auth/archived-review`, {
@@ -171,7 +171,9 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: archivedEmail }),
       });
-      setAppeal(res.ok ? "sent" : "failed");
+      if (!res.ok) { setAppeal("failed"); return; }
+      const data = await res.json().catch(() => ({}));
+      setAppeal(data.alreadySent ? "already" : "sent"); // the server accepts only ONE request per archived account
     } catch {
       setAppeal("failed");
     }
@@ -277,7 +279,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
         </form>
 
         {/* Archived account: ask staff to take a look */}
-        {archivedEmail && appeal !== "sent" && (
+        {archivedEmail && appeal !== "sent" && appeal !== "already" && (
           <div className="mt-3">
             <button
               type="button"
@@ -295,6 +297,11 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
         {archivedEmail && appeal === "sent" && (
           <div className="mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
             Request sent. Staff will review your account and contact you.
+          </div>
+        )}
+        {archivedEmail && appeal === "already" && (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            You already sent a request for this account. Staff will contact you after they review it.
           </div>
         )}
 
