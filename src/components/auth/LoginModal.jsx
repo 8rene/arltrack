@@ -14,6 +14,9 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   const [remember,      setRemember]     = useState(false);
   const [loading,       setLoading]      = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  // Set when the login failed because an admin archived the account: shows "Ask the administrator to check my account".
+  const [archivedEmail, setArchivedEmail] = useState("");
+  const [appeal,        setAppeal]        = useState("idle"); // "idle" | "sending" | "sent" | "failed"
   const { showToast } = useToast();
 
   const emailRef    = useRef(null);
@@ -31,6 +34,8 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setArchivedEmail("");
+    setAppeal("idle");
 
     // Remember me
     if (remember) {
@@ -49,6 +54,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.archived) setArchivedEmail(email.trim());
         showToast(data.message || "Invalid email or password.");
         return;
       }
@@ -117,6 +123,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
       if (!response.ok) {
         // Sign out from Firebase so provider doesn't get linked to the account
         await signOut(auth);
+        if (data.archived) setArchivedEmail((result.user?.email || "").trim());
         showToast(data.message || "Google login failed. Please try again.");
         return;
       }
@@ -140,6 +147,7 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
       }
       // An account an admin archived has its login disabled, so Firebase refuses the Google sign-in itself.
       if (err.code === "auth/user-disabled") {
+        if (err.customData?.email) { setArchivedEmail(String(err.customData.email).trim()); setAppeal("idle"); }
         showToast("Your account has been archived. Please contact the administrator to have it restored.");
         return;
       }
@@ -149,6 +157,23 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
       showToast("Google login failed. Please try again.");
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  // "Ask the administrator to check my account": tells the Owners/Admins an archived person is asking. It sends only the
+  // e-mail they just tried (nothing typed), and the answer is the same whether or not that e-mail is known.
+  const handleAppeal = async () => {
+    if (!archivedEmail || appeal === "sending" || appeal === "sent") return;
+    setAppeal("sending");
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/auth/archived-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: archivedEmail }),
+      });
+      setAppeal(res.ok ? "sent" : "failed");
+    } catch {
+      setAppeal("failed");
     }
   };
 
@@ -250,6 +275,28 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
             {loading ? "Logging in…" : "Login"}
           </button>
         </form>
+
+        {/* Archived account: ask staff to take a look */}
+        {archivedEmail && appeal !== "sent" && (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={handleAppeal}
+              disabled={appeal === "sending"}
+              className="w-full rounded-xl border border-arl-primary py-2.5 text-sm font-semibold text-arl-primary hover:bg-gray-50 disabled:opacity-60"
+            >
+              {appeal === "sending" ? "Sending…" : "Ask the administrator to check my account"}
+            </button>
+            {appeal === "failed" && (
+              <p className="mt-2 text-xs text-red-600">Couldn't send the request. Please try again.</p>
+            )}
+          </div>
+        )}
+        {archivedEmail && appeal === "sent" && (
+          <div className="mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            Request sent. Staff will review your account and contact you.
+          </div>
+        )}
 
         {/* Divider */}
         <div className="login-divider">
