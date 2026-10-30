@@ -63,7 +63,9 @@ async function checkAvailability(email, username) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "Server error");
     return {
-      email:    data.email    ? "This email is already registered. Please use a different email or log in." : null,
+      email:    data.email    ? (data.emailArchived
+                          ? "This email belongs to an archived account. Please contact the administrator to have it restored."
+                          : "This email is already registered. Please use a different email or log in.") : null,
       username: data.username ? "This username is already taken. Please choose a different one."           : null,
     };
   } catch (err) {

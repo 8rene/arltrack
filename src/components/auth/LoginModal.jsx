@@ -138,6 +138,11 @@ const LoginModal = ({ onLogin, onClose, onSwitchToSignUp }) => {
         showToast("Your browser blocked the Google sign-in popup. Please allow pop-ups for this site and try again.");
         return;
       }
+      // An account an admin archived has its login disabled, so Firebase refuses the Google sign-in itself.
+      if (err.code === "auth/user-disabled") {
+        showToast("Your account has been archived. Please contact the administrator to have it restored.");
+        return;
+      }
       // Sign out on unexpected errors too
       await signOut(auth).catch(() => {});
       console.error("Google login error:", err);
