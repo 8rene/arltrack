@@ -646,8 +646,12 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
     if (!s3.govIdType)           e.govIdType     = "Please select a government ID type.";
     if (!s3.govIdNumber.trim())  e.govIdNumber   = "Please enter your government ID number.";
     if (!s3.govIdImage)          e.govIdImage    = "Please capture or upload your government ID photo.";
-    if (!s3.licenseNumber.trim()) e.licenseNumber = "Please enter your driver's license number.";
-    if (!s3.licenseImage)        e.licenseImage  = "Please capture or upload your driver's license photo.";
+    // The driver's license is optional. Skipping it is fine (the account can only book With Driver), but the number
+    // and the photo go together — a half-filled license is not accepted.
+    const hasLicNo = !!s3.licenseNumber.trim();
+    const hasLicImg = !!s3.licenseImage;
+    if (hasLicNo && !hasLicImg) e.licenseImage  = "Please add the photo of your driver's license, or clear the number to skip it.";
+    if (hasLicImg && !hasLicNo) e.licenseNumber = "Please enter your driver's license number, or remove the photo to skip it.";
     if (!s3.selfieImage)         e.selfieImage   = "Please provide a selfie photo.";
     setS3Err(e);
     return Object.keys(e).length === 0;
@@ -1189,9 +1193,18 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
 
                 <hr className="border-gray-100 my-1" />
 
+                {/* License is OPTIONAL — without one the customer can only book With Driver */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700 flex gap-2">
+                  <span className="flex-shrink-0 mt-0.5"><IconInfo /></span>
+                  <span>
+                    <b>Driver's license (optional).</b> You can create your account without one, but you can only book <b>With Driver</b>.
+                    To book <b>Without Driver</b> you need a valid license and must be 21 or older. You can add your license later in your Profile.
+                  </span>
+                </div>
+
                 {/* License number */}
                 <div>
-                  <label className={labelCls}>Driver's License Number <span className="text-red-400">*</span></label>
+                  <label className={labelCls}>Driver's License Number <span className="text-gray-400 font-normal">(optional)</span></label>
                   <input type="text" className={s3Err.licenseNumber ? inputErrCls : inputCls}
                     placeholder="e.g. N01-12-123456"
                     value={s3.licenseNumber}
@@ -1201,10 +1214,9 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                 </div>
 
                 {/* License photo — camera or upload */}
-                <ImageCapture label="Driver's License Photo" cameraOnly={false}
+                <ImageCapture label="Driver's License Photo (optional)" cameraOnly={false}
                   value={s3.licenseImage}
                   onChange={(v) => { setS3((p) => ({ ...p, licenseImage: v })); setS3Err((p) => ({ ...p, licenseImage: "" })); }}
-                  required
                 />
                 <FieldErr msg={s3Err.licenseImage} />
 

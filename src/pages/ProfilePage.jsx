@@ -231,13 +231,14 @@ const ResubmitIdModal = ({ userID, documentKind, currentUrl, onClose, onSubmitte
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex justify-between items-center p-5 border-b">
-          <h2 className="font-black text-lg text-gray-800">Resubmit {isLicense ? "Driver's License" : "Government ID"}</h2>
+          <h2 className="font-black text-lg text-gray-800">{currentUrl ? "Resubmit" : "Add"} {isLicense ? "Driver's License" : "Government ID"}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
         </div>
         <div className="p-5 space-y-4">
           <p className="text-xs text-gray-400">
-            Upload a clear photo of your updated {isLicense ? "(renewed) driver's license" : "government ID"}.
-            An admin will review it{isLicense ? " and confirm the new expiry date" : ""} before it's applied to your account.
+            Upload a clear photo of your {currentUrl ? "updated " : ""}{isLicense ? (currentUrl ? "(renewed) driver's license" : "driver's license") : "government ID"}.
+            An admin will review it{isLicense ? " and confirm the expiry date" : ""} before it's applied to your account.
+            {isLicense && !currentUrl && " You can book Without Driver once it is approved (you must also be 21 or older)."}
           </p>
 
           {currentUrl && (
@@ -1389,13 +1390,15 @@ const ProfilePage = ({ user }) => {
                       {profile?.driverLicenseUrl ? (
                         <img src={profile.driverLicenseUrl} alt="Driver's License" className="w-full h-32 object-cover rounded-lg border mb-2" />
                       ) : (
-                        <p className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3 text-center mb-2">No photo on file yet.</p>
+                        <p className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3 text-center mb-2">
+                          No driver's license on file. You can book With Driver. Add your license to book Without Driver.
+                        </p>
                       )}
                       <button
                         onClick={() => setShowResubmit("license")}
                         className="w-full py-2 rounded-lg border border-arl-primary text-arl-primary text-xs font-bold hover:bg-arl-primary/5 transition"
                       >
-                        Resubmit
+                        {profile?.driverLicenseUrl ? "Resubmit" : "Add license"}
                       </button>
                     </div>
                     <div className="border rounded-xl p-3">

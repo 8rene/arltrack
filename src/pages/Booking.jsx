@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info, Clock } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
@@ -903,6 +903,46 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     else setDriveType('chauffeur');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickupInStore, driveType, storeInfo.configured]);
+
+  // ── Without Driver needs a valid driver's license and a renter aged 21+ ──
+  // The server sends this with the account details ({ canSelfDrive, reason, message }). null = not known yet
+  // (not logged in, or still loading), in which case the option stays open; createBooking enforces the rule anyway.
+  const [selfDriveEligibility, setSelfDriveEligibility] = useState(userDetails?.drivingEligibility || null);
+  useEffect(() => {
+    if (userDetails?.drivingEligibility) setSelfDriveEligibility(userDetails.drivingEligibility);
+    if (!user) setSelfDriveEligibility(null);
+  }, [userDetails, user]);
+  // App.jsx loads the account details only at login/refresh. A license can be approved (or expire) meanwhile,
+  // so ask again whenever this page opens.
+  useEffect(() => {
+    if (!user?.userID) return;
+    const token = localStorage.getItem('arl_token');
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/user/details/${user.userID}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) return;
+        const fresh = await res.json();
+        if (!cancelled && fresh?.drivingEligibility) setSelfDriveEligibility(fresh.drivingEligibility);
+      } catch (err) {
+        console.error('Could not check driving eligibility:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.userID]);
+  const selfDriveBlocked = !!selfDriveEligibility && selfDriveEligibility.canSelfDrive === false;
+  // A restored draft (or an old choice) can leave Without Driver selected for someone who cannot use it.
+  useEffect(() => {
+    if (selfDriveBlocked && driveType === 'self-drive') {
+      setDriveType('chauffeur');
+      showToast(selfDriveEligibility.message || 'Without Driver is not available for your account. Please book With Driver.');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selfDriveBlocked, driveType]);
   // Which "?" info panel is open on the Trip step (only one at a time).
   const [openInfo, setOpenInfo] = useState(null);
   const toggleInfo = (key) => setOpenInfo((cur) => (cur === key ? null : key));
@@ -2030,6 +2070,15 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           showToast(data.message || NO_DRIVER_MESSAGE);
           return;
         }
+        // Without Driver refused for this account / these dates (no license, expired before the trip ends, under 21).
+        // Switch them to With Driver and send them back to "Who will drive?" with the reason.
+        if (response.status === 403 && data.code === 'SELF_DRIVE_NOT_ELIGIBLE') {
+          setDriveType('chauffeur');
+          setCurrentStep(2);
+          setTripPart(PART.pickup);
+          showToast(data.message || 'Without Driver is not available for this booking. Please book With Driver.');
+          return;
+        }
         // The pickup became too soon while they were filling in the form (a slow clock, or the page sat open).
         // Remember the earliest pickup the server just gave us, clear the start, and send them back to the schedule.
         if (response.status === 400 && data.code === 'LEAD_TIME') {
@@ -2525,20 +2574,31 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         const selected = driveType === type;
                         const noDriver = type === 'chauffeur' && chauffeurFull; // no driver free for these dates
                         const needsStore = type === 'self-drive' && !storeInfo.configured; // no store set up, so self-drive can't be offered
+                        const noLicense  = type === 'self-drive' && selfDriveBlocked;       // no valid license / under 21: With Driver only
                         const base = quote.driversFeeBaseArea;
                         const outside = quote.driversFeeOutsideArea;
                         return (
-                          <div key={type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${needsStore ? 'border-gray-200 bg-gray-50 opacity-70' : noDriver ? 'border-amber-300 bg-amber-50' : selected ? 'border-arl-primary bg-blue-50' : 'border-gray-200 bg-white hover:border-arl-primary/50'}`}>
+                          <div key={type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${(needsStore || noLicense) ? 'border-gray-200 bg-gray-50 opacity-70' : noDriver ? 'border-amber-300 bg-amber-50' : selected ? 'border-arl-primary bg-blue-50' : 'border-gray-200 bg-white hover:border-arl-primary/50'}`}>
                             <div className="flex items-start justify-between gap-2">
-                              <label className={`flex items-start gap-2.5 flex-1 min-w-0 ${(noDriver || needsStore) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                              <label className={`flex items-start gap-2.5 flex-1 min-w-0 ${(noDriver || needsStore || noLicense) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                                 <input type="radio" name="driveType" value={type}
                                   checked={selected}
-                                  disabled={noDriver || needsStore}
+                                  disabled={noDriver || needsStore || noLicense}
                                   onChange={() => handleSelectDriveType(type)}
                                   className="mt-1 w-4 h-4 accent-arl-primary flex-shrink-0" />
                                 <span className="min-w-0">
                                   <span className="block text-sm sm:text-base font-extrabold text-arl-dark">{label}</span>
-                                  {needsStore ? (
+                                  {noLicense ? (
+                                    <>
+                                      <span className="block mt-1 text-xs sm:text-sm font-bold text-gray-700">Not available for your account</span>
+                                      <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">{selfDriveEligibility.message}</span>
+                                      {['no_license', 'license_expired'].includes(selfDriveEligibility.reason) && (
+                                        <Link to="/profile" className="inline-block mt-1.5 text-[11px] sm:text-xs font-bold text-arl-primary underline">
+                                          {selfDriveEligibility.reason === 'no_license' ? 'Add your license in Profile' : 'Update your license in Profile'}
+                                        </Link>
+                                      )}
+                                    </>
+                                  ) : needsStore ? (
                                     <>
                                       <span className="block mt-1 text-xs sm:text-sm font-bold text-gray-700">Not available right now</span>
                                       <span className="block mt-1 text-[11px] sm:text-xs text-gray-600">Without Driver needs our store for pickup, which is not set up yet.</span>
