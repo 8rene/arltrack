@@ -2,7 +2,7 @@
  * SignUpModal.jsx  –  ARL Track  –  Complete 5-step Registration
  *
  * Step 0 : Username · Email · Phone           (+ email duplicate check)
- * Step 1 : First/Middle/Last name · Suffix · Birthdate (21+, no numbers in names)
+ * Step 1 : First/Middle/Last name · Suffix · Birthdate (18+, no numbers in names)
  * Step 2 : Region → Province → Municipality → Barangay · Street · Terms checkbox
  * Step 3 : Gov ID (type + number + camera photo) · Driver's Licence (camera) · Selfie
  * Step 4 : OTP verification → writes to Firestore → approval modal
@@ -77,7 +77,8 @@ async function checkAvailability(email, username) {
 
 /** Returns age in full completed years */
 // Minimum age to register. Keep in sync with MIN_SIGNUP_AGE in signup.controller.js (backend).
-const MIN_AGE = 21;
+// (Booking Without Driver still needs 21+ — enforced separately when booking.)
+const MIN_AGE = 18;
 
 function calcAge(yyyy, mm, dd) {
   const today = new Date();
