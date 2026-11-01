@@ -160,8 +160,13 @@ const selectCls =
 // documentType/documentNumber (document kind only) are typed here at
 // submission by the customer, same as the original signup flow.
 // ─────────────────────────────────────────────────────────────
-const ResubmitIdModal = ({ userID, documentKind, currentUrl, onClose, onSubmitted }) => {
+const ResubmitIdModal = ({ userID, documentKind, currentUrl, currentSelfieUrl, currentLicenseNumber, onClose, onSubmitted }) => {
   const [file, setFile]         = useState(null);
+  // Government ID only: the selfie holding the ID goes with the photo (same as signup / the admin side).
+  const [selfieFile, setSelfieFile]       = useState(null);
+  const [selfiePreview, setSelfiePreview] = useState(null);
+  // Driver's license only: the license number (same as signup / the admin side).
+  const [licenseNo, setLicenseNo] = useState(currentLicenseNumber || "");
   const [preview, setPreview]   = useState(null);
   const [docType, setDocType]     = useState("");
   const [docNumber, setDocNumber] = useState("");
@@ -181,12 +186,31 @@ const ResubmitIdModal = ({ userID, documentKind, currentUrl, onClose, onSubmitte
     setPreview(URL.createObjectURL(f));
   };
 
+  const handleSelfie = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { setError("Please select an image file for the selfie."); return; }
+    if (f.size > 5 * 1024 * 1024)    { setError("Selfie must be under 5MB.");                   return; }
+    setError("");
+    setSelfieFile(f);
+    setSelfiePreview(URL.createObjectURL(f));
+  };
+
+  const toBase64 = (f) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(f);
+  });
+
   const handleSubmit = async () => {
     if (!file) { setError(`Please choose a photo of your ${isLicense ? "license" : "document"} first.`); return; }
+    if (isLicense && !licenseNo.trim()) { setError("Please enter the driver's license number shown on the card."); return; }
     if (!isLicense && (!docType.trim() || !docNumber.trim())) {
       setError("Please fill in the document type and number shown on the card.");
       return;
     }
+    if (!isLicense && !selfieFile) { setError("Please add a selfie holding your ID — it is required as proof for a government ID."); return; }
     setSaving(true);
     setError("");
     try {
@@ -194,16 +218,20 @@ const ResubmitIdModal = ({ userID, documentKind, currentUrl, onClose, onSubmitte
 
       // 1. Convert file to base64, upload directly to Storage — same
       // pattern as handleAvatarChange above.
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload  = () => resolve(reader.result.split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      const base64 = await toBase64(file);
       const path = `${isLicense ? "driverLicenseResubmit" : "documentResubmit"}/${userID}_${Date.now()}_${file.name}`;
       const storageRef = ref(storage, path);
       await uploadString(storageRef, base64, "base64", { contentType: file.type });
       const newUrl = await getDownloadURL(storageRef);
+
+      // Government ID: the selfie holding it goes to the same "documentResubmit" folder; "_selfie_" in the name tells them apart.
+      let newSelfieUrl;
+      if (!isLicense) {
+        const selfieBase64 = await toBase64(selfieFile);
+        const selfieRef = ref(storage, `documentResubmit/${userID}_${Date.now()}_selfie_${selfieFile.name}`);
+        await uploadString(selfieRef, selfieBase64, "base64", { contentType: selfieFile.type });
+        newSelfieUrl = await getDownloadURL(selfieRef);
+      }
 
       // 2. Send the URL (and, for document, the typed fields) to the backend.
       const res = await fetch(`${process.env.REACT_APP_API_URL}/user/id-resubmit-requests`, {
@@ -213,7 +241,9 @@ const ResubmitIdModal = ({ userID, documentKind, currentUrl, onClose, onSubmitte
           documentKind,
           currentUrl: currentUrl || "",
           newUrl,
-          ...(isLicense ? {} : { documentType: docType.trim(), documentNumber: docNumber.trim() }),
+          ...(isLicense
+            ? { driversLicenseNumber: licenseNo.trim() }
+            : { documentType: docType.trim(), documentNumber: docNumber.trim(), newSelfieUrl, currentSelfieUrl: currentSelfieUrl || "" }),
         }),
       });
       const data = await res.json();
@@ -257,6 +287,20 @@ const ResubmitIdModal = ({ userID, documentKind, currentUrl, onClose, onSubmitte
             )}
           </label>
 
+          {isLicense && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                License Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={licenseNo}
+                onChange={(e) => setLicenseNo(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
+              />
+            </div>
+          )}
+
           {!isLicense && (
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -282,6 +326,25 @@ const ResubmitIdModal = ({ userID, documentKind, currentUrl, onClose, onSubmitte
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
                 />
               </div>
+            </div>
+          )}
+
+          {!isLicense && (
+            <div>
+              <p className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Selfie holding the ID <span className="text-red-500">*</span>
+              </p>
+              {currentSelfieUrl && !selfiePreview && (
+                <img src={currentSelfieUrl} alt="Current selfie with ID" className="w-full h-32 object-cover rounded-xl border mb-2" />
+              )}
+              <label className="block border-2 border-dashed rounded-xl p-4 text-center cursor-pointer hover:bg-gray-50">
+                <input type="file" accept="image/*" onChange={handleSelfie} className="hidden" />
+                {selfiePreview ? (
+                  <img src={selfiePreview} alt="New selfie preview" className="w-full h-32 object-cover rounded-lg mx-auto" />
+                ) : (
+                  <span className="text-sm text-gray-400">Tap to choose a selfie</span>
+                )}
+              </label>
             </div>
           )}
 
@@ -1374,6 +1437,7 @@ const ProfilePage = ({ user }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <ReadOnlyField label="Document Type"   value={profile?.documentType   || ""} lockNote="Managed by admin" />
                     <ReadOnlyField label="Document Number" value={profile?.documentNumber || ""} lockNote="Managed by admin" />
+                    <ReadOnlyField label="Driver's License No." value={profile?.driversLicenseNumber || ""} lockNote="Managed by admin" />
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Document Status</label>
                       <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold ${
@@ -1428,6 +1492,8 @@ const ProfilePage = ({ user }) => {
             userID={user.userID}
             documentKind={showResubmit}
             currentUrl={showResubmit === "license" ? profile?.driverLicenseUrl : profile?.documentImageUrl}
+            currentSelfieUrl={profile?.selfieWithIdUrl}
+            currentLicenseNumber={profile?.driversLicenseNumber}
             onClose={() => setShowResubmit(null)}
             onSubmitted={() => { setShowResubmit(null); fetchProfile(); }}
           />
