@@ -190,6 +190,107 @@ const PenaltiesBox = ({ bookingID }) => {
 };
 
 
+// Every penalty the customer was told about on this booking: what each one was for, how much, and whether it is paid,
+// plus what the deposit did about them. Read-only, shown whenever the booking has at least one penalty (PenaltiesBox above
+// only appears while something is still owed). Data: GET /bookings/:bookingID/penalties. The server already hides penalties
+// still under review or discarded, and works out every total, so nothing but a per-penalty label is decided here.
+// A failed load never blocks the page.
+const PENALTY_STATE = {
+  paid:   "bg-green-100 text-green-700 border-green-200",
+  part:   "bg-orange-100 text-orange-700 border-orange-200",
+  unpaid: "bg-red-100 text-red-600 border-red-200",
+};
+const penaltyState = (p) => {
+  const owed = Math.max(0, (Number(p.amount) || 0) - (Number(p.paidAmount) || 0));
+  if (owed <= 0) return { label: "Paid", cls: PENALTY_STATE.paid };
+  if ((Number(p.paidAmount) || 0) > 0) return { label: "Partly paid", cls: PENALTY_STATE.part };
+  return { label: "Unpaid", cls: PENALTY_STATE.unpaid };
+};
+
+const PenaltiesGivenCard = ({ bookingID }) => {
+  const [info, setInfo] = useState(null); // null = loading, false = failed to load
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem("arl_token");
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bookings/${encodeURIComponent(bookingID)}/penalties`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        if (!cancelled) setInfo(json.data || false);
+      } catch {
+        if (!cancelled) setInfo(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bookingID]);
+
+  const list = info && Array.isArray(info.penalties) ? info.penalties : [];
+  if (list.length === 0) return null; // loading, failed, or no penalties on this booking
+
+  const total = list.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const deducted = Number(info.deductedFromDeposit) || 0;
+  const refund = Number(info.refundAmount) || 0;
+  const stillOwed = Number(info.stillOwed) || 0;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-black text-arl-primary uppercase tracking-widest">Penalties given</p>
+        <p className="text-sm font-black text-gray-900">{peso(total)}</p>
+      </div>
+
+      <ul className="divide-y divide-gray-100">
+        {list.map((p) => {
+          const st = penaltyState(p);
+          return (
+            <li key={p.penaltyID} className="py-3 first:pt-0 last:pb-0">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-gray-400">{fmtDT(p.createdAt)}</p>
+                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${st.cls}`}>{st.label}</span>
+              </div>
+              <div className="mt-1.5 space-y-1">
+                {p.lineItems.map((li, i) => (
+                  <div key={i} className="flex justify-between gap-3 text-sm">
+                    <span className="text-gray-700 break-words min-w-0">{li.description}</span>
+                    <span className="font-semibold text-gray-900 whitespace-nowrap">{peso(li.amount)}</span>
+                  </div>
+                ))}
+              </div>
+              {p.lineItems.length > 1 && (
+                <div className="flex justify-between gap-3 text-xs text-gray-500 mt-1.5 pt-1.5 border-t border-dashed border-gray-100">
+                  <span>Penalty total</span>
+                  <span className="font-semibold">{peso(p.amount)}</span>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {(deducted > 0 || refund > 0 || stillOwed > 0) && (
+        <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5 text-sm">
+          {info.depositAmount != null && Number(info.depositAmount) > 0 && (
+            <div className="flex justify-between gap-3"><span className="text-gray-500">Security deposit</span><span className="font-semibold text-gray-900">{peso(info.depositAmount)}</span></div>
+          )}
+          {deducted > 0 && (
+            <div className="flex justify-between gap-3"><span className="text-gray-500">{info.depositSettled ? "Deducted from your deposit" : "Will be deducted from your deposit"}</span><span className="font-semibold text-red-600">- {peso(deducted)}</span></div>
+          )}
+          {refund > 0 && (
+            <div className="flex justify-between gap-3"><span className="text-gray-500">{info.depositSettled ? "Returned to you" : "To be returned to you"}</span><span className="font-semibold text-green-700">{peso(refund)}</span></div>
+          )}
+          {stillOwed > 0 && (
+            <div className="flex justify-between gap-3"><span className="text-gray-500">Still owed</span><span className="font-semibold text-red-600">{peso(stillOwed)}</span></div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 export default function BookingDetailsPage() {
   const { bookingID } = useParams();
   const navigate = useNavigate();
@@ -407,6 +508,7 @@ export default function BookingDetailsPage() {
 
         {/* Penalties first: if the customer owes something they must see it (and the Pay button) without scrolling */}
         {payment && <PenaltiesBox bookingID={bookingID} />}
+        {payment && <PenaltiesGivenCard bookingID={bookingID} />}
 
         {/* Trip details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
