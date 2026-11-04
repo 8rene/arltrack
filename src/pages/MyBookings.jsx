@@ -259,7 +259,7 @@ const RefundModal = ({ booking, mode = "refund", onConfirm, onClose, loading }) 
           {isRefund
             ? (preview && preview.autoApprove
                 ? `The refund covers what you've paid for this booking (${peso(amountPaid)}, less the online payment fee) and the booking will be cancelled right away. You'll be notified once the refund is sent.`
-                : `The refund covers what you've paid for this booking (${peso(amountPaid)}, less any deposit kept under the 48-hour policy and the online payment fee when the deposit is returned) and the booking will be cancelled once it's approved. Our team will review it and you'll be notified once it's processed.`)
+                : `The refund covers what you've paid for this booking (${peso(amountPaid)}, less any deposit kept under the 48-hour policy and the online payment fee) and the booking will be cancelled once it's approved. Our team will review it and you'll be notified once it's processed.`)
             : "This booking hasn't been paid yet, so nothing will be charged or refunded. It will be cancelled right away."}
         </p>
 
