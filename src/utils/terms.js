@@ -54,3 +54,52 @@ export const useTermsDocument = (versionID = null) => {
 };
 
 export const useActiveTerms = () => useTermsDocument(null);
+
+// ── Pick sections out of the fetched Terms (Markdown) ───────────────────────────────────────
+// Used by the short "What you need to know" panels on the booking page, so the words shown there
+// are the ones the admin published, not a copy typed into the page.
+const plain = (t) => String(t || "")
+  .replace(/\*\*([^*]+)\*\*/g, "$1")
+  .replace(/\*([^*\s][^*]*)\*/g, "$1")
+  .replace(/\[([^\]]+)\]\([^)\s]+\)/g, "$1")
+  .trim();
+const stripNumber = (t) => String(t || "").replace(/^\d+[.)]\s*/, "");
+const norm = (t) => stripNumber(plain(t)).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+
+// Markdown → [{ title, text }] — one entry per ## / ### heading; text is plain (no Markdown marks).
+export const parseTermsSections = (content) => {
+  const sections = [];
+  let cur = null;
+  String(content || "").replace(/\r\n/g, "\n").split("\n").forEach((raw) => {
+    const line = raw.trim();
+    const h = line.match(/^#{2,3}\s+(.*)$/);
+    if (h) { cur = { title: stripNumber(plain(h[1])), paras: [], items: [] }; sections.push(cur); return; }
+    if (/^#\s/.test(line)) { cur = null; return; }
+    if (!cur || !line || /^(---|\*\*\*)$/.test(line)) return;
+    const li = line.match(/^(?:[-*]|\d+[.)])\s+(.*)$/);
+    if (li) cur.items.push(plain(li[1])); else cur.paras.push(plain(line));
+  });
+  return sections.map((x) => ({ title: x.title, text: x.paras.length ? x.paras.join(" ") : x.items.join("; ") }));
+};
+
+// The section whose title matches `ref` (ignores case, "&" vs "and", punctuation, numbering and
+// extra words like "(Self-Drive Rentals)"). null when the admin's text has no such section.
+export const findTermsSection = (sections, ref) => {
+  const n = norm(ref);
+  if (!n) return null;
+  return sections.find((x) => norm(x.title) === n)
+    || sections.find((x) => { const t = norm(x.title); return n.length >= 6 && t.length >= 6 && (t.includes(n) || n.includes(t)); })
+    || null;
+};
+
+// First sentence(s) of a section, about `max` characters, for a short summary.
+export const summarizeTerms = (text, max = 320) => {
+  const sentences = String(text || "").replace(/([a-z)"'][.!?])\s+(?=[A-Z])/g, "$1\u0001").split("\u0001");
+  let out = "";
+  for (const sentence of sentences) {
+    if (out && (out + " " + sentence).length > max) break;
+    out = out ? out + " " + sentence : sentence;
+  }
+  if (out.length > max + 80) out = out.slice(0, max).replace(/\s+\S*$/, "") + "…";
+  return out;
+};

@@ -5,7 +5,7 @@ import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
 import { fetchBaseAreaConfig } from '../utils/baseArea';
 import { useToast } from '../context/ToastContext';
-import { useActiveTerms } from '../utils/terms';
+import { useActiveTerms, parseTermsSections, findTermsSection, summarizeTerms } from '../utils/terms';
 import gcashLogo  from '../assets/images/GCash_Logo.png';
 import mayaLogo   from '../assets/images/PayMayaLogo.jpg';
 import qrphLogo   from '../assets/images/qr-ph-logo-6f76723590.webp';
@@ -121,7 +121,7 @@ const PARTIAL_DRIVER_DAY_LABEL = 'A driver is free at certain times only';
 const LEGEND_ITEMS = [
   { key: 'available',   label: 'Available',            swatch: 'bg-white border-2 border-gray-300' },
   { key: 'unavailable', label: 'Unavailable',          swatch: 'bg-gray-300 border-2 border-gray-300' },
-  { key: 'nodriver',    label: 'No driver (self-drive only)', swatch: 'bg-orange-100 border-2 border-orange-400' },
+  { key: 'nodriver',    label: 'No driver (self-drive only)', swatch: 'bg-violet-100 border-2 border-violet-400' },
   { key: 'partialdriver', label: 'Driver free at some times only', swatch: 'bg-amber-50 border-2 border-amber-400' },
 ];
 
@@ -390,6 +390,21 @@ const ClockTimeField = ({ value, onChange, allowedTimes = null, minTime = null, 
 const KeyPoints = ({ title, subtitle, points }) => {
   // Collapsed by default — the heading is a button that shows / hides the details.
   const [open, setOpen] = useState(false);
+  // The wording comes from the Terms & Conditions the server sends (GET /api/terms/active), not from
+  // this file: a point whose `ref` matches a section of those Terms shows that section's own title
+  // and text. A point with no ref (what this page itself does, e.g. fee lines), a section the Terms
+  // don't have, or Terms that haven't loaded yet keep the short fallback text written here.
+  const { terms } = useActiveTerms();
+  const sections = useMemo(() => (terms ? parseTermsSections(terms.content) : []), [terms]);
+  const shown = useMemo(() => {
+    const used = new Set(); // the same section is never shown twice in one panel
+    return points.map((pt) => {
+      const sec = pt.ref ? findTermsSection(sections, pt.ref) : null;
+      if (!sec || !sec.text || used.has(sec.title)) return pt;
+      used.add(sec.title);
+      return { ...pt, headline: sec.title, detail: summarizeTerms(sec.text), fromTerms: true };
+    });
+  }, [points, sections]);
   return (
   <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
     <button
@@ -406,7 +421,7 @@ const KeyPoints = ({ title, subtitle, points }) => {
     </button>
     {open && (<>
     <ul className="divide-y divide-gray-100">
-      {points.map((pt, i) => {
+      {shown.map((pt, i) => {
         const must = pt.level === 'must';
         return (
           <li key={i} className={`flex gap-3 px-3 sm:px-4 py-3 border-l-4 ${must ? 'bg-amber-50 border-amber-400' : 'bg-white border-arl-secondary/40'}`}>
@@ -418,14 +433,16 @@ const KeyPoints = ({ title, subtitle, points }) => {
                 )}
               </div>
               <p className="text-xs sm:text-sm text-gray-700 mt-0.5 leading-relaxed">{pt.detail}</p>
-              {pt.ref && <p className="text-[10px] sm:text-[11px] text-gray-400 mt-1">T&amp;C: {pt.ref}</p>}
+              {pt.fromTerms
+                ? <p className="text-[10px] sm:text-[11px] text-gray-400 mt-1">From the Terms &amp; Conditions{terms?.version ? ` (version ${terms.version})` : ''}</p>
+                : pt.ref && <p className="text-[10px] sm:text-[11px] text-gray-400 mt-1">T&amp;C: {pt.ref}</p>}
             </div>
           </li>
         );
       })}
     </ul>
     <div className="px-3 sm:px-4 py-2 bg-gray-50 text-[10px] sm:text-[11px] text-gray-500">
-      This is the short version. Full wording:{' '}
+      This is the short version{terms?.version ? ` (Terms version ${terms.version})` : ''}. Full wording:{' '}
       <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline font-semibold text-arl-primary">Terms &amp; Conditions</a>
     </div>
     </>)}
@@ -1660,7 +1677,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             } else if (isHover) {
               cls += 'bg-arl-secondary/10 text-arl-primary cursor-pointer ';
             } else if (noDriverDay) {
-              cls += 'bg-orange-100 text-orange-800 ring-1 ring-orange-300 hover:bg-orange-200 cursor-pointer ';
+              cls += 'bg-violet-100 text-violet-800 ring-1 ring-violet-300 hover:bg-violet-200 cursor-pointer ';
             } else if (partialDriverDay) {
               cls += 'bg-amber-50 text-amber-800 ring-1 ring-amber-300 hover:bg-amber-100 cursor-pointer ';
             } else {
@@ -1679,7 +1696,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 disabled={interactionDisabled}>
                 {i + 1}
                 {/* Stays visible when the day is picked (green/red/range), so the warning isn't hidden by the selection */}
-                {noDriverDay && <span aria-hidden="true" className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-orange-500 ring-1 ring-white" />}
+                {noDriverDay && <span aria-hidden="true" className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 ring-1 ring-white" />}
                 {partialDriverDay && <span aria-hidden="true" className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 ring-1 ring-white" />}
               </button>
             );
@@ -1690,7 +1707,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
           {LEGEND_ITEMS.map((item) => (
             <div key={item.key} className="flex items-center gap-1.5">
               <div className={`relative w-4 h-4 sm:w-5 sm:h-5 rounded-md shrink-0 ${item.swatch}`}>
-                {item.key === 'nodriver' && <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-orange-500 ring-1 ring-white" />}
+                {item.key === 'nodriver' && <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 ring-1 ring-white" />}
                 {item.key === 'partialdriver' && <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 ring-1 ring-white" />}
               </div>
               <span className="text-[10px] sm:text-xs text-gray-600">{item.label}</span>
@@ -2798,11 +2815,11 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       </div>
                       {errors.startDate && <p className="text-arl-cta text-xs">{errors.startDate}</p>}
                       {selectedFullDays.length > 0 && (
-                        <div role="status" className="mt-3 flex gap-3 items-start bg-orange-50 border-2 border-orange-300 rounded-2xl p-3 sm:p-4">
-                          <span aria-hidden="true" className="mt-1 w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
+                        <div role="status" className="mt-3 flex gap-3 items-start bg-violet-50 border-2 border-violet-300 rounded-2xl p-3 sm:p-4">
+                          <span aria-hidden="true" className="mt-1 w-2.5 h-2.5 rounded-full bg-violet-500 shrink-0" />
                           <div>
-                            <p className="text-sm font-black text-orange-800 mb-0.5">No driver available on your selected date{selectedFullDays.length > 1 ? 's' : ''}</p>
-                            <p className="text-sm text-orange-800">
+                            <p className="text-sm font-black text-violet-800 mb-0.5">No driver available on your selected date{selectedFullDays.length > 1 ? 's' : ''}</p>
+                            <p className="text-sm text-violet-800">
                               You have selected {selectedFullDays.map(fmt).join(', ')} in your booking, which has no driver available.
                               {driveType === 'chauffeur'
                                 ? ' You can still book these dates, but only Without Driver.'
@@ -3367,7 +3384,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   ['Days',       days ? `${days} day(s)` : '-'],
                   ['Hire',       driveType === 'self-drive' ? 'Without Driver' : 'With Driver'],
                   ...(driversFee > 0 ? [[driverFeeLabel, peso(driversFee)]] : []),
-                  ...(quote.outsideArea ? [['Outside base area', outsideSurcharge > 0 ? `+${peso(outsideSurcharge)}` : 'Yes']] : []),
+                  ...(quote.outsideArea ? [['Outside base area', driversFee > 0 ? `Yes (already in driver's fee)` : outsideSurcharge > 0 ? `+${peso(outsideSurcharge)}` : 'Yes']] : []),
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2">
                     <span className="font-medium text-arl-dark flex-shrink-0">{label}</span>
