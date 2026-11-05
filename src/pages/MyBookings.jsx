@@ -298,26 +298,12 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
     totalDays, totalFee,
     status, cancellationReason, cancelledAt, cancelledBy,
     modeOfDriving, destination, passengerName, createdAt,
-    payment, carID,
+    payment,
     codingWarningCount = 0, codingCities = [],
   } = booking;
 
   const p = payment || {};
 
-
-  const handleRebook = () => {
-    navigate('/booking', {
-      state: {
-        carID,
-        serviceType,
-        duration,
-        destination,
-        driveType: modeOfDriving === 'With Chauffeur' ? 'chauffeur' : 'self-drive',
-        // Start/End date & time are intentionally left out — those should
-        // always be freshly chosen, not copied from the old booking.
-      },
-    });
-  };
 
   // ONE "Cancel / Refund" button, two outcomes by payment state:
   //   paid (upcoming)  -> a refund request for staff review (POST /paymongo/refunds); the booking is cancelled on approval
@@ -620,15 +606,6 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
                   className="text-xs font-bold text-purple-600 border border-purple-200 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition">
                   Details
                 </button>
-
-                {/* Rebook — for cancelled and completed */}
-                {(status === "cancelled" || status === "completed") && (
-                  <button
-                    onClick={handleRebook}
-                    className="text-xs font-bold text-arl-secondary border border-arl-secondary/30 hover:bg-arl-secondary/10 px-3 py-1.5 rounded-lg transition">
-                    Rebook
-                  </button>
-                )}
 
                 <button onClick={() => setExpanded(!expanded)}
                   className="text-xs font-bold text-arl-secondary hover:text-arl-primary transition flex items-center gap-1">
@@ -1059,7 +1036,7 @@ const MyBookings = ({ user }) => {
             ? "Your trip is currently active."
             : activeTab === "refunds"
             ? "Bookings with an active or past refund request."
-            : "Completed & Cancelled — Use Rebook to book the same car again."}
+            : "Completed & Cancelled bookings."}
         </p>
 
         {error && (
