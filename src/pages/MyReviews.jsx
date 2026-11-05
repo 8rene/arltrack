@@ -266,14 +266,12 @@ const MyReviews = ({ user }) => {
         // reviews endpoint may not exist yet — that's fine
       }
 
-      // 3. Merge — completed bookings, plus anything refunded (a refund can
-      // land on a cancelled booking too, but the customer still rode/used
-      // the car and should be able to leave a review either way).
+      // 3. Merge — only COMPLETED bookings. The server (POST /reviews/create) refuses a
+      // review on anything else ("You can only review completed bookings."), so listing a
+      // refunded / cancelled booking here only gave the customer a Write Review button that
+      // always failed.
       const merged = allBookings
-        .filter((b) =>
-          (b.status || "").toLowerCase() === "completed" ||
-          (b.payment?.status || "").toLowerCase() === "refunded"
-        )
+        .filter((b) => (b.status || "").toLowerCase() === "completed")
         .map((b) => ({
           ...b,
           myReview: reviewsByBooking[b.bookingID] || null,
@@ -313,7 +311,7 @@ const MyReviews = ({ user }) => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-black text-arl-primary tracking-tight">My Reviews</h1>
-          <p className="text-gray-500 text-sm mt-1">Rate and review vehicles from your completed or refunded bookings</p>
+          <p className="text-gray-500 text-sm mt-1">Rate and review vehicles from your completed bookings</p>
         </div>
 
         {/* Stats */}
@@ -386,7 +384,7 @@ const MyReviews = ({ user }) => {
                 ? "Book a vehicle and share your experience!"
                 : filter === "pending"
                 ? "Thank you for reviewing all your bookings."
-                : "You have no completed or refunded bookings to review yet."}
+                : "You have no completed bookings to review yet."}
             </p>
             {filter === "all" && (
               <button
