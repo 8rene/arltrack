@@ -2700,6 +2700,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       coords={pickupCoords}
                       showBaseArea={driveType === 'chauffeur'}
                       baseAreaRole="pickup"
+                      showCodingZones
+                      codingCarID={selectedCar?.carID || ''}
+                      codingStart={codingStartISO}
+                      codingEnd={codingEndISO}
                     />
                     {errors.pickupLocation && <p className="text-arl-cta text-xs mt-1">{errors.pickupLocation}</p>}
                     {quote.outsideArea && quote.pickupOutside && outsideAreaNote('pickup')}
