@@ -123,6 +123,21 @@ function StatementBody({ s }) {
         <Row label="Rental period">{period}</Row>
       </div>
 
+      {s.charges?.fees && (() => {
+        const f = s.charges.fees;
+        return (
+          <Section title="Booking fee">
+            <Row label="Rental fee">{peso(f.rental)}</Row>
+            <Row label="Service fee">{f.service > 0 ? peso(f.service) : null}</Row>
+            <Row label="Gateway fee">{f.gateway > 0 ? peso(f.gateway) : null}</Row>
+            <Row label="Extra fee (outside base area)">{f.extra > 0 ? peso(f.extra) : null}</Row>
+            <Row label={`Driver's fee (${peso(f.driver / f.days)} × ${f.days} day${f.days > 1 ? "s" : ""})`}>{f.driver > 0 ? peso(f.driver) : null}</Row>
+            <Row label="Security deposit (refundable)">{s.charges.securityDeposit > 0 ? peso(s.charges.securityDeposit) : null}</Row>
+            <div className="border-t border-gray-200 mt-1 pt-1"><Row label="Total fee" strong>{peso(s.charges.gross)}</Row></div>
+          </Section>
+        );
+      })()}
+
       <Section title="Payments">
         {s.payments.length === 0 && <p className="text-sm text-gray-400 italic">No payments have been recorded yet.</p>}
         {s.payments.map((l, i) => <Item key={l.id} label={`${i + 1}. ${l.label}`} detail={detailLine(l)} amount={peso(l.amount)} />)}
