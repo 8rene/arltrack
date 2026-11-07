@@ -1,6 +1,7 @@
 // Shows a "Stop!" warning in the browser console (like Facebook and Instagram do).
 // Scammers trick people into pasting code here to take over their account ("self-XSS").
 // This is only a warning for customers. It does not make the site more secure by itself.
+// These console.log calls are intentional (they are the warning itself), not leftover debugging.
 
 const showConsoleWarning = () => {
   if (typeof window === 'undefined' || typeof console === 'undefined') return;
