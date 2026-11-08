@@ -1,14 +1,25 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Share2, Phone, Mail } from "lucide-react";
+import { fetchStoreLocation } from "../../utils/storeLocation";
 
-// The shop's address: shown in the footer and used for the "Find Us" map and its link. Change it here only.
-// The map uses exact coordinates (copied from Google Maps) so it shows ONE pin; a search by name drops a pin on every match.
-const ADDRESS_LINE = "Cortagena St., Villa Roma V, Lias, Marilao, Bulacan";
-const MAP_QUERY    = "14.761255,120.958398";
-const MAP_LINK     = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(MAP_QUERY)}`;
-const MAP_EMBED    = `https://www.google.com/maps?q=${encodeURIComponent(MAP_QUERY)}&z=17&output=embed`;
+// The shop's address and map pin come from the store location in the admin's System Settings (GET /location/store, the
+// same one the booking page uses as the in-store pickup), so changing it there changes the footer too. Nothing is
+// typed in here: until it has loaded, or if no store location is set, the address and the map are simply not shown.
+// The map uses the coordinates so it shows ONE pin (a search by name drops a pin on every match).
 
 export default function Footer() {
+    const [store, setStore] = useState(null);
+    useEffect(() => {
+        let alive = true;
+        fetchStoreLocation().then((loc) => { if (alive && loc.configured) setStore(loc); });
+        return () => { alive = false; };
+    }, []);
+
+    const mapQuery  = store ? `${store.storeLat},${store.storeLng}` : "";
+    const MAP_LINK  = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+    const MAP_EMBED = `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=17&output=embed`;
+
     return (
         <footer id="footer" className="relative bg-gray-950 text-white pt-10 sm:pt-20 pb-6 sm:pb-8 overflow-hidden">
 
@@ -29,17 +40,19 @@ export default function Footer() {
 
                         <div className="space-y-2.5 sm:space-y-4 text-xs sm:text-sm text-gray-400">
 
-                            <div className="flex items-start gap-2.5 sm:gap-3">
-                                <MapPin size={16} className="sm:w-[18px] sm:h-[18px] text-arl-cta mt-0.5 flex-shrink-0" />
-                                <a
-                                    href={MAP_LINK}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="hover:text-white transition"
-                                >
-                                    {ADDRESS_LINE}
-                                </a>
-                            </div>
+                            {store && (
+                                <div className="flex items-start gap-2.5 sm:gap-3">
+                                    <MapPin size={16} className="sm:w-[18px] sm:h-[18px] text-arl-cta mt-0.5 flex-shrink-0" />
+                                    <a
+                                        href={MAP_LINK}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="hover:text-white transition"
+                                    >
+                                        {store.storeName}
+                                    </a>
+                                </div>
+                            )}
 
                             <div className="flex items-start gap-2.5 sm:gap-3">
                                 <Share2 size={16} className="sm:w-[18px] sm:h-[18px] text-arl-cta mt-0.5 flex-shrink-0" />
@@ -94,31 +107,33 @@ export default function Footer() {
                         </div>
                     </div>
 
-                    {/* LOCATION MAP */}
-                    <div>
-                        <h4 className="text-xs sm:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] text-gray-400 mb-2.5 sm:mb-5">
-                            Find Us
-                        </h4>
+                    {/* LOCATION MAP — only once the store location from System Settings is known */}
+                    {store && (
+                        <div>
+                            <h4 className="text-xs sm:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] text-gray-400 mb-2.5 sm:mb-5">
+                                Find Us
+                            </h4>
 
-                        <a
-                            href={MAP_LINK}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block rounded-xl overflow-hidden border border-gray-800 hover:border-arl-cta/60 transition"
-                        >
-                            <iframe
-                                title="ARL Car Rental Location"
-                                src={MAP_EMBED}
-                                width="100%"
-                                height="120"
-                                className="sm:h-40"
-                                style={{ border: 0, pointerEvents: "none" }}
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
-                            />
-                        </a>
-                        <p className="text-[10px] sm:text-xs text-gray-500 mt-1.5 sm:mt-2">Tap to open in Google Maps</p>
-                    </div>
+                            <a
+                                href={MAP_LINK}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block rounded-xl overflow-hidden border border-gray-800 hover:border-arl-cta/60 transition"
+                            >
+                                <iframe
+                                    title="ARL Car Rental Location"
+                                    src={MAP_EMBED}
+                                    width="100%"
+                                    height="120"
+                                    className="sm:h-40"
+                                    style={{ border: 0, pointerEvents: "none" }}
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                />
+                            </a>
+                            <p className="text-[10px] sm:text-xs text-gray-500 mt-1.5 sm:mt-2">Tap to open in Google Maps</p>
+                        </div>
+                    )}
 
                 </div>
 
