@@ -1,6 +1,13 @@
 import { Link } from "react-router-dom";
 import { MapPin, Share2, Phone, Mail } from "lucide-react";
 
+// The shop's address: shown in the footer and used for the "Find Us" map and its link. Change it here only.
+// The map uses exact coordinates (copied from Google Maps) so it shows ONE pin; a search by name drops a pin on every match.
+const ADDRESS_LINE = "Cortagena St., Villa Roma V, Lias, Marilao, Bulacan";
+const MAP_QUERY    = "14.761255,120.958398";
+const MAP_LINK     = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(MAP_QUERY)}`;
+const MAP_EMBED    = `https://www.google.com/maps?q=${encodeURIComponent(MAP_QUERY)}&z=17&output=embed`;
+
 export default function Footer() {
     return (
         <footer id="footer" className="relative bg-gray-950 text-white pt-10 sm:pt-20 pb-6 sm:pb-8 overflow-hidden">
@@ -25,12 +32,12 @@ export default function Footer() {
                             <div className="flex items-start gap-2.5 sm:gap-3">
                                 <MapPin size={16} className="sm:w-[18px] sm:h-[18px] text-arl-cta mt-0.5 flex-shrink-0" />
                                 <a
-                                    href="https://www.google.com/maps/search/?api=1&query=Villa+Roma+V+Lias+Marilao+Bulacan"
+                                    href={MAP_LINK}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="hover:text-white transition"
                                 >
-                                    Villa Roma V, Lias, Marilao, Bulacan
+                                    {ADDRESS_LINE}
                                 </a>
                             </div>
 
@@ -94,14 +101,14 @@ export default function Footer() {
                         </h4>
 
                         <a
-                            href="https://www.google.com/maps/search/?api=1&query=Villa+Roma+V+Lias+Marilao+Bulacan"
+                            href={MAP_LINK}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block rounded-xl overflow-hidden border border-gray-800 hover:border-arl-cta/60 transition"
                         >
                             <iframe
                                 title="ARL Car Rental Location"
-                                src="https://www.google.com/maps?q=Villa+Roma+V,+Lias,+Marilao,+Bulacan&output=embed"
+                                src={MAP_EMBED}
                                 width="100%"
                                 height="120"
                                 className="sm:h-40"

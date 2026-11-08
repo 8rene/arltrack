@@ -3,6 +3,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info, Clock } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
+import { resolveStorePlace } from '../utils/storePlace';
 import { fetchBaseAreaConfig } from '../utils/baseArea';
 import { useToast } from '../context/ToastContext';
 import { useActiveTerms, parseTermsSections, findTermsSection, summarizeTerms } from '../utils/terms';
@@ -845,9 +846,20 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // now show up here without a redeploy.
   const [storeInfo, setStoreInfo] = useState({ storeName: '', storeLat: null, storeLng: null, configured: false });
 
+  // Which city / province the shop itself is in (worked out from its coordinates). The in-store pickup needs it so the
+  // base-area check can judge the shop like any other pickup; null until known (or if it can't be worked out).
+  const [storePlace, setStorePlace] = useState(null);
+
   useEffect(() => {
     let cancelled = false;
-    fetchStoreLocation().then((info) => { if (!cancelled) setStoreInfo(info); });
+    fetchStoreLocation().then(async (info) => {
+      if (cancelled) return;
+      setStoreInfo(info);
+      if (info.configured) {
+        const place = await resolveStorePlace(info.storeLat, info.storeLng);
+        if (!cancelled) setStorePlace(place);
+      }
+    });
     return () => { cancelled = true; };
   }, []);
   // What pickupLocation/pickupCoords were right before checking "in-store" —
@@ -920,6 +932,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     else setDriveType('chauffeur');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickupInStore, driveType, storeInfo.configured]);
+
+  // With a driver, the pickup counts toward the outside-area driver's fee, so the shop's own pin gets its city /
+  // province like any other pin (otherwise it can't be judged and is never charged). Without a driver the pickup is
+  // locked to the shop and only the destination decides the extra fee, so the shop keeps no place there.
+  useEffect(() => {
+    if (!pickupInStore || !storeInfo.configured) return;
+    const place = driveType === 'chauffeur' && storePlace ? storePlace : { city: '', province: '', county: '' };
+    setPickupCoords((prev) => {
+      if (!prev || prev.lat !== storeInfo.storeLat || prev.lng !== storeInfo.storeLng) return prev; // not the shop's pin
+      if ((prev.city || '') === place.city && (prev.province || '') === (place.province || '') && (prev.county || '') === (place.county || '')) return prev;
+      return { ...prev, city: place.city, province: place.province || '', county: place.county || '' };
+    });
+  }, [pickupInStore, driveType, storePlace, storeInfo.configured, storeInfo.storeLat, storeInfo.storeLng]);
 
   // ── Without Driver needs a valid driver's license and a renter aged 21+ ──
   // The server sends this with the account details ({ canSelfDrive, reason, message }). null = not known yet
