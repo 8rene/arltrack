@@ -34,9 +34,10 @@ const Stars = ({ rating }) => (
 );
 
 // ── Review Modal ──────────────────────────────────────────────
-const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
-  const [rating,  setRating]  = useState(existingReview?.rating  || 0);
-  const [comment, setComment] = useState(existingReview?.comment || "");
+// One review per booking: this form only ever CREATES a review. A submitted review is final (no editing).
+const ReviewModal = ({ booking, userID, onClose, onSaved }) => {
+  const [rating,  setRating]  = useState(0);
+  const [comment, setComment] = useState("");
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
 
@@ -46,13 +47,8 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
     setError("");
     try {
       const token = localStorage.getItem("arl_token");
-      const method = existingReview ? "PUT" : "POST";
-      const url    = existingReview
-        ? `${process.env.REACT_APP_API_URL}/reviews/${existingReview.reviewID}`
-        : `${process.env.REACT_APP_API_URL}/reviews/create`;
-
-      const res = await fetch(url, {
-        method,
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/reviews/create`, {
+        method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           // userID intentionally omitted — backend uses req.user.userID from JWT
@@ -65,7 +61,7 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "Failed to save review.");
-      onSaved({ rating, comment, reviewID: existingReview?.reviewID || `new-${Date.now()}` });
+      onSaved({ rating, comment, reviewID: `new-${Date.now()}` });
       onClose();
     } catch (err) {
       setError(err.message || "Could not save review. Please try again.");
@@ -125,6 +121,9 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
             <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{error}</p>
           )}
 
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-4 py-2">
+            You can review a booking only once. Your review can't be edited after you submit it.
+          </p>
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -135,7 +134,7 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
               disabled={saving || rating === 0}
               className="flex-1 py-3 rounded-xl bg-arl-primary text-white text-sm font-bold hover:bg-arl-secondary transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? "Saving…" : existingReview ? "Update Review" : "Submit Review"}
+              {saving ? "Saving…" : "Submit Review"}
             </button>
           </div>
         </div>
@@ -154,7 +153,6 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved }) => {
       {showModal && (
         <ReviewModal
           booking={booking}
-          existingReview={rev || null}
           userID={userID}
           onClose={() => setShowModal(false)}
           onSaved={(saved) => onReviewSaved(booking.bookingID, saved)}
@@ -196,10 +194,7 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved }) => {
               <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100">
                 <div className="flex items-center justify-between mb-1">
                   <Stars rating={rev.rating} />
-                  <button
-                    onClick={() => setShowModal(true)}
-                    className="text-xs text-arl-cta font-bold hover:underline"
-                  >Edit Review</button>
+                  <span className="text-xs text-gray-400 font-semibold">Reviewed</span>
                 </div>
                 {rev.comment && (
                   <p className="text-xs text-gray-600 leading-relaxed line-clamp-2">{rev.comment}</p>
