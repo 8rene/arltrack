@@ -4,7 +4,7 @@
  * Step 0 : Username · Email · Phone           (+ email duplicate check)
  * Step 1 : First/Middle/Last name · Suffix · Birthdate (18+, no numbers in names)
  * Step 2 : Region → Province → Municipality → Barangay · Street · Terms checkbox
- * Step 3 : Gov ID (type + number + camera photo) · Driver's Licence (camera) · Selfie
+ * Step 3 : Gov ID (type + number + camera photo) · Selfie · Driver's Licence (camera)
  * Step 4 : OTP verification → writes to Firestore → approval modal
  *
  * Firestore writes (keyed by Firebase Auth UID returned by backend)
@@ -1192,6 +1192,14 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                 />
                 <FieldErr msg={s3Err.govIdImage} />
 
+                {/* Selfie — camera or upload */}
+                <ImageCapture label="Selfie Photo" cameraOnly={false}
+                  value={s3.selfieImage}
+                  onChange={(v) => { setS3((p) => ({ ...p, selfieImage: v })); setS3Err((p) => ({ ...p, selfieImage: "" })); }}
+                  required
+                />
+                <FieldErr msg={s3Err.selfieImage} />
+
                 <hr className="border-gray-100 my-1" />
 
                 {/* License is OPTIONAL — without one the customer can only book With Driver */}
@@ -1221,15 +1229,6 @@ const SignUpModal = ({ onClose, onSwitchToLogin }) => {
                 />
                 <FieldErr msg={s3Err.licenseImage} />
 
-                <hr className="border-gray-100 my-1" />
-
-                {/* Selfie — camera or upload */}
-                <ImageCapture label="Selfie Photo" cameraOnly={false}
-                  value={s3.selfieImage}
-                  onChange={(v) => { setS3((p) => ({ ...p, selfieImage: v })); setS3Err((p) => ({ ...p, selfieImage: "" })); }}
-                  required
-                />
-                <FieldErr msg={s3Err.selfieImage} />
               </>
             )}
 

@@ -28,96 +28,6 @@ const fmtDT = (val) => {
   return isNaN(d.getTime()) ? "—" : d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
-// ─────────────────────────────────────────────────────────────
-// PENCIL-EDIT FIELD
-// ─────────────────────────────────────────────────────────────
-const EditableField = ({ label, value, onSave, type = "text", placeholder = "", locked = false, lockNote = "", maxLength }) => {
-  const [editing,  setEditing]  = useState(false);
-  const [draft,    setDraft]    = useState(value);
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState("");
-  const inputRef = useRef(null);
-
-  useEffect(() => { setDraft(value); }, [value]);
-  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
-
-  const handleSave = async () => {
-    if (draft === value) { setEditing(false); return; }
-    setSaving(true); setError("");
-    try {
-      await onSave(draft);
-      setEditing(false);
-    } catch (e) {
-      setError(e.message || "Failed to save.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = () => { setDraft(value); setEditing(false); setError(""); };
-
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
-      {locked ? (
-        <div>
-          <div className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-500 cursor-not-allowed select-none">
-            {value || <span className="text-gray-300 italic">Not set</span>}
-          </div>
-          <p className="text-xs text-gray-400 mt-1">{lockNote || "Cannot be changed"}</p>
-        </div>
-      ) : editing ? (
-        <div>
-          <input
-            ref={inputRef}
-            type={type}
-            value={draft}
-            placeholder={placeholder || label}
-            onChange={e => {
-              const val = maxLength
-                ? e.target.value.replace(/[^\w.]/g, '').slice(0, maxLength)
-                : e.target.value;
-              setDraft(val);
-            }}
-            maxLength={maxLength}
-            className="w-full px-4 py-3 rounded-xl border-2 border-arl-secondary text-sm focus:outline-none focus:ring-2 focus:ring-arl-secondary/30 bg-white"
-          />
-          {maxLength && (
-            <p className={`text-xs mt-1 text-right ${draft.length >= maxLength ? "text-red-500" : "text-gray-400"}`}>
-              {draft.length}/{maxLength}
-            </p>
-          )}
-          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-          <div className="flex gap-2 mt-2">
-            <button onClick={handleSave} disabled={saving}
-              className="px-4 py-1.5 bg-arl-primary text-white text-xs font-bold rounded-lg hover:bg-arl-secondary transition disabled:opacity-60">
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button onClick={handleCancel} disabled={saving}
-              className="px-4 py-1.5 border border-gray-200 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-50 transition">
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 group">
-          <div className="flex-1 px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-700">
-            {value || <span className="text-gray-300 italic">Not set</span>}
-          </div>
-          <button onClick={() => setEditing(true)}
-            title="Edit"
-            className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-arl-primary hover:border-arl-primary hover:bg-arl-primary/5 transition flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // Read-only display field (for locked data like email, phone, doc type, etc.)
 const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
   <div>
@@ -143,9 +53,15 @@ const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
 // "userAddress" — bundling a document-collection field would break the
 // admin's Approve button. Document corrections still go through support.
 const SIMPLE_FIELDS = [
-  { key: "email",     label: "Email" },
-  { key: "phone",     label: "Phone" },
-  { key: "birthDate", label: "Birth Date", type: "date" },
+  { key: "username",   label: "Username", maxLength: 12 },
+  { key: "firstName",  label: "First Name",  maxLength: 50 },
+  { key: "middleName", label: "Middle Name", maxLength: 50 },
+  { key: "lastName",   label: "Last Name",   maxLength: 50 },
+  { key: "suffix",     label: "Suffix",      maxLength: 10 },
+  { key: "email",      label: "Email" },
+  { key: "phone",      label: "Phone" },
+  { key: "birthDate",  label: "Birth Date", type: "date" },
+  { key: "street",     label: "Street / House No.", maxLength: 120 },
 ];
 
 const selectCls =
@@ -551,6 +467,7 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{f.label}</label>
                   <input
                     type={f.type || "text"}
+                    maxLength={f.maxLength}
                     value={form[f.key]}
                     onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
@@ -644,9 +561,10 @@ const Stars = ({ rating }) => (
   <span>{[1,2,3,4,5].map(s => <span key={s} className={s <= rating ? "text-yellow-400" : "text-gray-200"}>★</span>)}</span>
 );
 
-const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
-  const [rating,  setRating]  = useState(existingReview?.rating  || 0);
-  const [comment, setComment] = useState(existingReview?.comment || "");
+// One review per booking: this form only ever CREATES a review. A submitted review is final (no editing).
+const ReviewModal = ({ booking, userID, onClose, onSaved }) => {
+  const [rating,  setRating]  = useState(0);
+  const [comment, setComment] = useState("");
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
   const LABELS = { 1: "Poor", 2: "Fair", 3: "Good", 4: "Very Good", 5: "Excellent" };
@@ -656,18 +574,14 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
     setSaving(true); setError("");
     try {
       const token  = localStorage.getItem("arl_token");
-      const method = existingReview ? "PUT" : "POST";
-      const url    = existingReview
-        ? `${process.env.REACT_APP_API_URL}/reviews/${existingReview.reviewID}`
-        : `${process.env.REACT_APP_API_URL}/reviews/create`;
-      const res = await fetch(url, {
-        method,
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/reviews/create`, {
+        method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ userID, carID: booking.carID, bookingID: booking.bookingID, rating, comment }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "Could not save review.");
-      onSaved({ rating, comment, reviewID: existingReview?.reviewID || `new-${Date.now()}` });
+      onSaved({ rating, comment, reviewID: `new-${Date.now()}` });
       onClose();
     } catch (err) {
       setError(err.message || "Could not save review. Please try again.");
@@ -706,11 +620,14 @@ const ReviewModal = ({ booking, existingReview, userID, onClose, onSaved }) => {
             <p className="text-xs text-gray-400 text-right mt-1">{comment.length}/500</p>
           </div>
           {error && <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{error}</p>}
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-4 py-2">
+            You can review a booking only once. Your review can't be edited after you submit it.
+          </p>
           <div className="flex gap-3">
             <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">Cancel</button>
             <button onClick={handleSubmit} disabled={saving || rating === 0}
               className="flex-1 py-3 rounded-xl bg-arl-primary text-white text-sm font-bold hover:bg-arl-secondary transition disabled:opacity-50 disabled:cursor-not-allowed">
-              {saving ? "Saving…" : existingReview ? "Update Review" : "Submit Review"}
+              {saving ? "Saving…" : "Submit Review"}
             </button>
           </div>
         </div>
@@ -787,7 +704,7 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved, onCancelled }) => {
   return (
     <>
       {showModal && (
-        <ReviewModal booking={booking} existingReview={rev || null} userID={userID}
+        <ReviewModal booking={booking} userID={userID}
           onClose={() => setShowModal(false)}
           onSaved={(saved) => onReviewSaved(booking.bookingID, saved)} />
       )}
@@ -833,7 +750,7 @@ const BookingReviewCard = ({ booking, userID, onReviewSaved, onCancelled }) => {
                 <div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100">
                   <div className="flex items-center justify-between mb-1">
                     <Stars rating={rev.rating} />
-                    <button onClick={() => setShowModal(true)} className="text-xs text-arl-cta font-bold hover:underline">Edit Review</button>
+                    <span className="text-xs text-gray-400 font-semibold">Reviewed</span>
                   </div>
                   {rev.comment && <p className="text-xs text-gray-600 leading-relaxed line-clamp-2">{rev.comment}</p>}
                 </div>
@@ -1027,7 +944,7 @@ const ProfilePage = ({ user }) => {
     }
   };
 
-  // Flat field state (for display/EditableField)
+  // Flat field state (shown read-only; changes go through an edit request)
   const [firstName,    setFirstName]    = useState("");
   const [lastName,     setLastName]     = useState("");
   const [middleName,   setMiddleName]   = useState("");
@@ -1044,7 +961,6 @@ const ProfilePage = ({ user }) => {
   const [postalCode,   setPostalCode]   = useState("");
   const [village,      setVillage]      = useState("");
   const [birthDate,    setBirthDate]    = useState("");
-  const [userAddressID, setUserAddressID] = useState("");
 
   // Locked-field edit requests (bundled — one modal covers all locked fields)
   const [editRequests, setEditRequests]     = useState([]);
@@ -1146,38 +1062,11 @@ const ProfilePage = ({ user }) => {
       setVillage(data.village          || "");
       setAvatarURL(data.profileImage || "");
       setBirthDate(data.birthDate      || "");
-      setUserAddressID(data.userAddressID || "");
     } catch {
       setError("Could not load profile. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
-
-  // Per-field save — sends only the changed field + userAddressID for address fields
-  const ADDRESS_FIELDS = new Set(["street", "village", "province", "city", "municipality", "barangay", "postalCode"]);
-  const saveField = async (field, value) => {
-    const token = localStorage.getItem("arl_token");
-    const body  = { [field]: value };
-    if (ADDRESS_FIELDS.has(field) && userAddressID) body.userAddressID = userAddressID;
-    const res = await fetch(`${process.env.REACT_APP_API_URL}/user/profile/${user.userID}`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body:    JSON.stringify(body),
-    });
-    if (!res.ok) {
-      // Show the server's reason (e.g. "Username is already taken.") rather than a generic message.
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || "Failed to save.");
-    }
-    const setters = {
-      firstName: setFirstName, lastName: setLastName, middleName: setMiddleName,
-      suffix: setSuffix, username: setUsername, street: setStreet, village: setVillage,
-      birthDate: setBirthDate, postalCode: setPostalCode,
-    };
-    // The server trims text and stores usernames in lowercase — show the saved value, not the typed one.
-    const saved = typeof value === "string" ? (field === "username" ? value.trim().toLowerCase() : value.trim()) : value;
-    if (setters[field]) setters[field](saved);
   };
 
   // Profile photo upload
@@ -1237,7 +1126,7 @@ const ProfilePage = ({ user }) => {
         {/* Request Edit modal */}
         {showEditModal && (
           <RequestEditModal
-            currentValues={{ email, phone, birthDate, region, province, municipality: municipality || city, barangay }}
+            currentValues={{ username, firstName, middleName, lastName, suffix, email, phone, birthDate, street, region, province, municipality: municipality || city, barangay }}
             pendingRequest={pendingEditRequest}
             onClose={() => setShowEditModal(false)}
             onSubmit={submitEditRequest}
@@ -1251,7 +1140,7 @@ const ProfilePage = ({ user }) => {
         <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-3xl font-black text-arl-primary tracking-tight">My Profile</h1>
-            <p className="text-gray-500 text-sm mt-1">View and update your personal information</p>
+            <p className="text-gray-500 text-sm mt-1">View your personal information. To change anything, send a profile edit request and an admin will review it.</p>
           </div>
           <button
             onClick={() => setShowEditModal(true)}
@@ -1329,12 +1218,7 @@ const ProfilePage = ({ user }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <ReadOnlyField label="Email" value={email} lockNote="Cannot be changed" />
                     <ReadOnlyField label="Phone" value={phone} lockNote="Cannot be changed" />
-                    <EditableField
-                      label="Username"
-                      value={username}
-                      onSave={(v) => saveField("username", v)}
-                      maxLength={12}
-                    />
+                    <ReadOnlyField label="Username" value={username} lockNote="To change this, send a profile edit request" />
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Account Status</label>
                       <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold ${
@@ -1399,10 +1283,10 @@ const ProfilePage = ({ user }) => {
                 {/* ── Personal Details ── */}
                 <Section title="Personal Details">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <EditableField label="First Name"  value={firstName}  onSave={(v) => saveField("firstName",  v)} />
-                    <EditableField label="Last Name"   value={lastName}   onSave={(v) => saveField("lastName",   v)} />
-                    <EditableField label="Middle Name" value={middleName} onSave={(v) => saveField("middleName", v)} />
-                    <EditableField label="Suffix"      value={suffix}     onSave={(v) => saveField("suffix",     v)} placeholder="Jr., Sr., III…" />
+                    <ReadOnlyField label="First Name"  value={firstName}  lockNote="To change this, send a profile edit request" />
+                    <ReadOnlyField label="Last Name"   value={lastName}   lockNote="To change this, send a profile edit request" />
+                    <ReadOnlyField label="Middle Name" value={middleName} lockNote="To change this, send a profile edit request" />
+                    <ReadOnlyField label="Suffix"      value={suffix}     lockNote="To change this, send a profile edit request" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date of Birth</label>
@@ -1426,8 +1310,8 @@ const ProfilePage = ({ user }) => {
                     <ReadOnlyField label="Municipality / City" value={municipality || city} lockNote="Cannot be changed" />
                     <ReadOnlyField label="Barangay"          value={barangay}               lockNote="Cannot be changed" />
                     <ReadOnlyField label="Postal Code"       value={derivedPostalCode}      lockNote="Auto-filled from location" />
-                    <EditableField label="Village / Subdivision" value={village} onSave={(v) => saveField("village", v)} />
-                    <EditableField label="Street / House No."    value={street}  onSave={(v) => saveField("street",  v)} />
+                    <ReadOnlyField label="Village / Subdivision" value={village} lockNote="Cannot be changed" />
+                    <ReadOnlyField label="Street / House No."    value={street}  lockNote="To change this, send a profile edit request" />
                   </div>
                 </Section>
 
