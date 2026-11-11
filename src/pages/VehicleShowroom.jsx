@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Car, Search, X } from "lucide-react";
 import { ViewDetailsModal } from "../components/shared/VehicleCard";
 
 // ── Skeleton card ─────────────────────────────────────────────
@@ -79,7 +80,7 @@ const CarCard = ({ car, heroState }) => {
           className="w-full h-32 sm:h-52 bg-gray-100 items-center justify-center text-3xl sm:text-5xl text-gray-300"
           style={{ display: imageURL ? "none" : "flex" }}
         >
-          🚗
+          <Car className="w-10 h-10 sm:w-14 sm:h-14" />
         </div>
 
         {/* Gradient overlay */}
@@ -273,7 +274,7 @@ const VehicleShowroom = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col sm:flex-row gap-2 sm:gap-3">
           {/* Search */}
           <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               className="w-full pl-9 pr-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-arl-secondary text-sm"
@@ -300,7 +301,7 @@ const VehicleShowroom = () => {
               onClick={clearFilters}
               className="px-4 py-2 sm:py-2.5 rounded-xl border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition"
             >
-              ✕ Clear
+              <span className="inline-flex items-center gap-1"><X size={14} /> Clear</span>
             </button>
           )}
         </div>
@@ -361,7 +362,7 @@ const VehicleShowroom = () => {
         {/* ── Error ── */}
         {error && (
           <div className="text-center py-20">
-            <p className="text-4xl mb-4">🚗</p>
+            <Car size={40} className="mx-auto mb-4 text-gray-300" />
             <p className="text-red-400 font-semibold">{error}</p>
           </div>
         )}
@@ -374,7 +375,7 @@ const VehicleShowroom = () => {
             ? displayed.map((car) => <CarCard key={car.carID} car={car} heroState={heroState} />)
             : (
               <div className="col-span-3 text-center py-20">
-                <p className="text-4xl mb-4">🔍</p>
+                <Search size={40} className="mx-auto mb-4 text-gray-300" />
                 <p className="text-gray-400 font-semibold">No vehicles match your filters.</p>
                 <button onClick={clearFilters} className="mt-4 text-arl-secondary font-semibold hover:underline text-sm">
                   Clear all filters
