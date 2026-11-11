@@ -1,0 +1,129 @@
+import { useState } from "react";
+
+// Shared "write a review" dialog (My Bookings, Booking Details). One review per booking: this form only ever
+// CREATES a review, and a submitted review is final. The server (POST /reviews/create) checks that the booking is the
+// customer's own and completed.
+// ── Star picker ───────────────────────────────────────────────
+const StarPicker = ({ value, onChange }) => (
+  <div className="flex gap-1">
+    {[1, 2, 3, 4, 5].map((s) => (
+      <button
+        key={s}
+        type="button"
+        onClick={() => onChange(s)}
+        className={`text-3xl transition-transform hover:scale-110 ${s <= value ? "text-yellow-400" : "text-gray-200 hover:text-yellow-200"}`}
+      >★</button>
+    ))}
+  </div>
+);
+
+// ── Review Modal ──────────────────────────────────────────────
+const ReviewModal = ({ booking, userID, onClose, onSaved }) => {
+  const [rating,  setRating]  = useState(0);
+  const [comment, setComment] = useState("");
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState("");
+
+  const handleSubmit = async () => {
+    if (rating === 0) { setError("Please select a star rating."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("arl_token");
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/reviews/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          // userID intentionally omitted — backend uses req.user.userID from JWT
+          carID:     booking.carID,
+          bookingID: booking.bookingID,
+          rating,
+          comment,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to save review.");
+      onSaved({ rating, comment, reviewID: `new-${Date.now()}` });
+      onClose();
+    } catch (err) {
+      setError(err.message || "Could not save review. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const STAR_LABELS = { 1: "Poor", 2: "Fair", 3: "Good", 4: "Very Good", 5: "Excellent" };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center gap-4 p-6 border-b border-gray-100 bg-gray-50">
+          <div className="w-14 h-11 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+            {booking.carImage
+              ? <img src={booking.carImage} alt={booking.carName} className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center text-xl" />
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-black text-arl-primary truncate">{booking.carName || "Vehicle"}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Booking: {booking.bookingID}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-400 text-lg">✕</button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-5">
+          <div>
+            <p className="text-sm font-semibold text-gray-600 mb-2">Your Rating</p>
+            <StarPicker value={rating} onChange={setRating} />
+            {rating > 0 && (
+              <p className="text-sm text-yellow-600 font-bold mt-1">{STAR_LABELS[rating]}</p>
+            )}
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-gray-600 mb-2">Your Review <span className="font-normal text-gray-400">(optional)</span></p>
+            <textarea
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-arl-secondary"
+              rows={4}
+              placeholder="Share your experience with this vehicle…"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              maxLength={500}
+            />
+            <p className="text-xs text-gray-400 text-right mt-1">{comment.length}/500</p>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{error}</p>
+          )}
+
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-4 py-2">
+            You can review a booking only once. Your review can't be edited after you submit it.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+            >Cancel</button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving || rating === 0}
+              className="flex-1 py-3 rounded-xl bg-arl-primary text-white text-sm font-bold hover:bg-arl-secondary transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving…" : "Submit Review"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ReviewModal;

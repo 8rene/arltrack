@@ -193,7 +193,7 @@ function App() {
         <Route path="/vehicles"    element={<VehicleShowroom />} />
         <Route path="/profile"     element={<ProfilePage user={user} />} />
         <Route path="/my-bookings" element={<MyBookings  user={user} />} />
-        <Route path="/booking/:bookingID/details" element={<BookingDetailsPage />} />
+        <Route path="/booking/:bookingID/details" element={<BookingDetailsPage user={user} />} />
         <Route path="/booking/:bookingID/arrival" element={<DriverArrival />} />
         <Route path="/my-reviews"  element={<MyReviews   user={user} />} />
         <Route path="/terms"        element={<TermsPage />} />

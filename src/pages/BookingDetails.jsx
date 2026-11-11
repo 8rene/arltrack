@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import PenaltyPayButton from "../components/shared/PenaltyPayButton";
 import PaymentsReceiptsCard from "../components/booking/PaymentsReceiptsCard";
 import InspectionCard from "../components/booking/InspectionCard";
+import ReviewTrip from "../components/booking/ReviewTrip";
+import { fetchReviewedBookingIDs } from "../utils/reviewedBookings";
 import DiscountSummary, { DiscountHeldPill, discountPriceOff } from "../components/booking/DiscountSummary";
 
 // ── Formatting helpers (same conventions as MyBookings.jsx) ──
@@ -291,9 +293,17 @@ const PenaltiesGivenCard = ({ bookingID }) => {
 };
 
 
-export default function BookingDetailsPage() {
+export default function BookingDetailsPage({ user }) {
   const { bookingID } = useParams();
   const navigate = useNavigate();
+
+  // Has this customer already reviewed the booking? (decides between "Write a Review" and "thank you")
+  const [reviewed, setReviewed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (user?.userID) fetchReviewedBookingIDs(user.userID).then((ids) => { if (alive) setReviewed(ids.has(bookingID)); });
+    return () => { alive = false; };
+  }, [user?.userID, bookingID]);
 
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -509,6 +519,9 @@ export default function BookingDetailsPage() {
         {/* Penalties first: if the customer owes something they must see it (and the Pay button) without scrolling */}
         {payment && <PenaltiesBox bookingID={bookingID} />}
         {payment && <PenaltiesGivenCard bookingID={bookingID} />}
+
+        {/* A finished trip can be reviewed once */}
+        <ReviewTrip variant="card" booking={booking} userID={user?.userID} reviewed={reviewed || !!booking.isReviewed} onReviewed={() => setReviewed(true)} />
 
         {/* Trip details */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">

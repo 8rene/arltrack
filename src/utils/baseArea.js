@@ -14,7 +14,7 @@ let configCache = null;
 let configExpiresAt = 0;
 const CONFIG_MS = 60_000;
 
-/** Resolves to { baseAreaKeywords, basis, extraFeeOutsideArea, driversFeeBaseArea, driversFeeOutsideArea, bookingLeadHours }
+/** Resolves to { baseAreaKeywords, basis, driversFeeBaseArea, driversFeeOutsideArea, bookingLeadHours }
  *  (bookingLeadHours = minimum notice before pickup, in hours; null if the server did not say). Rejects on failure. */
 export const fetchBaseAreaConfig = async () => {
   if (configCache && Date.now() < configExpiresAt) return configCache;
@@ -24,7 +24,6 @@ export const fetchBaseAreaConfig = async () => {
   configCache = {
     baseAreaKeywords: Array.isArray(data.baseAreaKeywords) ? data.baseAreaKeywords : [],
     basis: data.basis || 'either',
-    extraFeeOutsideArea: Number(data.extraFeeOutsideArea) || 0,
     driversFeeBaseArea: Number(data.driversFeeBaseArea) || 0,
     driversFeeOutsideArea: Number(data.driversFeeOutsideArea) || 0,
     bookingLeadHours: data.bookingLeadHours != null && Number.isFinite(Number(data.bookingLeadHours)) && Number(data.bookingLeadHours) >= 0 ? Number(data.bookingLeadHours) : null,

@@ -1509,7 +1509,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             pickupOutside:      !!data.pickupOutside,
             destinationOutside: !!data.destinationOutside,
             outsideDestinationIds: Array.isArray(data.outsideDestinationIds) ? data.outsideDestinationIds : [],
-            extraFeeOutsideArea: data.extraFeeOutsideArea ?? null,
             serviceFee: data.serviceFee || 0,
             gatewayFee: data.gatewayFee || 0,
             serviceFeeRate: data.serviceFeeRate || 0,
@@ -1533,7 +1532,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       destinationCoords?.city, destinationCoords?.province, destinationCoords?.county,
       pickupCoords?.city, pickupCoords?.province, pickupCoords?.county, extraStopsKey]);
 
-  const { days, total, diffHrs, extraFee, driversFee, serviceFee, gatewayFee, serviceFeeRate, gatewayFeeRate, securityDeposit, grandTotal } = quote;
+  const { days, total, diffHrs, driversFee, serviceFee, gatewayFee, serviceFeeRate, gatewayFeeRate, securityDeposit, grandTotal } = quote;
   const getPayNow  = () => quote.payNow;
   const getBalance = () => quote.balance;
 
@@ -1544,6 +1543,16 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const maxDaysError = days >= MAX_BOOKING_DAYS
     ? `Bookings of ${MAX_BOOKING_DAYS} days or more aren't allowed here. Please pick a shorter date range, or contact us directly for long-term rentals.`
     : '';
+
+  // The RETURN day has to be an available day too. The auto end of a 12-hour trip (and the default end of a 22-hour one)
+  // can land on the day after pickup; if that day is unavailable (booked, or the turnaround day next to another booking)
+  // the calendar greys it out, so a trip that returns on it must not be bookable. (A 22-hour trip already could not be
+  // given an unavailable end by clicking; this closes the same gap for the end that is worked out for the customer.)
+  const returnBlocked = !!endDate && endDate !== startDate && BLOCKED_STATUSES.has(dateStatuses[endDate] || 'available');
+  const returnBlockedMessage = !returnBlocked ? '' :
+    `Your return (${fmt(endDate)}) falls on a date that is unavailable. Pick an earlier pickup time so the trip ends on ${fmt(startDate)}`
+    + (duration === '12 Hours' ? ' (a 12-hour trip has to start before 12:00 PM)' : duration === '22 Hours' ? ' (a 22-hour trip has to start before 2:00 AM)' : '')
+    + ', or choose another date.';
 
   // GCash, Maya, and QRPH now all go through PayMongo's hosted checkout
   // (redirect flow, like the "GCash Test Payment Page" in test mode)
@@ -1831,6 +1840,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === PART.schedule) && !startDate)       e.startDate       = 'Select a start date.';
       if ((last || tripPart === PART.schedule) && !startTime)       e.startTime       = 'Set a pickup time.';
       if ((last || tripPart === PART.schedule) && (!endDate || !endTime)) e.endDate     = 'End date/time is required.';
+      else if ((last || tripPart === PART.schedule) && returnBlocked)      e.endDate     = returnBlockedMessage;
       if ((last || tripPart === PART.pickup) && !pickupLocation)  e.pickupLocation  = 'Choose a pickup location on the map.';
       else if ((last || tripPart === PART.pickup) && !pickupCoords) e.pickupLocation = 'Please pick your location on the map so we can confirm it is on land in the Philippines.';
       if ((last || tripPart === PART.pickup) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
@@ -2303,18 +2313,19 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
 
   // ── Payment step: detail rows (each has a "?" explanation) + split amounts ──
   const peso = (n) => `₱${Number(n || 0).toLocaleString()}`;
-  // What being outside the base area adds: the extra fee (Without Driver), or the driver's fee increase (With Driver).
-  const outsideSurcharge = extraFee > 0
-    ? extraFee
-    : (quote.driversFeeOutsideArea != null && quote.driversFeeBaseArea != null
-        ? Math.max(0, quote.driversFeeOutsideArea - quote.driversFeeBaseArea) * Math.max(1, days || 1) : 0);
+  // What being outside the base area adds: the driver's fee increase, i.e. the outside rate minus the base rate, per day.
+  // (There is no separate extra fee any more.)
+  const outsideSurcharge = (quote.driversFeeOutsideArea != null && quote.driversFeeBaseArea != null)
+    ? Math.max(0, quote.driversFeeOutsideArea - quote.driversFeeBaseArea) * Math.max(1, days || 1) : 0;
+  const outsideDiffPerDay = (quote.driversFeeOutsideArea != null && quote.driversFeeBaseArea != null)
+    ? Math.max(0, quote.driversFeeOutsideArea - quote.driversFeeBaseArea) : 0;
   // Shown under the pickup / destination field when the server's quote says that location is
   // outside the base area. All amounts come from the quote (the admin's System Settings).
   // The outside-area charge is ONE flag: it is added once, however many locations are outside.
-  // With a driver it is the higher driver's fee; without a driver it is the extra fee.
+  // It is the higher driver's fee (the outside rate instead of the base rate); there is no separate extra fee.
   const outsideFeeText = () => driveType === 'chauffeur'
-    ? `The payment for the driver will be ${peso(quote.driversFeeOutsideArea)} per day.`
-    : `An extra ${peso(quote.extraFeeOutsideArea)} applies to this booking. If you choose a driver, the driver's fee becomes ${peso(quote.driversFeeOutsideArea)} instead of ${peso(quote.driversFeeBaseArea)}, with no extra fee on top.`;
+    ? `The payment for the driver will be ${peso(quote.driversFeeOutsideArea)} per day${outsideDiffPerDay > 0 ? ` (${peso(outsideDiffPerDay)} more per day than inside our base area)` : ''}.`
+    : `If you choose a driver, the driver's fee becomes ${peso(quote.driversFeeOutsideArea)} per day instead of ${peso(quote.driversFeeBaseArea)}. Without a driver there is no extra charge.`;
   const outsideAreaNote = (where) => (
     <div role="note" className="rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
       <p className="text-xs font-black text-amber-800">Your {where} is outside our base area</p>
@@ -2331,9 +2342,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         {joinLabels(outsideDestLabels)} {outsideDestLabels.length > 1 ? 'are' : 'is'} outside our base area
       </p>
       <p className="text-xs sm:text-sm text-amber-800 mt-1">
-        {driveType === 'chauffeur'
-          ? `The payment for the driver will be ${peso(quote.driversFeeOutsideArea)} per day.`
-          : `An extra ${peso(quote.extraFeeOutsideArea)} applies to this booking.`}
+        {outsideFeeText()}
       </p>
     </div>
   ) : null;
@@ -2356,15 +2365,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         'It is the base amount your service fee is computed from.',
       ],
     },
-    ...(extraFee > 0 ? [{
-      key: 'extra', label: 'Extra Fee (Outside Area)', value: peso(extraFee),
-      title: 'Extra Fee (Outside Area)',
-      items: [
-        'Added when your pickup or any destination is outside our base service area.',
-        'With a driver, this is already part of the driver\'s fee, so it is not added again.',
-        'It is shown here so there are no surprises on pickup day.',
-      ],
-    }] : []),
     ...(driversFee > 0 ? [{
       key: 'driver', label: driverFeeLabel, value: peso(driversFee),
       title: "Driver's Fee",
@@ -2872,9 +2872,12 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                         <p role="note" className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2">{driverTimesNote}</p>
                       )}
                       {errors.startTime && <p className="text-arl-cta text-xs mt-2">{errors.startTime}</p>}
+                      {returnBlocked && startTime && (
+                        <p role="alert" className="mt-3 text-xs sm:text-sm text-red-700 bg-red-50 border-2 border-red-300 rounded-xl px-3 py-2">{returnBlockedMessage}</p>
+                      )}
 
                       {/* Auto-end banner */}
-                      {duration === '12 Hours' && startDate && startTime && endDate && endTime && (
+                      {duration === '12 Hours' && startDate && startTime && endDate && endTime && !returnBlocked && (
                         <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
                           <div>
                             <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (12 hrs)</p>
@@ -2884,7 +2887,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                           </div>
                         </div>
                       )}
-                      {duration === '22 Hours' && startDate && startTime && endDate && endTime && (
+                      {duration === '22 Hours' && startDate && startTime && endDate && endTime && !returnBlocked && (
                         <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
                           <div>
                             <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (22 hrs)</p>
@@ -3320,7 +3323,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Contact',       contact],
                       ['Email',         email],
                       ['Rental Fee',    `₱${total.toLocaleString()}`],
-                      ...(extraFee > 0   ? [['Extra Fee (Outside Area)', `₱${extraFee.toLocaleString()}`]] : []),
                       ...(driversFee > 0 ? [[driverFeeLabel, `₱${driversFee.toLocaleString()}`]] : []),
                       ...(securityDeposit > 0 ? [['Security Deposit (refundable)', `₱${securityDeposit.toLocaleString()}`]] : []),
                       [serviceFeeRate > 0 ? `Service Fee (${serviceFeeRate}% of rental)` : 'Service Fee', `₱${serviceFee.toLocaleString()}`],

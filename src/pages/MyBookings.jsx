@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import ReviewTrip from "../components/booking/ReviewTrip";
+import { fetchReviewedBookingIDs } from "../utils/reviewedBookings";
 import { useToast } from "../context/ToastContext";
 import DiscountSummary, { DiscountHeldPill, discountPriceOff } from "../components/booking/DiscountSummary";
 
@@ -283,7 +285,7 @@ const RefundModal = ({ booking, mode = "refund", onConfirm, onClose, loading }) 
 };
 
 // ── Booking card ──
-const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, refundRejected = false, onRefundRequested, onBookingChanged = () => {} }) => {
+const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, refundRejected = false, onRefundRequested, onBookingChanged = () => {}, reviewed = false, onReviewed = () => {} }) => {
   const navigate = useNavigate();
   const [expanded,        setExpanded]        = useState(false);
 
@@ -600,6 +602,9 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
                   </button>
                 )}
 
+                {/* A finished trip can be reviewed once (the button turns into "Reviewed" afterwards) */}
+                <ReviewTrip booking={booking} userID={user?.userID} reviewed={reviewed} onReviewed={onReviewed} />
+
                 {/* Booking Details — pins + trip info for every booking */}
                 <button
                   onClick={() => navigate(`/booking/${bookingID}/details`)}
@@ -651,7 +656,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
                   <DR label="Rental Fee"        value={peso(p.rentalFee)} />
                   <DR label="Service Fee"       value={peso(p.serviceFee)} />
                   <DR label="Gateway Fee"       value={peso(p.gatewayFee)} />
-                  <DR label="Extra Fee"         value={peso(p.extraFee)} />
+                  <DR label="Extra Fee"         value={Number(p.extraFee) > 0 ? peso(p.extraFee) : null} />
                   <DR label="Drivers Fee"       value={p.driversFee ? peso(p.driversFee) : null} />
                   <DR label="Security Deposit (refundable)" value={p.securityDeposit ? peso(p.securityDeposit) : null} />
                   <DR label="Payment Method"    value={p.methodOfPayment || p.paymentMethod} />
@@ -842,6 +847,8 @@ const MyBookings = ({ user }) => {
   });
 
   const [refundRequests, setRefundRequests] = useState([]);
+  // Booking IDs the customer already reviewed (drives the "Write a Review" / "Reviewed" button on completed trips)
+  const [reviewedIDs, setReviewedIDs] = useState(() => new Set());
   const [refundSub,  setRefundSub]  = useState("pending");    // pending | approved | refunded
   const [sortBy,     setSortBy]     = useState("recent");     // recent | oldest | highest | lowest (amount: Refunds only)
   const [historySub, setHistorySub] = useState("completed");  // completed | cancelled
@@ -851,6 +858,7 @@ const MyBookings = ({ user }) => {
     fetchBookings();
     fetchRefundRequests();
     fetchOutstandingBalance();
+    fetchReviewedBookingIDs(user.userID).then(setReviewedIDs);
   // The fetch functions are re-created every render; this only needs to re-run when the user changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -1170,6 +1178,8 @@ const MyBookings = ({ user }) => {
                   refundRejected={!!(b.payment?.paymentID && hasRejectedRefund(b.payment.paymentID))}
                   onRefundRequested={fetchRefundRequests}
                   onBookingChanged={fetchBookings}
+                  reviewed={reviewedIDs.has(b.bookingID) || !!b.isReviewed}
+                  onReviewed={(id) => setReviewedIDs((prev) => new Set(prev).add(id))}
                 />
               ))
             : (activeTab === "toPay" && toPayExtras > 0) ? null : <EmptyState tab={emptyKey} />
