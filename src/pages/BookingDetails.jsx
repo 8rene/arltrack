@@ -527,6 +527,7 @@ export default function BookingDetailsPage({ user }) {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-black text-arl-primary uppercase tracking-widest mb-3">Trip Details</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+            <DR label="Booked On"      value={fmtDT(booking.createdAt)} />
             <DR label="Start"          value={fmtDT(booking.startDateTime)} />
             <DR label="End"            value={fmtDT(booking.endDateTime)} />
             <DR label="Days"           value={`${booking.totalDays} day(s)`} />
