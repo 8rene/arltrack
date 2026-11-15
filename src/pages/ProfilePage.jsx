@@ -52,6 +52,12 @@ const ReadOnlyField = ({ label, value, lockNote = "Cannot be changed" }) => (
 // only knows how to apply changes bucketed into "user" / "userDetails" /
 // "userAddress" — bundling a document-collection field would break the
 // admin's Approve button. Document corrections still go through support.
+// A birth date has to make the customer at least MIN_AGE (the same rule as signup: SignUpModal.jsx MIN_AGE and
+// MIN_SIGNUP_AGE in signup.controller.js). The date picker stops at this date, and the form checks it again.
+const MIN_AGE = 18;
+const toYMD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const latestBirthDate = () => { const d = new Date(); d.setFullYear(d.getFullYear() - MIN_AGE); return toYMD(d); };
+
 const SIMPLE_FIELDS = [
   { key: "username",   label: "Username", maxLength: 12 },
   { key: "firstName",  label: "First Name",  maxLength: 50 },
@@ -408,6 +414,11 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
       setError("You haven't changed anything yet.");
       return;
     }
+    const bd = changes.find((c) => c.field === "birthDate");
+    if (bd && (!/^\d{4}-\d{2}-\d{2}$/.test(bd.requestedValue) || bd.requestedValue > latestBirthDate() || bd.requestedValue < "1900-01-01")) {
+      setError(`Birth date is not valid. You must be at least ${MIN_AGE} years old.`);
+      return;
+    }
     setError("");
     onSubmit(changes);
   };
@@ -462,12 +473,13 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {SIMPLE_FIELDS.map((f) => (
+              {SIMPLE_FIELDS.filter((f) => f.key !== "street").map((f) => (
                 <div key={f.key}>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{f.label}</label>
                   <input
                     type={f.type || "text"}
                     maxLength={f.maxLength}
+                    {...(f.type === "date" ? { min: "1900-01-01", max: latestBirthDate() } : {})}
                     value={form[f.key]}
                     onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
@@ -512,6 +524,18 @@ const RequestEditModal = ({ currentValues, pendingRequest, onClose, onSubmit, on
                     {barangays.map((b) => <option key={b.barangayID} value={b.barangayID}>{b.barangayName}</option>)}
                   </select>
                 </div>
+              </div>
+
+              {/* Street / house number belongs to the address, so it sits under the Location fields */}
+              <div className="mt-4">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Street / House No.</label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={form.street}
+                  onChange={(e) => setForm((p) => ({ ...p, street: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-arl-primary/30"
+                />
               </div>
             </div>
 
