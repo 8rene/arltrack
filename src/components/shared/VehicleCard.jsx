@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { carHourlyRate, MIN_HOURS } from "../../utils/hourlyRate";
 
 // ── Date formatter ────────────────────────────────────────────
 const fmtDT = (val) => {
@@ -77,8 +78,8 @@ const ViewDetailsModal = ({ car, onClose }) => {
             <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mt-0.5">{car.bodyType}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-xs text-gray-500">{allReviews.length} reviews</span>
-              {car.startingPrice && (
-                <span className="text-xs font-bold text-arl-cta">₱{Number(car.startingPrice).toLocaleString()} / {car.durationType}</span>
+              {carHourlyRate(car) > 0 && (
+                <span className="text-xs font-bold text-arl-cta">₱{Math.round(carHourlyRate(car)).toLocaleString()} / hour</span>
               )}
             </div>
           </div>
@@ -178,17 +179,16 @@ const ViewDetailsModal = ({ car, onClose }) => {
                 </div>
               </div>
 
-              {car.pricing?.length > 0 && (
+              {carHourlyRate(car) > 0 && (
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-3">Pricing</h3>
                   <div className="flex gap-4 flex-wrap">
-                    {car.pricing.map((p, i) => (
-                      <div key={i} className="bg-gray-50 rounded-xl px-4 py-2 text-center">
-                        <p className="text-xs text-gray-400">{p.durationType}</p>
-                        <p className="text-sm font-black text-arl-dark">₱{Number(p.price).toLocaleString()}</p>
-                      </div>
-                    ))}
+                    <div className="bg-gray-50 rounded-xl px-4 py-2 text-center">
+                      <p className="text-xs text-gray-400">Per hour</p>
+                      <p className="text-sm font-black text-arl-dark">₱{Math.round(carHourlyRate(car)).toLocaleString()}</p>
+                    </div>
                   </div>
+                  <p className="text-xs text-gray-400 mt-2">You pay per hour, minimum {MIN_HOURS} hours.</p>
                 </div>
               )}
             </div>
@@ -298,6 +298,7 @@ const VehicleCard = ({ car, badge }) => {
     imageURL        = "",
     startingPrice   = null,
     durationType    = null,
+    pricePerHour    = null,
     reviewCount     = 0,
     bookingCount    = 0,
   } = car;
@@ -362,7 +363,11 @@ const VehicleCard = ({ car, badge }) => {
             )}
           </div>
 
-          {startingPrice !== null && (
+          {Number(pricePerHour) > 0 ? (
+            <p className="text-xs sm:text-sm font-semibold text-arl-cta mb-2 sm:mb-4">
+              ₱{Math.round(pricePerHour).toLocaleString()} / hour
+            </p>
+          ) : startingPrice !== null && (
             <p className="text-xs sm:text-sm font-semibold text-arl-cta mb-2 sm:mb-4">
               Starts at ₱{startingPrice.toLocaleString()}{durationType ? ` / ${durationType}` : ""}
             </p>

@@ -3,6 +3,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, CheckCircle, MapPin, Info, Clock } from 'lucide-react';
 import MapPicker from '../components/shared/MapPicker';
 import { fetchStoreLocation } from '../utils/storeLocation';
+import { hourlyRateOf } from '../utils/hourlyRate';
 import { resolveStorePlace } from '../utils/storePlace';
 import { fetchBaseAreaConfig } from '../utils/baseArea';
 import { useToast } from '../context/ToastContext';
@@ -125,6 +126,14 @@ const LEGEND_ITEMS = [
   { key: 'nodriver',    label: 'No driver (self-drive only)', swatch: 'bg-violet-100 border-2 border-violet-400' },
   { key: 'partialdriver', label: 'Driver free at some times only', swatch: 'bg-amber-50 border-2 border-amber-400' },
 ];
+
+// ── Hourly rental ──────────────────────────────
+// The customer picks a NUMBER OF HOURS and pays per hour (the server prices it, see utils/pricing.js): the rate is the
+// car's "22 Hours" price spread over those 22 hours (or its "12 Hours" price over 12 when it has no 22-hour price).
+const HOURLY    = 'Hourly';          // the duration type sent to the server
+const MIN_HOURS = 12;
+const MAX_HOURS = 216;               // 9 days: the server refuses 10 or more billable days
+const HOUR_CHIPS = [12, 24, 36, 48, 72, 120];
 
 // Pure helper (no component state) so it can be reused both at click-time
 // and for re-validating an already-set range (e.g. one restored from a
@@ -466,9 +475,9 @@ const TRIP_PARTS = [
   {
     key: 'schedule', label: 'Duration & Time',
     title: 'How long, and when?',
-    description: 'Choose your duration first, then your pickup date and time. 12 Hours ends automatically after 12 hours; 22 Hours lets you choose your pickup and return dates. We use these dates to check Number Coding for your locations next.',
+    description: 'Choose how many hours you need (minimum 12), then your pickup date and time. Your return is worked out from the hours you pick, and you pay per hour. We use these dates to check Number Coding for your locations next.',
     points: [
-      { level: 'must', headline: 'You choose the time, so make it enough', detail: 'Pick a duration that covers the whole trip, including travel, traffic and rest stops. The system will not estimate your travel time.', ref: 'Rental Time & Destination Selection' },
+      { level: 'must', headline: 'You choose the time, so make it enough', detail: 'Pick enough hours to cover the whole trip, including travel, traffic and rest stops. The system will not estimate your travel time.', ref: 'Rental Time & Destination Selection' },
       { level: 'must', headline: 'Late return is charged per hour', detail: 'Time past your agreed return is billed hourly.', ref: 'Late Return & Penalties' },
       { headline: 'Reschedule 24 hours ahead', detail: 'Subject to vehicle availability.', ref: 'Cancellation & Refund Policy' },
     ],
@@ -538,7 +547,7 @@ const SkeletonCard = () => (
 const VehiclePickCard = ({ car, selected, onSelect }) => {
   const { name='', brandName='', bodyType='', seatingCapacity=0, fuelType='', transmission='', shortDescription='', imageURL='', pricing=[], status='' } = car;
   const tags = [bodyType, seatingCapacity ? `${seatingCapacity} Seater` : '', transmission, fuelType].filter(Boolean);
-  const lowest = pricing.length ? pricing.reduce((a,b) => a.price < b.price ? a : b, pricing[0]) : null;
+  const perHour = hourlyRateOf(pricing);
   const avail  = ['active','available'].includes(status.toLowerCase());
 
   return (
@@ -569,7 +578,7 @@ const VehiclePickCard = ({ car, selected, onSelect }) => {
         <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-3">
           {tags.slice(0, 2).map((t,i) => <span key={i} className="px-1.5 sm:px-2 py-0.5 bg-arl-secondary/10 text-arl-primary text-[10px] sm:text-xs font-semibold rounded-full truncate max-w-full">{t}</span>)}
         </div>
-        {lowest && <p className="mt-1.5 sm:mt-3 text-[10px] sm:text-xs font-semibold text-arl-cta">From ₱{Number(lowest.price).toLocaleString()} / {lowest.durationType}</p>}
+        {perHour > 0 && <p className="mt-1.5 sm:mt-3 text-[10px] sm:text-xs font-semibold text-arl-cta">₱{Math.round(perHour).toLocaleString()} / hour</p>}
       </div>
     </div>
   );
@@ -834,7 +843,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // Stays null for "Others" — that's free text with no matching doc.
   const [serviceTypeID,     setServiceTypeID]      = useState(null);
   const [otherServiceNote,  setOtherServiceNote]   = useState('');
-  const [duration,          setDuration]           = useState(initVal('duration',        'duration'));
+  // Always an hourly rental now. A pre-filled '22 Hours' (from the home page) becomes 22 hours, anything else 12.
+  const [duration, setDuration] = useState(initVal('duration', 'duration') ? HOURLY : '');
+  const [hours, setHours]       = useState(initVal('duration', 'duration') === '22 Hours' ? 22 : 12);
+  const isHourly = duration === HOURLY;
   const [startDate,         setStartDate]          = useState(inboundStartDateIsPast ? '' : inboundStartDate);
   const [startTime,         setStartTime]          = useState(inboundStartDateIsPast ? '' : initVal('startTime', 'startTime'));
   const [endDate,           setEndDate]            = useState(inboundStartDateIsPast ? '' : initVal('endDate',   'endDate'));
@@ -1104,7 +1116,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     const timeTooSoon = !dayTooSoon && startDate === earliest.day && !!startTime && startTime < earliest.time;
     if (!dayTooSoon && !timeTooSoon) return;
     if (dayTooSoon) { setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); }
-    else { setStartTime(''); setEndTime(''); if (duration === '12 Hours') setEndDate(''); }
+    else { setStartTime(''); setEndTime(''); if (isHourly) setEndDate(''); }
     const noticeKey = `${startDate}|${startTime}|${earliest.day}|${earliest.time}`;
     if (leadNoticeRef.current !== noticeKey) {
       leadNoticeRef.current = noticeKey;
@@ -1205,9 +1217,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     // (so navigating from Hero with pre-filled data is preserved)
     const hasPrefill = !!(duration || startDate || startTime);
     if (!hasPrefill) {
-      setDuration('');
       setStartDate(''); setStartTime(''); setEndDate(''); setEndTime('');
     }
+    setDuration(HOURLY);
     try {
       const token = localStorage.getItem("arl_token");
       const res  = await fetch(`${process.env.REACT_APP_API_URL}/services/car-bookings/${car.carID}`, {
@@ -1226,13 +1238,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, startDate, startTime]);
-
-  // ── Duration selection → auto-calc end ──────────────────────
-
-  const handleDurationSelect = (dur) => {
-    setDuration(dur);
-    setStartDate(''); setStartTime(''); setEndDate(''); setEndTime('');
-  };
 
   // ── Live coding check — fires whenever destination or schedule changes ──
   // The key is everything the backend's answer depends on. A result is trusted only
@@ -1382,7 +1387,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   // For the picked start date, which pickup times (15-minute steps) leave a driver free for the whole trip.
   // A driver who finishes at 7:00 AM with a 2-hour buffer is free again from 9:00 AM. null = no limit.
   // Purely guidance for the clock; the booking itself is checked on the server.
-  const tripHours = duration === '12 Hours' ? 12 : 22; // shortest trip the chosen duration allows
+  const tripHours = isHourly ? Math.max(1, hours) : 22; // the trip length the customer picked
   const pickupTimesKey = startDate && duration ? `${startDate}|${tripHours}` : '';
   const [driverTimes, setDriverTimes] = useState({ key: '', times: null });
   useEffect(() => {
@@ -1429,10 +1434,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const { terms: activeTerms, error: termsError, reload: reloadTerms } = useActiveTerms();
   const [termsAgreed, setTermsAgreed] = useState(false);
 
+  // The return is always start + the hours picked: recompute it whenever the start or the hours change.
+  useEffect(() => {
+    if (!isHourly || !startDate || !startTime || !(hours >= 1)) return;
+    const { endDate: ed, endTime: et } = calcEnd(startDate, startTime, hours);
+    setEndDate(ed); setEndTime(et);
+  }, [isHourly, hours, startDate, startTime]);
+
   const handleStartTimeChange = (time) => {
     setStartTime(time);
-    if (duration === '12 Hours' && startDate && time) {
-      const { endDate: ed, endTime: et } = calcEnd(startDate, time, 12);
+    if (isHourly && startDate && time) {
+      const { endDate: ed, endTime: et } = calcEnd(startDate, time, hours);
       setEndDate(ed); setEndTime(et);
     } else if (duration === '22 Hours' && startDate && time) {
       // Keep the SAME number of rental days when the pickup time changes —
@@ -1544,15 +1556,17 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     ? `Bookings of ${MAX_BOOKING_DAYS} days or more aren't allowed here. Please pick a shorter date range, or contact us directly for long-term rentals.`
     : '';
 
-  // The RETURN day has to be an available day too. The auto end of a 12-hour trip (and the default end of a 22-hour one)
-  // can land on the day after pickup; if that day is unavailable (booked, or the turnaround day next to another booking)
-  // the calendar greys it out, so a trip that returns on it must not be bookable. (A 22-hour trip already could not be
-  // given an unavailable end by clicking; this closes the same gap for the end that is worked out for the customer.)
-  const returnBlocked = !!endDate && endDate !== startDate && BLOCKED_STATUSES.has(dateStatuses[endDate] || 'available');
+  // The RETURN day, and every day in between, has to be available too. The end is worked out from the hours picked and can
+  // land days after pickup; if any of those days is unavailable (booked, or the turnaround day next to another booking)
+  // the calendar greys it out, so a trip that includes it must not be bookable.
+  const hourlyRate = hourlyRateOf(pricingOptions);
+  const hoursError = !isHourly ? '' : hours < MIN_HOURS ? `The minimum rental is ${MIN_HOURS} hours.`
+    : hours > MAX_HOURS ? `The maximum rental is ${MAX_HOURS} hours (${MAX_HOURS / 24} days). Please contact us directly for longer rentals.` : '';
+  const returnBlocked = !!endDate && !!startDate && endDate !== startDate
+    && (BLOCKED_STATUSES.has(dateStatuses[endDate] || 'available')
+        || (isHourly && rangeCrossesBlocked(dateStatuses, new Date(startDate + 'T00:00:00'), new Date(endDate + 'T00:00:00'))));
   const returnBlockedMessage = !returnBlocked ? '' :
-    `Your return (${fmt(endDate)}) falls on a date that is unavailable. Pick an earlier pickup time so the trip ends on ${fmt(startDate)}`
-    + (duration === '12 Hours' ? ' (a 12-hour trip has to start before 12:00 PM)' : duration === '22 Hours' ? ' (a 22-hour trip has to start before 2:00 AM)' : '')
-    + ', or choose another date.';
+    `Your trip (${fmt(startDate)} to ${fmt(endDate)}) includes a date that is unavailable. Pick a different pickup time or number of hours, or choose another date.`;
 
   // GCash, Maya, and QRPH now all go through PayMongo's hosted checkout
   // (redirect flow, like the "GCash Test Payment Page" in test mode)
@@ -1579,8 +1593,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     const status = dateStatuses[key] || 'available';
     if (BLOCKED_STATUSES.has(status) || date < today || (leadActive && key < earliest.day)) return;
 
-    if (duration === '12 Hours') {
-      // 12 hours: end is always auto-calculated from start+time, never
+    if (isHourly) {
+      // hourly: end is always auto-calculated from start+time, never
       // independently pickable — so a click on the End calendar (idx 1)
       // must do nothing, not silently overwrite the start date. This was
       // the bug: previously any click here fell through to setStartDate()
@@ -1589,7 +1603,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       setStartDate(key);
       setEndDate(''); setEndTime('');
       if (startTime) {
-        const { endDate: ed, endTime: et } = calcEnd(key, startTime, 12);
+        const { endDate: ed, endTime: et } = calcEnd(key, startTime, hours);
         setEndDate(ed); setEndTime(et);
       }
     } else if (duration === '22 Hours') {
@@ -1678,7 +1692,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
             // different reasons: 12-Hour mode never has an independent end
             // date at all (it's auto-calculated); 22-Hour mode's end date
             // is real, but meaningless with no start date to be relative to.
-            const endCalendarLocked = idx === 1 && (duration === '12 Hours' || (duration === '22 Hours' && !startDate));
+            const endCalendarLocked = idx === 1 && (isHourly || (duration === '22 Hours' && !startDate));
             // Same-day End is invalid in 22-Hour mode — a 22-hour block never
             // fits inside the calendar day it starts on for any realistic
             // pickup time. This is the exact cell that produced "0 day(s)
@@ -1723,7 +1737,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 key={i}
                 type="button"
                 className={cls}
-                title={isTooSoon ? tooSoonLabel : !isPast && ds !== 'available' ? style.label : (noDriverDay ? NO_DRIVER_DAY_LABEL : partialDriverDay ? PARTIAL_DRIVER_DAY_LABEL : sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (duration === '12 Hours' ? 'Auto-calculated from pickup time' : 'Pick a start date first') : undefined)}
+                title={isTooSoon ? tooSoonLabel : !isPast && ds !== 'available' ? style.label : (noDriverDay ? NO_DRIVER_DAY_LABEL : partialDriverDay ? PARTIAL_DRIVER_DAY_LABEL : sameDayEndInvalid ? 'Return date must be after your start date' : endCalendarLocked ? (isHourly ? 'Auto-calculated from pickup time and hours' : 'Pick a start date first') : undefined)}
                 onClick={() => !interactionDisabled && handleDayClick(date, idx)}
                 onMouseEnter={() => { if (startDO && !endDO && !interactionDisabled) setHoverDate(date); }}
                 onMouseLeave={() => setHoverDate(null)}
@@ -1762,9 +1776,9 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
   const canProceed = () => {
     if (currentStep === 1) return !!selectedCar;
     if (currentStep === 2) {
-      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError && !chauffeurBlocked);
+      const allOk = !!(serviceType && duration && startDate && startTime && endDate && endTime && pickupLocation && pickupCoords && dropoffLocation && destination && !codingError && !codingPending && !maxDaysError && !hoursError && !returnBlocked && !chauffeurBlocked);
       if (tripPart === 1) return !!serviceType && !(serviceType === 'Others' && !otherServiceNote.trim());
-      if (tripPart === PART.schedule) return !!(duration && startDate && startTime && endDate && endTime) && !maxDaysError;
+      if (tripPart === PART.schedule) return !!(duration && startDate && startTime && endDate && endTime) && !maxDaysError && !hoursError && !returnBlocked;
       // Pickup: the dated Number Coding check already runs here (the dates come first now)
       if (tripPart === PART.pickup) return !!(pickupLocation && pickupCoords && dropoffLocation) && !codingError && !codingPending && !chauffeurBlocked;
       return allOk; // last part (Destination): everything must be complete
@@ -1801,6 +1815,8 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if (tripPart >= PART.pickup && codingError)              missing.push('a different date or vehicle (Number Coding restriction)');
       if (tripPart >= PART.pickup && !codingError && codingPending) missing.push('a moment while we check Number Coding');
       if (tripPart >= PART.schedule && maxDaysError)             missing.push('a shorter rental period (under 10 days)');
+      if (tripPart >= PART.schedule && hoursError)               missing.push(`a number of hours from ${MIN_HOURS} to ${MAX_HOURS}`);
+      if (tripPart >= PART.schedule && returnBlocked)            missing.push('a different pickup time, number of hours or date (your trip includes an unavailable date)');
     } else if (currentStep === 3) {
       if (!firstName) missing.push('your first name');
       if (!lastName)  missing.push('your last name');
@@ -1841,6 +1857,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
       if ((last || tripPart === PART.schedule) && !startTime)       e.startTime       = 'Set a pickup time.';
       if ((last || tripPart === PART.schedule) && (!endDate || !endTime)) e.endDate     = 'End date/time is required.';
       else if ((last || tripPart === PART.schedule) && returnBlocked)      e.endDate     = returnBlockedMessage;
+      else if ((last || tripPart === PART.schedule) && hoursError)         e.endDate     = hoursError;
       if ((last || tripPart === PART.pickup) && !pickupLocation)  e.pickupLocation  = 'Choose a pickup location on the map.';
       else if ((last || tripPart === PART.pickup) && !pickupCoords) e.pickupLocation = 'Please pick your location on the map so we can confirm it is on land in the Philippines.';
       if ((last || tripPart === PART.pickup) && !dropoffLocation) e.dropoffLocation = 'Enter a drop-off location.';
@@ -2136,7 +2153,7 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
         if (response.status === 400 && data.code === 'LEAD_TIME') {
           const floor = new Date(data.earliestPickup).getTime();
           if (Number.isFinite(floor)) setServerFloorMs(floor);
-          setStartTime(''); setEndTime(''); if (duration === '12 Hours') setEndDate('');
+          setStartTime(''); setEndTime(''); if (isHourly) setEndDate('');
           setCurrentStep(2);
           setTripPart(PART.schedule);
           showToast(data.message || 'That pickup is too soon. Please choose a later time.');
@@ -2580,25 +2597,34 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                   {tripPart === PART.schedule && (<>
                   {/* Duration — from car's pricing */}
                   <div className="mb-6">
-                    <label className="block text-sm font-semibold text-arl-dark mb-3">Duration per Day</label>
-                    {pricingOptions.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        {pricingOptions.map(p => (
-                          <button key={p.durationType} type="button"
-                            onClick={() => handleDurationSelect(p.durationType)}
-                            className={`px-3 sm:px-4 py-3 sm:py-4 rounded-xl border-2 text-left transition-colors ${
-                              duration === p.durationType ? 'border-arl-secondary bg-blue-50' : 'border-gray-300 hover:border-arl-primary'}`}>
-                            <div className="text-sm sm:text-base font-bold text-arl-dark">{p.durationType} / day</div>
-                            <div className="text-arl-cta text-lg sm:text-xl font-black mt-1">₱{Number(p.price).toLocaleString()}</div>
-                            <div className="text-[11px] sm:text-xs text-gray-400 mt-1">
-                              {p.durationType === '12 Hours'
-                                ? 'End time auto-calculated.'
-                                : 'Pick start + end date/time. ~2 calendar days.'}
-                            </div>
+                    <label className="block text-sm font-semibold text-arl-dark mb-1">How many hours?</label>
+                    {hourlyRate > 0 ? (<>
+                      <p className="text-xs sm:text-sm text-gray-500 mb-3">
+                        Rate: <span className="font-black text-arl-cta">₱{Math.round(hourlyRate).toLocaleString()} per hour</span> (minimum {MIN_HOURS} hours).
+                        Your return time is worked out from the hours you pick.
+                      </p>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {HOUR_CHIPS.map((h) => (
+                          <button key={h} type="button" onClick={() => setHours(h)}
+                            className={`px-3 py-2 rounded-xl border-2 text-xs sm:text-sm font-bold transition-colors ${
+                              hours === h ? 'border-arl-secondary bg-blue-50 text-arl-dark' : 'border-gray-300 text-gray-600 hover:border-arl-primary'}`}>
+                            {h} hrs
                           </button>
                         ))}
                       </div>
-                    ) : <p className="text-sm text-gray-400">No pricing available.</p>}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" aria-label="Fewer hours" onClick={() => setHours((h) => Math.max(MIN_HOURS, (Number(h) || 0) - 1))}
+                          className="w-10 h-10 rounded-xl border-2 border-gray-300 text-lg font-black text-arl-dark hover:border-arl-primary">&minus;</button>
+                        <input type="number" inputMode="numeric" min={MIN_HOURS} max={MAX_HOURS} step={1} value={hours}
+                          onChange={(e) => setHours(Math.max(0, Math.min(MAX_HOURS, Math.floor(Number(e.target.value) || 0))))}
+                          onBlur={() => setHours((h) => Math.max(MIN_HOURS, Number(h) || MIN_HOURS))}
+                          className="w-24 text-center border-2 border-gray-300 rounded-xl py-2 text-base font-black text-arl-dark focus:outline-none focus:border-arl-primary" />
+                        <button type="button" aria-label="More hours" onClick={() => setHours((h) => Math.min(MAX_HOURS, (Number(h) || 0) + 1))}
+                          className="w-10 h-10 rounded-xl border-2 border-gray-300 text-lg font-black text-arl-dark hover:border-arl-primary">+</button>
+                        <span className="text-xs sm:text-sm text-gray-500">hours = <span className="font-black text-arl-dark">₱{Math.round(hourlyRate * Math.max(0, hours)).toLocaleString()}</span> rental</span>
+                      </div>
+                    </>) : <p className="text-sm text-gray-400">No pricing available.</p>}
+                    {hoursError && <p className="text-arl-cta text-xs mt-2">{hoursError}</p>}
                     {errors.duration && <p className="text-arl-cta text-xs mt-2">{errors.duration}</p>}
                   </div>
 
@@ -2877,13 +2903,13 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       )}
 
                       {/* Auto-end banner */}
-                      {duration === '12 Hours' && startDate && startTime && endDate && endTime && !returnBlocked && (
+                      {isHourly && startDate && startTime && endDate && endTime && !returnBlocked && (
                         <div className="mt-3 sm:mt-4 bg-green-50 border-2 border-green-200 rounded-xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-4">
                           <div>
-                            <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End (12 hrs)</p>
+                            <p className="text-[10px] sm:text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Auto End ({hours} hrs)</p>
                             <p className="text-sm sm:text-base font-black text-green-700">{fmt(endDate)}</p>
                             <p className="text-xs sm:text-sm text-green-600">{(() => { const [h,m]=endTime.split(':').map(Number); const ampm=h>=12?'PM':'AM'; return `${((h%12)||12)}:${String(m).padStart(2,'0')} ${ampm}`; })()}</p>
-                            <p className="text-[10px] sm:text-xs text-green-500 mt-1">{days} day(s) · ₱{total.toLocaleString()}</p>
+                            <p className="text-[10px] sm:text-xs text-green-500 mt-1">{hours} hours &middot; ₱{total.toLocaleString()}</p>
                           </div>
                         </div>
                       )}
@@ -3310,10 +3336,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                       ['Vehicle',       selectedCar?.name],
                       ['Type',          [selectedCar?.bodyType, selectedCar?.transmission, selectedCar?.fuelType].filter(Boolean).join(' · ')],
                       ['Service',       serviceType],
-                      ['Duration',      duration ? `${duration}/day` : '-'],
+                      ['Duration',      isHourly ? `${hours} hours` : (duration ? `${duration}/day` : '-')],
                       ['Start',         `${fmt(startDate)} ${fmt12(startTime)}`],
                       ['End (auto)',     `${fmt(endDate)} ${fmt12(endTime)}`],
-                      ['Days',          `${days} day(s)`],
+                      ...(isHourly ? [] : [['Days', `${days} day(s)`]]),
                       ['Pickup Addr.',  <ShowMapValue address={pickupLocation} coords={pickupCoords} />],
                       ['Drop-off',      <ShowMapValue address={dropoffLocation} coords={dropoffCoords} />],
                       ['Destination',   <ShowMapValue address={destination} coords={destinationCoords} />],
@@ -3409,10 +3435,10 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
                 {[
                   ['Vehicle',    selectedCar?.name || '-'],
                   ['Service',    serviceType || '-'],
-                  ['Duration',   duration ? `${duration}/day` : '-'],
+                  ['Duration',   isHourly ? `${hours} hours` : (duration ? `${duration}/day` : '-')],
                   ['Start',      startDate && startTime ? `${fmt(startDate)} ${fmt12(startTime)}` : '-'],
                   ['End (auto)', endDate && endTime ? `${fmt(endDate)} ${fmt12(endTime)}` : '-'],
-                  ['Days',       days ? `${days} day(s)` : '-'],
+                  ...(isHourly ? [] : [['Days', days ? `${days} day(s)` : '-']]),
                   ['Hire',       driveType === 'self-drive' ? 'Without Driver' : 'With Driver'],
                   ...(driversFee > 0 ? [[driverFeeLabel, peso(driversFee)]] : []),
                   ...(quote.outsideArea ? [['Outside base area', driversFee > 0 ? `Yes (already in driver's fee)` : outsideSurcharge > 0 ? `+${peso(outsideSurcharge)}` : 'Yes']] : []),
@@ -3502,5 +3528,6 @@ const BookingPage = ({ user = null, userDetails = null, onUserDetailsUpdate }) =
     </div>
   );
 };
+
 
 export default BookingPage;

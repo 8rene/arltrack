@@ -631,7 +631,7 @@ const BookingCard = ({ booking, user, existingRefund, hasActiveRefund = false, r
                 <DR label="Booked On"   value={fmtDT(createdAt)} />
                 <DR label="Start"       value={fmtDT(startDateTime)} />
                 <DR label="End"         value={fmtDT(endDateTime)} />
-                <DR label="Duration"    value={duration ? `${duration}/day` : null} />
+                <DR label="Duration"    value={duration === "Hourly" ? `${booking.totalHours || Math.round((new Date(endDateTime?.toDate ? endDateTime.toDate() : (endDateTime?._seconds ? endDateTime._seconds * 1000 : endDateTime)) - new Date(startDateTime?.toDate ? startDateTime.toDate() : (startDateTime?._seconds ? startDateTime._seconds * 1000 : startDateTime))) / 3600000) || ""} hours` : (duration ? `${duration}/day` : null)} />
                 <DR label="Days"        value={`${totalDays} day(s)`} />
                 <DR label="Mode"        value={modeOfDriving} />
                 <DR label="Destination" value={destination} />

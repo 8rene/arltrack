@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Car, Search, X } from "lucide-react";
+import { hourlyRateOf, carHourlyRate } from "../utils/hourlyRate";
 import { ViewDetailsModal } from "../components/shared/VehicleCard";
 
 // ── Skeleton card ─────────────────────────────────────────────
@@ -118,15 +119,11 @@ const CarCard = ({ car, heroState }) => {
           ))}
         </div>
 
-        {/* Pricing */}
-        {pricing.length > 0 && (
-          <div className="mt-2 sm:mt-4 border-t border-gray-100 pt-2 sm:pt-4 flex gap-3 sm:gap-4 flex-wrap">
-            {pricing.map((p, i) => (
-              <div key={i}>
-                <p className="text-[10px] sm:text-xs text-gray-400 font-medium">{p.durationType}</p>
-                <p className="text-sm sm:text-base font-black text-arl-dark">₱{Number(p.price).toLocaleString()}</p>
-              </div>
-            ))}
+        {/* Pricing: rentals are billed per hour */}
+        {hourlyRateOf(pricing) > 0 && (
+          <div className="mt-2 sm:mt-4 border-t border-gray-100 pt-2 sm:pt-4">
+            <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Per hour (minimum 12 hours)</p>
+            <p className="text-sm sm:text-base font-black text-arl-dark">₱{Math.round(hourlyRateOf(pricing)).toLocaleString()}</p>
           </div>
         )}
 
@@ -226,8 +223,8 @@ const VehicleShowroom = () => {
 
     result.sort((a, b) => {
       if (sortBy === "name")         return a.name.localeCompare(b.name);
-      if (sortBy === "price_asc")    return (a.startingPrice || 0) - (b.startingPrice || 0);
-      if (sortBy === "price_desc")   return (b.startingPrice || 0) - (a.startingPrice || 0);
+      if (sortBy === "price_asc")    return carHourlyRate(a) - carHourlyRate(b);
+      if (sortBy === "price_desc")   return carHourlyRate(b) - carHourlyRate(a);
       if (sortBy === "seats")        return b.seatingCapacity - a.seatingCapacity;
       return 0;
     });
